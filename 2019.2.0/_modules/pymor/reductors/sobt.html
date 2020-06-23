@@ -1,0 +1,480 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.reductors.sobt &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.reductors.sobt</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.linalg</span> <span class="k">as</span> <span class="nn">spla</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.gram_schmidt</span> <span class="kn">import</span> <span class="n">gram_schmidt</span><span class="p">,</span> <span class="n">gram_schmidt_biorth</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.projection</span> <span class="kn">import</span> <span class="n">project</span>
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">BasicInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.models.iosys</span> <span class="kn">import</span> <span class="n">SecondOrderModel</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">IdentityOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.basic</span> <span class="kn">import</span> <span class="n">SOLTIPGReductor</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.numpy</span> <span class="kn">import</span> <span class="n">NumpyVectorSpace</span>
+
+
+<div class="viewcode-block" id="GenericSOBTpvReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.GenericSOBTpvReductor">[docs]</a><span class="k">class</span> <span class="nc">GenericSOBTpvReductor</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generic Second-Order Balanced Truncation position/velocity reductor.</span>
+
+<span class="sd">    See [RS08]_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full-order |SecondOrderModel| to reduce.</span>
+<span class="sd">    mu</span>
+<span class="sd">        |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">SecondOrderModel</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fom</span> <span class="o">=</span> <span class="n">fom</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_gramians</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return Gramians.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">_projection_matrices_and_singular_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">gramians</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return projection matrices and singular values.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+<div class="viewcode-block" id="GenericSOBTpvReductor.reduce"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.GenericSOBTpvReductor.reduce">[docs]</a>    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;bfsr&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reduce using GenericSOBTpv.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        r</span>
+<span class="sd">            Order of the reduced model.</span>
+<span class="sd">        projection</span>
+<span class="sd">            Projection method used:</span>
+
+<span class="sd">            - `&#39;sr&#39;`: square root method</span>
+<span class="sd">            - `&#39;bfsr&#39;`: balancing-free square root method (default, since it avoids scaling by</span>
+<span class="sd">              singular values and orthogonalizes the projection matrices, which might make it more</span>
+<span class="sd">              accurate than the square root method)</span>
+<span class="sd">            - `&#39;biorth&#39;`: like the balancing-free square root method, except it biorthogonalizes the</span>
+<span class="sd">              projection matrices</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        rom</span>
+<span class="sd">            Reduced-order |SecondOrderModel|.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">order</span>
+        <span class="k">assert</span> <span class="n">projection</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;sr&#39;</span><span class="p">,</span> <span class="s1">&#39;bfsr&#39;</span><span class="p">,</span> <span class="s1">&#39;biorth&#39;</span><span class="p">)</span>
+
+        <span class="c1"># compute all necessary Gramian factors</span>
+        <span class="n">gramians</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gramians</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">gramians</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;r needs to be smaller than the sizes of Gramian factors.&#39;</span><span class="p">)</span>
+
+        <span class="c1"># compute projection matrices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span> <span class="n">singular_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_projection_matrices_and_singular_values</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">gramians</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;sr&#39;</span><span class="p">:</span>
+            <span class="n">alpha</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">singular_values</span><span class="p">[:</span><span class="n">r</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;bfsr&#39;</span><span class="p">:</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;biorth&#39;</span><span class="p">:</span>
+            <span class="n">gram_schmidt_biorth</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">M</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># find the reduced model</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="n">fom_mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="n">op</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+                                       <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;M&#39;</span><span class="p">,</span> <span class="s1">&#39;E&#39;</span><span class="p">,</span> <span class="s1">&#39;K&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="s1">&#39;Cp&#39;</span><span class="p">,</span> <span class="s1">&#39;Cv&#39;</span><span class="p">]},</span>
+                                    <span class="n">parameter_space</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fom_mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span> <span class="o">=</span> <span class="n">SOLTIPGReductor</span><span class="p">(</span><span class="n">fom_mu</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">,</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;biorth&#39;</span><span class="p">)</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">rom</span></div>
+
+<div class="viewcode-block" id="GenericSOBTpvReductor.reconstruct"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.GenericSOBTpvReductor.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reconstruct high-dimensional vector from reduced vector `u`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">u</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="SOBTpReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.SOBTpReductor">[docs]</a><span class="k">class</span> <span class="nc">SOBTpReductor</span><span class="p">(</span><span class="n">GenericSOBTpvReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Second-Order Balanced Truncation position reductor.</span>
+
+<span class="sd">    See [RS08]_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full-order |SecondOrderModel| to reduce.</span>
+<span class="sd">    mu</span>
+<span class="sd">        |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_gramians</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">pcf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;pc_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">pof</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;po_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">vcf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;vc_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">vof</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;vo_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pcf</span><span class="p">,</span> <span class="n">pof</span><span class="p">,</span> <span class="n">vcf</span><span class="p">,</span> <span class="n">vof</span>
+
+    <span class="k">def</span> <span class="nf">_projection_matrices_and_singular_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">gramians</span><span class="p">):</span>
+        <span class="n">pcf</span><span class="p">,</span> <span class="n">pof</span><span class="p">,</span> <span class="n">vcf</span><span class="p">,</span> <span class="n">vof</span> <span class="o">=</span> <span class="n">gramians</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">sp</span><span class="p">,</span> <span class="n">Vp</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">pof</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">pcf</span><span class="p">),</span> <span class="n">lapack_driver</span><span class="o">=</span><span class="s1">&#39;gesvd&#39;</span><span class="p">)</span>
+        <span class="n">Uv</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">vof</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">vcf</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">M</span><span class="p">),</span> <span class="n">lapack_driver</span><span class="o">=</span><span class="s1">&#39;gesvd&#39;</span><span class="p">)</span>
+        <span class="n">Uv</span> <span class="o">=</span> <span class="n">Uv</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">return</span> <span class="n">pcf</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Vp</span><span class="p">[:</span><span class="n">r</span><span class="p">]),</span> <span class="n">vof</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Uv</span><span class="p">[:</span><span class="n">r</span><span class="p">]),</span> <span class="n">sp</span></div>
+
+
+<div class="viewcode-block" id="SOBTvReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.SOBTvReductor">[docs]</a><span class="k">class</span> <span class="nc">SOBTvReductor</span><span class="p">(</span><span class="n">GenericSOBTpvReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Second-Order Balanced Truncation velocity reductor.</span>
+
+<span class="sd">    See [RS08]_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full-order |SecondOrderModel| to reduce.</span>
+<span class="sd">    mu</span>
+<span class="sd">        |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_gramians</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">vcf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;vc_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">vof</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;vo_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">vcf</span><span class="p">,</span> <span class="n">vof</span>
+
+    <span class="k">def</span> <span class="nf">_projection_matrices_and_singular_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">gramians</span><span class="p">):</span>
+        <span class="n">vcf</span><span class="p">,</span> <span class="n">vof</span> <span class="o">=</span> <span class="n">gramians</span>
+        <span class="n">Uv</span><span class="p">,</span> <span class="n">sv</span><span class="p">,</span> <span class="n">Vv</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">vof</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">vcf</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">M</span><span class="p">),</span> <span class="n">lapack_driver</span><span class="o">=</span><span class="s1">&#39;gesvd&#39;</span><span class="p">)</span>
+        <span class="n">Uv</span> <span class="o">=</span> <span class="n">Uv</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">return</span> <span class="n">vcf</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Vv</span><span class="p">[:</span><span class="n">r</span><span class="p">]),</span> <span class="n">vof</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Uv</span><span class="p">[:</span><span class="n">r</span><span class="p">]),</span> <span class="n">sv</span></div>
+
+
+<div class="viewcode-block" id="SOBTpvReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.SOBTpvReductor">[docs]</a><span class="k">class</span> <span class="nc">SOBTpvReductor</span><span class="p">(</span><span class="n">GenericSOBTpvReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Second-Order Balanced Truncation position-velocity reductor.</span>
+
+<span class="sd">    See [RS08]_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full-order |SecondOrderModel| to reduce.</span>
+<span class="sd">    mu</span>
+<span class="sd">        |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_gramians</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">pcf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;pc_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">vof</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;vo_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pcf</span><span class="p">,</span> <span class="n">vof</span>
+
+    <span class="k">def</span> <span class="nf">_projection_matrices_and_singular_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">gramians</span><span class="p">):</span>
+        <span class="n">pcf</span><span class="p">,</span> <span class="n">vof</span> <span class="o">=</span> <span class="n">gramians</span>
+        <span class="n">Upv</span><span class="p">,</span> <span class="n">spv</span><span class="p">,</span> <span class="n">Vpv</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">vof</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">pcf</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">M</span><span class="p">),</span> <span class="n">lapack_driver</span><span class="o">=</span><span class="s1">&#39;gesvd&#39;</span><span class="p">)</span>
+        <span class="n">Upv</span> <span class="o">=</span> <span class="n">Upv</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">return</span> <span class="n">pcf</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Vpv</span><span class="p">[:</span><span class="n">r</span><span class="p">]),</span> <span class="n">vof</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Upv</span><span class="p">[:</span><span class="n">r</span><span class="p">]),</span> <span class="n">spv</span></div>
+
+
+<div class="viewcode-block" id="SOBTvpReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.SOBTvpReductor">[docs]</a><span class="k">class</span> <span class="nc">SOBTvpReductor</span><span class="p">(</span><span class="n">GenericSOBTpvReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Second-Order Balanced Truncation velocity-position reductor.</span>
+
+<span class="sd">    See [RS08]_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full-order |SecondOrderModel| to reduce.</span>
+<span class="sd">    mu</span>
+<span class="sd">        |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_gramians</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">pof</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;po_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">vcf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;vc_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">vof</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;vo_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pof</span><span class="p">,</span> <span class="n">vcf</span><span class="p">,</span> <span class="n">vof</span>
+
+    <span class="k">def</span> <span class="nf">_projection_matrices_and_singular_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">gramians</span><span class="p">):</span>
+        <span class="n">pof</span><span class="p">,</span> <span class="n">vcf</span><span class="p">,</span> <span class="n">vof</span> <span class="o">=</span> <span class="n">gramians</span>
+        <span class="n">Uv</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">vof</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">vcf</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">M</span><span class="p">),</span> <span class="n">lapack_driver</span><span class="o">=</span><span class="s1">&#39;gesvd&#39;</span><span class="p">)</span>
+        <span class="n">Uv</span> <span class="o">=</span> <span class="n">Uv</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">svp</span><span class="p">,</span> <span class="n">Vvp</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">pof</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">vcf</span><span class="p">),</span> <span class="n">lapack_driver</span><span class="o">=</span><span class="s1">&#39;gesvd&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">vcf</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Vvp</span><span class="p">[:</span><span class="n">r</span><span class="p">]),</span> <span class="n">vof</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Uv</span><span class="p">[:</span><span class="n">r</span><span class="p">]),</span> <span class="n">svp</span></div>
+
+
+<div class="viewcode-block" id="SOBTfvReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.SOBTfvReductor">[docs]</a><span class="k">class</span> <span class="nc">SOBTfvReductor</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Free-velocity Second-Order Balanced Truncation reductor.</span>
+
+<span class="sd">    See [MS96]_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full-order |SecondOrderModel| to reduce.</span>
+<span class="sd">    mu</span>
+<span class="sd">        |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">SecondOrderModel</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fom</span> <span class="o">=</span> <span class="n">fom</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="SOBTfvReductor.reduce"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.SOBTfvReductor.reduce">[docs]</a>    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;bfsr&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reduce using SOBTfv.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        r</span>
+<span class="sd">            Order of the reduced model.</span>
+<span class="sd">        projection</span>
+<span class="sd">            Projection method used:</span>
+
+<span class="sd">            - `&#39;sr&#39;`: square root method</span>
+<span class="sd">            - `&#39;bfsr&#39;`: balancing-free square root method (default, since it avoids scaling by</span>
+<span class="sd">              singular values and orthogonalizes the projection matrices, which might make it more</span>
+<span class="sd">              accurate than the square root method)</span>
+<span class="sd">            - `&#39;biorth&#39;`: like the balancing-free square root method, except it biorthogonalizes the</span>
+<span class="sd">              projection matrices</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        rom</span>
+<span class="sd">            Reduced-order |SecondOrderModel|.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">order</span>
+        <span class="k">assert</span> <span class="n">projection</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;sr&#39;</span><span class="p">,</span> <span class="s1">&#39;bfsr&#39;</span><span class="p">,</span> <span class="s1">&#39;biorth&#39;</span><span class="p">)</span>
+
+        <span class="c1"># compute all necessary Gramian factors</span>
+        <span class="n">pcf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;pc_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">pof</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;po_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">pcf</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">pof</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;r needs to be smaller than the sizes of Gramian factors.&#39;</span><span class="p">)</span>
+
+        <span class="c1"># find necessary SVDs</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">sp</span><span class="p">,</span> <span class="n">Vp</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">pof</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">pcf</span><span class="p">),</span> <span class="n">lapack_driver</span><span class="o">=</span><span class="s1">&#39;gesvd&#39;</span><span class="p">)</span>
+
+        <span class="c1"># compute projection matrices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V</span> <span class="o">=</span> <span class="n">pcf</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Vp</span><span class="p">[:</span><span class="n">r</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;sr&#39;</span><span class="p">:</span>
+            <span class="n">alpha</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">sp</span><span class="p">[:</span><span class="n">r</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;bfsr&#39;</span><span class="p">:</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;biorth&#39;</span><span class="p">:</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">M</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">V</span>
+
+        <span class="c1"># find the reduced model</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="n">fom_mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="n">op</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+                                       <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;M&#39;</span><span class="p">,</span> <span class="s1">&#39;E&#39;</span><span class="p">,</span> <span class="s1">&#39;K&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="s1">&#39;Cp&#39;</span><span class="p">,</span> <span class="s1">&#39;Cv&#39;</span><span class="p">]},</span>
+                                    <span class="n">parameter_space</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fom_mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span> <span class="o">=</span> <span class="n">SOLTIPGReductor</span><span class="p">(</span><span class="n">fom_mu</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">,</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;biorth&#39;</span><span class="p">)</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">rom</span></div>
+
+<div class="viewcode-block" id="SOBTfvReductor.reconstruct"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.SOBTfvReductor.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reconstruct high-dimensional vector from reduced vector `u`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">u</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="SOBTReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.SOBTReductor">[docs]</a><span class="k">class</span> <span class="nc">SOBTReductor</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Second-Order Balanced Truncation reductor.</span>
+
+<span class="sd">    See [CLVV06]_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full-order |SecondOrderModel| to reduce.</span>
+<span class="sd">    mu</span>
+<span class="sd">        |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">SecondOrderModel</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fom</span> <span class="o">=</span> <span class="n">fom</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V1</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W1</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V2</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W2</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="SOBTReductor.reduce"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.SOBTReductor.reduce">[docs]</a>    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;bfsr&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reduce using SOBT.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        r</span>
+<span class="sd">            Order of the reduced model.</span>
+<span class="sd">        projection</span>
+<span class="sd">            Projection method used:</span>
+
+<span class="sd">            - `&#39;sr&#39;`: square root method</span>
+<span class="sd">            - `&#39;bfsr&#39;`: balancing-free square root method (default, since it avoids scaling by</span>
+<span class="sd">              singular values and orthogonalizes the projection matrices, which might make it more</span>
+<span class="sd">              accurate than the square root method)</span>
+<span class="sd">            - `&#39;biorth&#39;`: like the balancing-free square root method, except it biorthogonalizes the</span>
+<span class="sd">              projection matrices</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        rom</span>
+<span class="sd">            Reduced-order |SecondOrderModel|.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">order</span>
+        <span class="k">assert</span> <span class="n">projection</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;sr&#39;</span><span class="p">,</span> <span class="s1">&#39;bfsr&#39;</span><span class="p">,</span> <span class="s1">&#39;biorth&#39;</span><span class="p">)</span>
+
+        <span class="c1"># compute all necessary Gramian factors</span>
+        <span class="n">pcf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;pc_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">pof</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;po_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">vcf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;vc_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">vof</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="s1">&#39;vo_lrcf&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">pcf</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">pof</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">vcf</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">vof</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;r needs to be smaller than the sizes of Gramian factors.&#39;</span><span class="p">)</span>
+
+        <span class="c1"># find necessary SVDs</span>
+        <span class="n">Up</span><span class="p">,</span> <span class="n">sp</span><span class="p">,</span> <span class="n">Vp</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">pof</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">pcf</span><span class="p">),</span> <span class="n">lapack_driver</span><span class="o">=</span><span class="s1">&#39;gesvd&#39;</span><span class="p">)</span>
+        <span class="n">Up</span> <span class="o">=</span> <span class="n">Up</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">Uv</span><span class="p">,</span> <span class="n">sv</span><span class="p">,</span> <span class="n">Vv</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">vof</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">vcf</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">M</span><span class="p">),</span> <span class="n">lapack_driver</span><span class="o">=</span><span class="s1">&#39;gesvd&#39;</span><span class="p">)</span>
+        <span class="n">Uv</span> <span class="o">=</span> <span class="n">Uv</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="c1"># compute projection matrices and find the reduced model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V1</span> <span class="o">=</span> <span class="n">pcf</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Vp</span><span class="p">[:</span><span class="n">r</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W1</span> <span class="o">=</span> <span class="n">pof</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Up</span><span class="p">[:</span><span class="n">r</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V2</span> <span class="o">=</span> <span class="n">vcf</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Vv</span><span class="p">[:</span><span class="n">r</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W2</span> <span class="o">=</span> <span class="n">vof</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Uv</span><span class="p">[:</span><span class="n">r</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;sr&#39;</span><span class="p">:</span>
+            <span class="n">alpha1</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">sp</span><span class="p">[:</span><span class="n">r</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">V1</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="n">alpha1</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">W1</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="n">alpha1</span><span class="p">)</span>
+            <span class="n">alpha2</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">sv</span><span class="p">[:</span><span class="n">r</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">V2</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="n">alpha2</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">W2</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="n">alpha2</span><span class="p">)</span>
+            <span class="n">W1TV1invW1TV2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">W1</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V2</span><span class="p">)</span>
+            <span class="n">projected_ops</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;M&#39;</span><span class="p">:</span> <span class="n">IdentityOperator</span><span class="p">(</span><span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="n">r</span><span class="p">))}</span>
+        <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;bfsr&#39;</span><span class="p">:</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V1</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W1</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V2</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W2</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">W1TV1invW1TV2</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W1</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V1</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">W1</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V2</span><span class="p">))</span>
+            <span class="n">projected_ops</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;M&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">M</span><span class="p">,</span> <span class="n">range_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">W2</span><span class="p">,</span> <span class="n">source_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">V2</span><span class="p">)}</span>
+        <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;biorth&#39;</span><span class="p">:</span>
+            <span class="n">gram_schmidt_biorth</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">W1</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">gram_schmidt_biorth</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">W2</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">M</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">W1TV1invW1TV2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">W1</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V2</span><span class="p">)</span>
+            <span class="n">projected_ops</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;M&#39;</span><span class="p">:</span> <span class="n">IdentityOperator</span><span class="p">(</span><span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="n">r</span><span class="p">))}</span>
+
+        <span class="n">projected_ops</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+            <span class="s1">&#39;E&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">),</span>
+                         <span class="n">range_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">W2</span><span class="p">,</span>
+                         <span class="n">source_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">V2</span><span class="p">),</span>
+            <span class="s1">&#39;K&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">K</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">),</span>
+                         <span class="n">range_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">W2</span><span class="p">,</span>
+                         <span class="n">source_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">V1</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">W1TV1invW1TV2</span><span class="o">.</span><span class="n">T</span><span class="p">)),</span>
+            <span class="s1">&#39;B&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">),</span>
+                         <span class="n">range_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">W2</span><span class="p">,</span>
+                         <span class="n">source_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+            <span class="s1">&#39;Cp&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">Cp</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">),</span>
+                          <span class="n">range_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                          <span class="n">source_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">V1</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">W1TV1invW1TV2</span><span class="o">.</span><span class="n">T</span><span class="p">)),</span>
+            <span class="s1">&#39;Cv&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">Cv</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">),</span>
+                          <span class="n">range_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                          <span class="n">source_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">V2</span><span class="p">),</span>
+            <span class="s1">&#39;D&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">D</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">),</span>
+        <span class="p">})</span>
+
+        <span class="n">rom</span> <span class="o">=</span> <span class="n">SecondOrderModel</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_reduced&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">projected_ops</span><span class="p">)</span>
+        <span class="n">rom</span><span class="o">.</span><span class="n">disable_logging</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">rom</span></div>
+
+<div class="viewcode-block" id="SOBTReductor.reconstruct"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.sobt.SOBTReductor.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reconstruct high-dimensional vector from reduced vector `u`.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;The reconstruct method is not available for </span><span class="si">{self.__class__.__name__}</span><span class="s1">.&#39;</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,376 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.models.basic &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.models.basic</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.timestepping</span> <span class="kn">import</span> <span class="n">TimeStepperInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.models.interfaces</span> <span class="kn">import</span> <span class="n">ModelInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">VectorOperator</span><span class="p">,</span> <span class="n">induced_norm</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.formatrepr</span> <span class="kn">import</span> <span class="n">indent_value</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.frozendict</span> <span class="kn">import</span> <span class="n">FrozenDict</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.interfaces</span> <span class="kn">import</span> <span class="n">VectorArrayInterface</span>
+
+
+<div class="viewcode-block" id="ModelBase"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.basic.ModelBase">[docs]</a><span class="k">class</span> <span class="nc">ModelBase</span><span class="p">(</span><span class="n">ModelInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for |Models| providing some common functionality.&quot;&quot;&quot;</span>
+
+    <span class="n">sid_ignore</span> <span class="o">=</span> <span class="n">ModelInterface</span><span class="o">.</span><span class="n">sid_ignore</span> <span class="o">|</span> <span class="p">{</span><span class="s1">&#39;visualizer&#39;</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">products</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">estimator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">visualizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">cache_region</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="n">products</span> <span class="o">=</span> <span class="n">FrozenDict</span><span class="p">(</span><span class="n">products</span> <span class="ow">or</span> <span class="p">{})</span>
+
+        <span class="k">if</span> <span class="n">products</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">products</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{k}</span><span class="s1">_product&#39;</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{k}</span><span class="s1">_norm&#39;</span><span class="p">,</span> <span class="n">induced_norm</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enable_caching</span><span class="p">(</span><span class="n">cache_region</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ModelBase.visualize"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.basic.ModelBase.visualize">[docs]</a>    <span class="k">def</span> <span class="nf">visualize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Visualize a solution |VectorArray| U.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        U</span>
+<span class="sd">            The |VectorArray| from</span>
+<span class="sd">            :attr:`~pymor.models.interfaces.ModelInterface.solution_space`</span>
+<span class="sd">            that shall be visualized.</span>
+<span class="sd">        kwargs</span>
+<span class="sd">            See docstring of `self.visualizer.visualize`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">visualizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">visualizer</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Model has no visualizer.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ModelBase.estimate"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.basic.ModelBase.estimate">[docs]</a>    <span class="k">def</span> <span class="nf">estimate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Model has no estimator.&#39;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="StationaryModel"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.basic.StationaryModel">[docs]</a><span class="k">class</span> <span class="nc">StationaryModel</span><span class="p">(</span><span class="n">ModelBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generic class for models of stationary problems.</span>
+
+<span class="sd">    This class describes discrete problems given by the equation::</span>
+
+<span class="sd">        L(u(μ), μ) = F(μ)</span>
+
+<span class="sd">    with a vector-like right-hand side F and a (possibly non-linear) operator L.</span>
+
+<span class="sd">    Note that even when solving a variational formulation where F is a</span>
+<span class="sd">    functional and not a vector, F has to be specified as a vector-like</span>
+<span class="sd">    |Operator| (mapping scalars to vectors). This ensures that in the complex</span>
+<span class="sd">    case both L and F are anti-linear in the test variable.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    operator</span>
+<span class="sd">        The |Operator| L.</span>
+<span class="sd">    rhs</span>
+<span class="sd">        The vector F. Either a |VectorArray| of length 1 or a vector-like</span>
+<span class="sd">        |Operator|.</span>
+<span class="sd">    output_functional</span>
+<span class="sd">        |Operator| mapping a given solution to the model output. In many applications,</span>
+<span class="sd">        this will be a |Functional|, i.e. an |Operator| mapping to scalars.</span>
+<span class="sd">        This is not required, however.</span>
+<span class="sd">    products</span>
+<span class="sd">        A dict of inner product |Operators| defined on the discrete space the</span>
+<span class="sd">        problem is posed on. For each product with key `&#39;x&#39;` a corresponding</span>
+<span class="sd">        attribute `x_product`, as well as a norm method `x_norm` is added to</span>
+<span class="sd">        the model.</span>
+<span class="sd">    parameter_space</span>
+<span class="sd">        The |ParameterSpace| for which the discrete problem is posed.</span>
+<span class="sd">    estimator</span>
+<span class="sd">        An error estimator for the problem. This can be any object with</span>
+<span class="sd">        an `estimate(U, mu, m)` method. If `estimator` is</span>
+<span class="sd">        not `None`, an `estimate(U, mu)` method is added to the</span>
+<span class="sd">        model which will call `estimator.estimate(U, mu, self)`.</span>
+<span class="sd">    visualizer</span>
+<span class="sd">        A visualizer for the problem. This can be any object with</span>
+<span class="sd">        a `visualize(U, m, ...)` method. If `visualizer`</span>
+<span class="sd">        is not `None`, a `visualize(U, *args, **kwargs)` method is added</span>
+<span class="sd">        to the model which forwards its arguments to the</span>
+<span class="sd">        visualizer&#39;s `visualize` method.</span>
+<span class="sd">    cache_region</span>
+<span class="sd">        `None` or name of the |CacheRegion| to use.</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">output_functional</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">products</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">parameter_space</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">estimator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">visualizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cache_region</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="n">rhs</span> <span class="ow">in</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span>
+            <span class="n">rhs</span> <span class="o">=</span> <span class="n">VectorOperator</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;rhs&#39;</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="n">rhs</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span> <span class="ow">and</span> <span class="n">rhs</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">is_scalar</span> <span class="ow">and</span> <span class="n">rhs</span><span class="o">.</span><span class="n">linear</span>
+        <span class="k">assert</span> <span class="n">output_functional</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">output_functional</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">products</span><span class="o">=</span><span class="n">products</span><span class="p">,</span>
+                         <span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span> <span class="n">visualizer</span><span class="o">=</span><span class="n">visualizer</span><span class="p">,</span>
+                         <span class="n">cache_region</span><span class="o">=</span><span class="n">cache_region</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">output_functional</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solution_space</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">linear</span> <span class="ow">and</span> <span class="p">(</span><span class="n">output_functional</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">output_functional</span><span class="o">.</span><span class="n">linear</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">output_functional</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_space</span> <span class="o">=</span> <span class="n">output_functional</span><span class="o">.</span><span class="n">range</span>
+
+<div class="viewcode-block" id="StationaryModel.__str__"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.basic.StationaryModel.__str__">[docs]</a>    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{self.name}</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;    class: </span><span class="si">{self.__class__.__name__}</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;    {&quot;linear&quot; if self.linear else &quot;non-linear&quot;}</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;    parameter_space: {indent_value(str(self.parameter_space), len(&quot;    parameter_space: &quot;))}</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;    solution_space:  </span><span class="si">{self.solution_space}</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;    output_space:    </span><span class="si">{self.output_space}</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_solve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_output</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+
+        <span class="c1"># explicitly checking if logging is disabled saves the str(mu) call</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">logging_disabled</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Solving </span><span class="si">{self.name}</span><span class="s1"> for </span><span class="si">{mu}</span><span class="s1"> ...&#39;</span><span class="p">)</span>
+
+        <span class="n">U</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">as_range_array</span><span class="p">(</span><span class="n">mu</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">return_output</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Model has no output&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">U</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">U</span></div>
+
+
+<div class="viewcode-block" id="InstationaryModel"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.basic.InstationaryModel">[docs]</a><span class="k">class</span> <span class="nc">InstationaryModel</span><span class="p">(</span><span class="n">ModelBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generic class for models of instationary problems.</span>
+
+<span class="sd">    This class describes instationary problems given by the equations::</span>
+
+<span class="sd">        M * ∂_t u(t, μ) + L(u(μ), t, μ) = F(t, μ)</span>
+<span class="sd">                                u(0, μ) = u_0(μ)</span>
+
+<span class="sd">    for t in [0,T], where L is a (possibly non-linear) time-dependent</span>
+<span class="sd">    |Operator|, F is a time-dependent vector-like |Operator|, and u_0 the</span>
+<span class="sd">    initial data. The mass |Operator| M is assumed to be linear.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    T</span>
+<span class="sd">        The final time T.</span>
+<span class="sd">    initial_data</span>
+<span class="sd">        The initial data `u_0`. Either a |VectorArray| of length 1 or</span>
+<span class="sd">        (for the |Parameter|-dependent case) a vector-like |Operator|</span>
+<span class="sd">        (i.e. a linear |Operator| with `source.dim == 1`) which</span>
+<span class="sd">        applied to `NumpyVectorArray(np.array([1]))` will yield the</span>
+<span class="sd">        initial data for a given |Parameter|.</span>
+<span class="sd">    operator</span>
+<span class="sd">        The |Operator| L.</span>
+<span class="sd">    rhs</span>
+<span class="sd">        The right-hand side F.</span>
+<span class="sd">    mass</span>
+<span class="sd">        The mass |Operator| `M`. If `None`, the identity is assumed.</span>
+<span class="sd">    time_stepper</span>
+<span class="sd">        The :class:`time-stepper &lt;pymor.algorithms.timestepping.TimeStepperInterface&gt;`</span>
+<span class="sd">        to be used by :meth:`~pymor.models.interfaces.ModelInterface.solve`.</span>
+<span class="sd">    num_values</span>
+<span class="sd">        The number of returned vectors of the solution trajectory. If `None`, each</span>
+<span class="sd">        intermediate vector that is calculated is returned.</span>
+<span class="sd">    output_functional</span>
+<span class="sd">        |Operator| mapping a given solution to the model output. In many applications,</span>
+<span class="sd">        this will be a |Functional|, i.e. an |Operator| mapping to scalars.</span>
+<span class="sd">        This is not required, however.</span>
+<span class="sd">    products</span>
+<span class="sd">        A dict of product |Operators| defined on the discrete space the</span>
+<span class="sd">        problem is posed on. For each product with key `&#39;x&#39;` a corresponding</span>
+<span class="sd">        attribute `x_product`, as well as a norm method `x_norm` is added to</span>
+<span class="sd">        the model.</span>
+<span class="sd">    parameter_space</span>
+<span class="sd">        The |ParameterSpace| for which the discrete problem is posed.</span>
+<span class="sd">    estimator</span>
+<span class="sd">        An error estimator for the problem. This can be any object with</span>
+<span class="sd">        an `estimate(U, mu, m)` method. If `estimator` is</span>
+<span class="sd">        not `None`, an `estimate(U, mu)` method is added to the</span>
+<span class="sd">        model which will call `estimator.estimate(U, mu, self)`.</span>
+<span class="sd">    visualizer</span>
+<span class="sd">        A visualizer for the problem. This can be any object with</span>
+<span class="sd">        a `visualize(U, m, ...)` method. If `visualizer`</span>
+<span class="sd">        is not `None`, a `visualize(U, *args, **kwargs)` method is added</span>
+<span class="sd">        to the model which forwards its arguments to the</span>
+<span class="sd">        visualizer&#39;s `visualize` method.</span>
+<span class="sd">    cache_region</span>
+<span class="sd">        `None` or name of the |CacheRegion| to use.</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">initial_data</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">time_stepper</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">output_functional</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">products</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_space</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">estimator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">visualizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">cache_region</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="n">rhs</span> <span class="ow">in</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span>
+            <span class="n">rhs</span> <span class="o">=</span> <span class="n">VectorOperator</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;rhs&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">initial_data</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="n">initial_data</span> <span class="ow">in</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+            <span class="n">initial_data</span> <span class="o">=</span> <span class="n">VectorOperator</span><span class="p">(</span><span class="n">initial_data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;initial_data&#39;</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time_stepper</span><span class="p">,</span> <span class="n">TimeStepperInterface</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">initial_data</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">is_scalar</span>
+        <span class="k">assert</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">initial_data</span><span class="o">.</span><span class="n">range</span>
+        <span class="k">assert</span> <span class="n">rhs</span> <span class="ow">is</span> <span class="kc">None</span> \
+            <span class="ow">or</span> <span class="n">rhs</span><span class="o">.</span><span class="n">linear</span> <span class="ow">and</span> <span class="n">rhs</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span> <span class="ow">and</span> <span class="n">rhs</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">is_scalar</span>
+        <span class="k">assert</span> <span class="n">mass</span> <span class="ow">is</span> <span class="kc">None</span> \
+            <span class="ow">or</span> <span class="n">mass</span><span class="o">.</span><span class="n">linear</span> <span class="ow">and</span> <span class="n">mass</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">mass</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+        <span class="k">assert</span> <span class="n">output_functional</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">output_functional</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">products</span><span class="o">=</span><span class="n">products</span><span class="p">,</span> <span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span>
+                         <span class="n">visualizer</span><span class="o">=</span><span class="n">visualizer</span><span class="p">,</span> <span class="n">cache_region</span><span class="o">=</span><span class="n">cache_region</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">initial_data</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">output_functional</span><span class="p">,</span> <span class="n">provides</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;_t&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solution_space</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">linear</span> <span class="ow">and</span> <span class="p">(</span><span class="n">output_functional</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">output_functional</span><span class="o">.</span><span class="n">linear</span><span class="p">)</span>
+
+<div class="viewcode-block" id="InstationaryModel.__str__"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.basic.InstationaryModel.__str__">[docs]</a>    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{self.name}</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;    class: </span><span class="si">{self.__class__.__name__}</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;    {&quot;linear&quot; if self.linear else &quot;non-linear&quot;}</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;    T: </span><span class="si">{self.T}</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;    parameter_space: {indent_value(str(self.parameter_space), len(&quot;    parameter_space: &quot;))}</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;    solution_space:  </span><span class="si">{self.solution_space}</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;    output_space:    </span><span class="si">{self.output_space}</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">with_time_stepper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">time_stepper</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_stepper</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_solve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_output</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># explicitly checking if logging is disabled saves the expensive str(mu) call</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">logging_disabled</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Solving </span><span class="si">{self.name}</span><span class="s1"> for </span><span class="si">{mu}</span><span class="s1"> ...&#39;</span><span class="p">)</span>
+
+        <span class="n">mu</span><span class="p">[</span><span class="s1">&#39;_t&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">U0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_data</span><span class="o">.</span><span class="n">as_range_array</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_stepper</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">operator</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">initial_data</span><span class="o">=</span><span class="n">U0</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span>
+                                    <span class="n">initial_time</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">num_values</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_values</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">return_output</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Model has no output&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">U</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">U</span>
+
+<div class="viewcode-block" id="InstationaryModel.to_lti"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.basic.InstationaryModel.to_lti">[docs]</a>    <span class="k">def</span> <span class="nf">to_lti</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert model to |LTIModel|.</span>
+
+<span class="sd">        This method interprets the given model as an |LTIModel|</span>
+<span class="sd">        in the following way::</span>
+
+<span class="sd">            - self.operator        -&gt; A</span>
+<span class="sd">            self.rhs               -&gt; B</span>
+<span class="sd">            self.output_functional -&gt; C</span>
+<span class="sd">            None                   -&gt; D</span>
+<span class="sd">            self.mass              -&gt; E</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;No output defined.&#39;</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mass</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">linear</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="p">[</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">E</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Operators not linear.&#39;</span><span class="p">)</span>
+
+        <span class="kn">from</span> <span class="nn">pymor.models.iosys</span> <span class="kn">import</span> <span class="n">LTIModel</span>
+        <span class="k">return</span> <span class="n">LTIModel</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">E</span><span class="o">=</span><span class="n">E</span><span class="p">,</span> <span class="n">parameter_space</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_space</span><span class="p">,</span> <span class="n">visualizer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">visualizer</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

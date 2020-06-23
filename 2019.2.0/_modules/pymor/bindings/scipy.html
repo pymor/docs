@@ -1,0 +1,660 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.bindings.scipy &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.bindings.scipy</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">packaging.version</span> <span class="kn">import</span> <span class="n">Version</span>
+<span class="kn">import</span> <span class="nn">scipy.version</span>
+<span class="kn">from</span> <span class="nn">scipy.linalg</span> <span class="kn">import</span> <span class="n">solve</span><span class="p">,</span> <span class="n">solve_continuous_lyapunov</span><span class="p">,</span> <span class="n">solve_continuous_are</span>
+<span class="kn">from</span> <span class="nn">scipy.sparse.linalg</span> <span class="kn">import</span> <span class="n">bicgstab</span><span class="p">,</span> <span class="n">spsolve</span><span class="p">,</span> <span class="n">splu</span><span class="p">,</span> <span class="n">spilu</span><span class="p">,</span> <span class="n">lgmres</span><span class="p">,</span> <span class="n">lsqr</span><span class="p">,</span> <span class="n">LinearOperator</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.lyapunov</span> <span class="kn">import</span> <span class="n">_solve_lyap_lrcf_check_args</span><span class="p">,</span> <span class="n">_solve_lyap_dense_check_args</span><span class="p">,</span> <span class="n">_chol</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.riccati</span> <span class="kn">import</span> <span class="n">_solve_ricc_check_args</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.genericsolvers</span> <span class="kn">import</span> <span class="n">_parse_options</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.to_matrix</span> <span class="kn">import</span> <span class="n">to_matrix</span>
+<span class="kn">from</span> <span class="nn">pymor.core.config</span> <span class="kn">import</span> <span class="n">config</span>
+<span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
+<span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">InversionError</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+
+
+<div class="viewcode-block" id="solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.scipy.solver_options">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;bicgstab_tol&#39;</span><span class="p">,</span> <span class="s1">&#39;bicgstab_maxiter&#39;</span><span class="p">,</span> <span class="s1">&#39;spilu_drop_tol&#39;</span><span class="p">,</span>
+          <span class="s1">&#39;spilu_fill_factor&#39;</span><span class="p">,</span> <span class="s1">&#39;spilu_drop_rule&#39;</span><span class="p">,</span> <span class="s1">&#39;spilu_permc_spec&#39;</span><span class="p">,</span> <span class="s1">&#39;spsolve_permc_spec&#39;</span><span class="p">,</span>
+          <span class="s1">&#39;spsolve_keep_factorization&#39;</span><span class="p">,</span>
+          <span class="s1">&#39;lgmres_tol&#39;</span><span class="p">,</span> <span class="s1">&#39;lgmres_maxiter&#39;</span><span class="p">,</span> <span class="s1">&#39;lgmres_inner_m&#39;</span><span class="p">,</span> <span class="s1">&#39;lgmres_outer_k&#39;</span><span class="p">,</span> <span class="s1">&#39;least_squares_lsmr_damp&#39;</span><span class="p">,</span>
+          <span class="s1">&#39;least_squares_lsmr_atol&#39;</span><span class="p">,</span> <span class="s1">&#39;least_squares_lsmr_btol&#39;</span><span class="p">,</span> <span class="s1">&#39;least_squares_lsmr_conlim&#39;</span><span class="p">,</span>
+          <span class="s1">&#39;least_squares_lsmr_maxiter&#39;</span><span class="p">,</span> <span class="s1">&#39;least_squares_lsmr_show&#39;</span><span class="p">,</span> <span class="s1">&#39;least_squares_lsqr_atol&#39;</span><span class="p">,</span>
+          <span class="s1">&#39;least_squares_lsqr_btol&#39;</span><span class="p">,</span> <span class="s1">&#39;least_squares_lsqr_conlim&#39;</span><span class="p">,</span> <span class="s1">&#39;least_squares_lsqr_iter_lim&#39;</span><span class="p">,</span>
+          <span class="s1">&#39;least_squares_lsqr_show&#39;</span><span class="p">,</span>
+          <span class="n">sid_ignore</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;least_squares_lsmr_show&#39;</span><span class="p">,</span> <span class="s1">&#39;least_squares_lsqr_show&#39;</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">solver_options</span><span class="p">(</span><span class="n">bicgstab_tol</span><span class="o">=</span><span class="mf">1e-15</span><span class="p">,</span>
+                   <span class="n">bicgstab_maxiter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">spilu_drop_tol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span>
+                   <span class="n">spilu_fill_factor</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                   <span class="n">spilu_drop_rule</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">spilu_permc_spec</span><span class="o">=</span><span class="s1">&#39;COLAMD&#39;</span><span class="p">,</span>
+                   <span class="n">spsolve_permc_spec</span><span class="o">=</span><span class="s1">&#39;COLAMD&#39;</span><span class="p">,</span>
+                   <span class="n">spsolve_keep_factorization</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                   <span class="n">lgmres_tol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
+                   <span class="n">lgmres_maxiter</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+                   <span class="n">lgmres_inner_m</span><span class="o">=</span><span class="mi">39</span><span class="p">,</span>
+                   <span class="n">lgmres_outer_k</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                   <span class="n">least_squares_lsmr_damp</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+                   <span class="n">least_squares_lsmr_atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
+                   <span class="n">least_squares_lsmr_btol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
+                   <span class="n">least_squares_lsmr_conlim</span><span class="o">=</span><span class="mf">1e8</span><span class="p">,</span>
+                   <span class="n">least_squares_lsmr_maxiter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">least_squares_lsmr_show</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                   <span class="n">least_squares_lsqr_damp</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+                   <span class="n">least_squares_lsqr_atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
+                   <span class="n">least_squares_lsqr_btol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
+                   <span class="n">least_squares_lsqr_conlim</span><span class="o">=</span><span class="mf">1e8</span><span class="p">,</span>
+                   <span class="n">least_squares_lsqr_iter_lim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">least_squares_lsqr_show</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns available solvers with default |solver_options| for the SciPy backend.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    bicgstab_tol</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.bicgstab`.</span>
+<span class="sd">    bicgstab_maxiter</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.bicgstab`.</span>
+<span class="sd">    spilu_drop_tol</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.spilu`.</span>
+<span class="sd">    spilu_fill_factor</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.spilu`.</span>
+<span class="sd">    spilu_drop_rule</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.spilu`.</span>
+<span class="sd">    spilu_permc_spec</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.spilu`.</span>
+<span class="sd">    spsolve_permc_spec</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.spsolve`.</span>
+<span class="sd">    spsolve_keep_factorization</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.spsolve`.</span>
+<span class="sd">    lgmres_tol</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lgmres`.</span>
+<span class="sd">    lgmres_maxiter</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lgmres`.</span>
+<span class="sd">    lgmres_inner_m</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lgmres`.</span>
+<span class="sd">    lgmres_outer_k</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lgmres`.</span>
+<span class="sd">    least_squares_lsmr_damp</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lsmr`.</span>
+<span class="sd">    least_squares_lsmr_atol</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lsmr`.</span>
+<span class="sd">    least_squares_lsmr_btol</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lsmr`.</span>
+<span class="sd">    least_squares_lsmr_conlim</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lsmr`.</span>
+<span class="sd">    least_squares_lsmr_maxiter</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lsmr`.</span>
+<span class="sd">    least_squares_lsmr_show</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lsmr`.</span>
+<span class="sd">    least_squares_lsqr_damp</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lsqr`.</span>
+<span class="sd">    least_squares_lsqr_atol</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lsqr`.</span>
+<span class="sd">    least_squares_lsqr_btol</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lsqr`.</span>
+<span class="sd">    least_squares_lsqr_conlim</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lsqr`.</span>
+<span class="sd">    least_squares_lsqr_iter_lim</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lsqr`.</span>
+<span class="sd">    least_squares_lsqr_show</span>
+<span class="sd">        See :func:`scipy.sparse.linalg.lsqr`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    A dict of available solvers with default |solver_options|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">opts</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;scipy_bicgstab_spilu&#39;</span><span class="p">:</span>     <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;scipy_bicgstab_spilu&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;tol&#39;</span><span class="p">:</span> <span class="n">bicgstab_tol</span><span class="p">,</span>
+                                         <span class="s1">&#39;maxiter&#39;</span><span class="p">:</span> <span class="n">bicgstab_maxiter</span><span class="p">,</span>
+                                         <span class="s1">&#39;spilu_drop_tol&#39;</span><span class="p">:</span> <span class="n">spilu_drop_tol</span><span class="p">,</span>
+                                         <span class="s1">&#39;spilu_fill_factor&#39;</span><span class="p">:</span> <span class="n">spilu_fill_factor</span><span class="p">,</span>
+                                         <span class="s1">&#39;spilu_drop_rule&#39;</span><span class="p">:</span> <span class="n">spilu_drop_rule</span><span class="p">,</span>
+                                         <span class="s1">&#39;spilu_permc_spec&#39;</span><span class="p">:</span> <span class="n">spilu_permc_spec</span><span class="p">},</span>
+            <span class="s1">&#39;scipy_bicgstab&#39;</span><span class="p">:</span>           <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;scipy_bicgstab&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;tol&#39;</span><span class="p">:</span> <span class="n">bicgstab_tol</span><span class="p">,</span>
+                                         <span class="s1">&#39;maxiter&#39;</span><span class="p">:</span> <span class="n">bicgstab_maxiter</span><span class="p">},</span>
+            <span class="s1">&#39;scipy_spsolve&#39;</span><span class="p">:</span>            <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;scipy_spsolve&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;permc_spec&#39;</span><span class="p">:</span> <span class="n">spsolve_permc_spec</span><span class="p">,</span>
+                                         <span class="s1">&#39;keep_factorization&#39;</span><span class="p">:</span> <span class="n">spsolve_keep_factorization</span><span class="p">},</span>
+            <span class="s1">&#39;scipy_lgmres&#39;</span><span class="p">:</span>             <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;scipy_lgmres&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;tol&#39;</span><span class="p">:</span> <span class="n">lgmres_tol</span><span class="p">,</span>
+                                         <span class="s1">&#39;maxiter&#39;</span><span class="p">:</span> <span class="n">lgmres_maxiter</span><span class="p">,</span>
+                                         <span class="s1">&#39;inner_m&#39;</span><span class="p">:</span> <span class="n">lgmres_inner_m</span><span class="p">,</span>
+                                         <span class="s1">&#39;outer_k&#39;</span><span class="p">:</span> <span class="n">lgmres_outer_k</span><span class="p">},</span>
+            <span class="s1">&#39;scipy_least_squares_lsqr&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;scipy_least_squares_lsqr&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;damp&#39;</span><span class="p">:</span> <span class="n">least_squares_lsqr_damp</span><span class="p">,</span>
+                                         <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="n">least_squares_lsqr_atol</span><span class="p">,</span>
+                                         <span class="s1">&#39;btol&#39;</span><span class="p">:</span> <span class="n">least_squares_lsqr_btol</span><span class="p">,</span>
+                                         <span class="s1">&#39;conlim&#39;</span><span class="p">:</span> <span class="n">least_squares_lsqr_conlim</span><span class="p">,</span>
+                                         <span class="s1">&#39;iter_lim&#39;</span><span class="p">:</span> <span class="n">least_squares_lsqr_iter_lim</span><span class="p">,</span>
+                                         <span class="s1">&#39;show&#39;</span><span class="p">:</span> <span class="n">least_squares_lsqr_show</span><span class="p">}}</span>
+
+    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_SCIPY_LSMR</span><span class="p">:</span>
+        <span class="n">opts</span><span class="p">[</span><span class="s1">&#39;scipy_least_squares_lsmr&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;scipy_least_squares_lsmr&#39;</span><span class="p">,</span>
+                                            <span class="s1">&#39;damp&#39;</span><span class="p">:</span> <span class="n">least_squares_lsmr_damp</span><span class="p">,</span>
+                                            <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="n">least_squares_lsmr_atol</span><span class="p">,</span>
+                                            <span class="s1">&#39;btol&#39;</span><span class="p">:</span> <span class="n">least_squares_lsmr_btol</span><span class="p">,</span>
+                                            <span class="s1">&#39;conlim&#39;</span><span class="p">:</span> <span class="n">least_squares_lsmr_conlim</span><span class="p">,</span>
+                                            <span class="s1">&#39;maxiter&#39;</span><span class="p">:</span> <span class="n">least_squares_lsmr_maxiter</span><span class="p">,</span>
+                                            <span class="s1">&#39;show&#39;</span><span class="p">:</span> <span class="n">least_squares_lsmr_show</span><span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">opts</span></div>
+
+
+<div class="viewcode-block" id="apply_inverse"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.scipy.apply_inverse">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;check_finite&#39;</span><span class="p">,</span> <span class="s1">&#39;default_solver&#39;</span><span class="p">,</span> <span class="s1">&#39;default_least_squares_solver&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">apply_inverse</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">check_finite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                  <span class="n">default_solver</span><span class="o">=</span><span class="s1">&#39;scipy_spsolve&#39;</span><span class="p">,</span> <span class="n">default_least_squares_solver</span><span class="o">=</span><span class="s1">&#39;scipy_least_squares_lsmr&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Solve linear equation system.</span>
+
+<span class="sd">    Applies the inverse of `op` to the vectors in `rhs` using SciPy.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op</span>
+<span class="sd">        The linear, non-parametric |Operator| to invert.</span>
+<span class="sd">    rhs</span>
+<span class="sd">        |VectorArray| of right-hand sides for the equation system.</span>
+<span class="sd">    options</span>
+<span class="sd">        The |solver_options| to use (see :func:`solver_options`).</span>
+<span class="sd">    least_squares</span>
+<span class="sd">        If `True`, return least squares solution.</span>
+<span class="sd">    check_finite</span>
+<span class="sd">        Test if solution only contains finite values.</span>
+<span class="sd">    default_solver</span>
+<span class="sd">        Default solver to use (scipy_spsolve, scipy_bicgstab, scipy_bicgstab_spilu,</span>
+<span class="sd">        scipy_lgmres, scipy_least_squares_lsmr, scipy_least_squares_lsqr).</span>
+<span class="sd">    default_least_squares_solver</span>
+<span class="sd">        Default solver to use for least squares problems (scipy_least_squares_lsmr,</span>
+<span class="sd">        scipy_least_squares_lsqr).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    |VectorArray| of the solution vectors.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="n">V</span> <span class="ow">in</span> <span class="n">op</span><span class="o">.</span><span class="n">range</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">NumpyMatrixOperator</span><span class="p">):</span>
+        <span class="n">matrix</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">matrix</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">pymor.algorithms.to_matrix</span> <span class="kn">import</span> <span class="n">to_matrix</span>
+        <span class="n">matrix</span> <span class="o">=</span> <span class="n">to_matrix</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+
+    <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">solver_options</span><span class="p">(),</span> <span class="n">default_solver</span><span class="p">,</span> <span class="n">default_least_squares_solver</span><span class="p">,</span> <span class="n">least_squares</span><span class="p">)</span>
+
+    <span class="n">V</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">promoted_type</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">promote_types</span><span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">V</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">),</span> <span class="n">matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">promoted_type</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;scipy_bicgstab&#39;</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">VV</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+            <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">info</span> <span class="o">=</span> <span class="n">bicgstab</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">VV</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;tol&#39;</span><span class="p">],</span> <span class="n">maxiter</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;maxiter&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">info</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">info</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">InversionError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;bicgstab failed to converge after </span><span class="si">{info}</span><span class="s1"> iterations&#39;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">InversionError</span><span class="p">(</span><span class="s1">&#39;bicgstab failed with error code </span><span class="si">{}</span><span class="s1"> (illegal input or breakdown)&#39;</span><span class="o">.</span>
+                                         <span class="nb">format</span><span class="p">(</span><span class="n">info</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;scipy_bicgstab_spilu&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">Version</span><span class="p">(</span><span class="n">scipy</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">version</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">Version</span><span class="p">(</span><span class="s1">&#39;0.19&#39;</span><span class="p">):</span>
+            <span class="n">ilu</span> <span class="o">=</span> <span class="n">spilu</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">drop_tol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_drop_tol&#39;</span><span class="p">],</span> <span class="n">fill_factor</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_fill_factor&#39;</span><span class="p">],</span>
+                        <span class="n">drop_rule</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_drop_rule&#39;</span><span class="p">],</span> <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_permc_spec&#39;</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_drop_rule&#39;</span><span class="p">]:</span>
+                <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.operators.numpy._apply_inverse&#39;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;ignoring drop_rule in ilu factorization due to old SciPy&quot;</span><span class="p">)</span>
+            <span class="n">ilu</span> <span class="o">=</span> <span class="n">spilu</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">drop_tol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_drop_tol&#39;</span><span class="p">],</span> <span class="n">fill_factor</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_fill_factor&#39;</span><span class="p">],</span>
+                        <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_permc_spec&#39;</span><span class="p">])</span>
+        <span class="n">precond</span> <span class="o">=</span> <span class="n">LinearOperator</span><span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">ilu</span><span class="o">.</span><span class="n">solve</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">VV</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+            <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">info</span> <span class="o">=</span> <span class="n">bicgstab</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">VV</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;tol&#39;</span><span class="p">],</span> <span class="n">maxiter</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;maxiter&#39;</span><span class="p">],</span> <span class="n">M</span><span class="o">=</span><span class="n">precond</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">info</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">info</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">InversionError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;bicgstab failed to converge after </span><span class="si">{info}</span><span class="s1"> iterations&#39;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">InversionError</span><span class="p">(</span><span class="s1">&#39;bicgstab failed with error code </span><span class="si">{}</span><span class="s1"> (illegal input or breakdown)&#39;</span><span class="o">.</span>
+                                         <span class="nb">format</span><span class="p">(</span><span class="n">info</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;scipy_spsolve&#39;</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># maybe remove unusable factorization:</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="s1">&#39;factorization&#39;</span><span class="p">):</span>
+                <span class="n">fdtype</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorizationdtype</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">can_cast</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">fdtype</span><span class="p">,</span> <span class="n">casting</span><span class="o">=</span><span class="s1">&#39;safe&#39;</span><span class="p">):</span>
+                    <span class="k">del</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span>
+
+            <span class="k">if</span> <span class="n">Version</span><span class="p">(</span><span class="n">scipy</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">version</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">Version</span><span class="p">(</span><span class="s1">&#39;0.14&#39;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="s1">&#39;factorization&#39;</span><span class="p">):</span>
+                    <span class="c1"># we may use a complex factorization of a real matrix to</span>
+                    <span class="c1"># apply it to a real vector. In that case, we downcast</span>
+                    <span class="c1"># the result here, removing the imaginary part,</span>
+                    <span class="c1"># which should be zero.</span>
+                    <span class="n">R</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">promoted_type</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;keep_factorization&#39;</span><span class="p">]:</span>
+                    <span class="c1"># the matrix is always converted to the promoted type.</span>
+                    <span class="c1"># if matrix.dtype == promoted_type, this is a no_op</span>
+                    <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span> <span class="o">=</span> <span class="n">splu</span><span class="p">(</span><span class="n">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">tocsc</span><span class="p">(),</span> <span class="n">promoted_type</span><span class="p">),</span>
+                                                <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;permc_spec&#39;</span><span class="p">])</span>
+                    <span class="n">matrix</span><span class="o">.</span><span class="n">factorizationdtype</span> <span class="o">=</span> <span class="n">promoted_type</span>
+                    <span class="n">R</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># the matrix is always converted to the promoted type.</span>
+                    <span class="c1"># if matrix.dtype == promoted_type, this is a no_op</span>
+                    <span class="n">R</span> <span class="o">=</span> <span class="n">spsolve</span><span class="p">(</span><span class="n">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">promoted_type</span><span class="p">),</span> <span class="n">V</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;permc_spec&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># see if-part for documentation</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="s1">&#39;factorization&#39;</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">VV</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+                        <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">VV</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">promoted_type</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;keep_factorization&#39;</span><span class="p">]:</span>
+                    <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span> <span class="o">=</span> <span class="n">splu</span><span class="p">(</span><span class="n">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">tocsc</span><span class="p">(),</span> <span class="n">promoted_type</span><span class="p">),</span>
+                                                <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;permc_spec&#39;</span><span class="p">])</span>
+                    <span class="n">matrix</span><span class="o">.</span><span class="n">factorizationdtype</span> <span class="o">=</span> <span class="n">promoted_type</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">VV</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+                        <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">VV</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">factorization</span> <span class="o">=</span> <span class="n">splu</span><span class="p">(</span><span class="n">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">tocsc</span><span class="p">(),</span> <span class="n">promoted_type</span><span class="p">),</span>
+                                         <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;permc_spec&#39;</span><span class="p">])</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">VV</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+                        <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">factorization</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">VV</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">R</span> <span class="o">=</span> <span class="n">spsolve</span><span class="p">(</span><span class="n">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">promoted_type</span><span class="p">),</span> <span class="n">V</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+                                <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;permc_spec&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">InversionError</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;scipy_lgmres&#39;</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">VV</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+            <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">info</span> <span class="o">=</span> <span class="n">lgmres</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">VV</span><span class="p">,</span>
+                                <span class="n">tol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;tol&#39;</span><span class="p">],</span>
+                                <span class="n">maxiter</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;maxiter&#39;</span><span class="p">],</span>
+                                <span class="n">inner_m</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;inner_m&#39;</span><span class="p">],</span>
+                                <span class="n">outer_k</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;outer_k&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">info</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">InversionError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;lgmres failed to converge after </span><span class="si">{info}</span><span class="s1"> iterations&#39;</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">info</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;scipy_least_squares_lsmr&#39;</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">scipy.sparse.linalg</span> <span class="kn">import</span> <span class="n">lsmr</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">VV</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+            <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">info</span><span class="p">,</span> <span class="n">itn</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">lsmr</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">VV</span><span class="p">,</span>
+                                                  <span class="n">damp</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;damp&#39;</span><span class="p">],</span>
+                                                  <span class="n">atol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;atol&#39;</span><span class="p">],</span>
+                                                  <span class="n">btol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;btol&#39;</span><span class="p">],</span>
+                                                  <span class="n">conlim</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;conlim&#39;</span><span class="p">],</span>
+                                                  <span class="n">maxiter</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;maxiter&#39;</span><span class="p">],</span>
+                                                  <span class="n">show</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;show&#39;</span><span class="p">])</span>
+            <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">info</span> <span class="o">&lt;=</span> <span class="mi">7</span>
+            <span class="k">if</span> <span class="n">info</span> <span class="o">==</span> <span class="mi">7</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">InversionError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;lsmr failed to converge after </span><span class="si">{itn}</span><span class="s1"> iterations&#39;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;scipy_least_squares_lsqr&#39;</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">VV</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+            <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">info</span><span class="p">,</span> <span class="n">itn</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">lsqr</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">VV</span><span class="p">,</span>
+                                                        <span class="n">damp</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;damp&#39;</span><span class="p">],</span>
+                                                        <span class="n">atol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;atol&#39;</span><span class="p">],</span>
+                                                        <span class="n">btol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;btol&#39;</span><span class="p">],</span>
+                                                        <span class="n">conlim</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;conlim&#39;</span><span class="p">],</span>
+                                                        <span class="n">iter_lim</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;iter_lim&#39;</span><span class="p">],</span>
+                                                        <span class="n">show</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;show&#39;</span><span class="p">])</span>
+            <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">info</span> <span class="o">&lt;=</span> <span class="mi">7</span>
+            <span class="k">if</span> <span class="n">info</span> <span class="o">==</span> <span class="mi">7</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">InversionError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;lsmr failed to converge after </span><span class="si">{itn}</span><span class="s1"> iterations&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unknown solver type&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">check_finite</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">R</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="n">InversionError</span><span class="p">(</span><span class="s1">&#39;Result contains non-finite values&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">R</span><span class="p">)</span></div>
+
+
+<span class="c1"># unfortunately, this is necessary, as scipy does not</span>
+<span class="c1"># forward the copy=False argument in its csc_matrix.astype function</span>
+<div class="viewcode-block" id="matrix_astype_nocopy"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.scipy.matrix_astype_nocopy">[docs]</a><span class="k">def</span> <span class="nf">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">dtype</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">matrix</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">dtype</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">matrix</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">matrix</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="lyap_lrcf_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.scipy.lyap_lrcf_solver_options">[docs]</a><span class="k">def</span> <span class="nf">lyap_lrcf_solver_options</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Return available Lyapunov solvers with default options for the SciPy backend.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    A dict of available solvers with default solver options.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;scipy&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;scipy&#39;</span><span class="p">}}</span></div>
+
+
+<div class="viewcode-block" id="solve_lyap_lrcf"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.scipy.solve_lyap_lrcf">[docs]</a><span class="k">def</span> <span class="nf">solve_lyap_lrcf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute an approximate low-rank solution of a Lyapunov equation.</span>
+
+<span class="sd">    See :func:`pymor.algorithms.lyapunov.solve_lyap_lrcf` for a general</span>
+<span class="sd">    description.</span>
+
+<span class="sd">    This function uses `scipy.linalg.solve_continuous_lyapunov`, which</span>
+<span class="sd">    is a dense solver for Lyapunov equations with E=I.</span>
+<span class="sd">    Therefore, we assume A and E can be converted to |NumPy arrays|</span>
+<span class="sd">    using :func:`~pymor.algorithms.to_matrix.to_matrix` and that</span>
+<span class="sd">    `B.to_numpy` is implemented.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">        If E is not `None`, the problem will be reduced to a standard</span>
+<span class="sd">        continuous-time algebraic Lyapunov equation by inverting E.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The non-parametric |Operator| A.</span>
+<span class="sd">    E</span>
+<span class="sd">        The non-parametric |Operator| E or `None`.</span>
+<span class="sd">    B</span>
+<span class="sd">        The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">    trans</span>
+<span class="sd">        Whether the first |Operator| in the Lyapunov equation is</span>
+<span class="sd">        transposed.</span>
+<span class="sd">    options</span>
+<span class="sd">        The solver options to use (see</span>
+<span class="sd">        :func:`lyap_lrcf_solver_options`).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Z</span>
+<span class="sd">        Low-rank Cholesky factor of the Lyapunov equation solution,</span>
+<span class="sd">        |VectorArray| from `A.source`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_solve_lyap_lrcf_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+    <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">lyap_lrcf_solver_options</span><span class="p">(),</span> <span class="s1">&#39;scipy&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">X</span> <span class="o">=</span> <span class="n">solve_lyap_dense</span><span class="p">(</span><span class="n">to_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">),</span>
+                         <span class="n">to_matrix</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">E</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+                         <span class="n">trans</span><span class="o">=</span><span class="n">trans</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">_chol</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="lyap_dense_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.scipy.lyap_dense_solver_options">[docs]</a><span class="k">def</span> <span class="nf">lyap_dense_solver_options</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Return available dense Lyapunov solvers with default options for the SciPy backend.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    A dict of available solvers with default solver options.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;scipy&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;scipy&#39;</span><span class="p">}}</span></div>
+
+
+<div class="viewcode-block" id="solve_lyap_dense"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.scipy.solve_lyap_dense">[docs]</a><span class="k">def</span> <span class="nf">solve_lyap_dense</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute the solution of a Lyapunov equation.</span>
+
+<span class="sd">    See :func:`pymor.algorithms.lyapunov.solve_lyap_dense` for a</span>
+<span class="sd">    general description.</span>
+
+<span class="sd">    This function uses `scipy.linalg.solve_continuous_lyapunov`, which</span>
+<span class="sd">    is a dense solver for Lyapunov equations with E=I.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">        If E is not `None`, the problem will be reduced to a standard</span>
+<span class="sd">        continuous-time algebraic Lyapunov equation by inverting E.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The operator A as a 2D |NumPy array|.</span>
+<span class="sd">    E</span>
+<span class="sd">        The operator E as a 2D |NumPy array| or `None`.</span>
+<span class="sd">    B</span>
+<span class="sd">        The operator B as a 2D |NumPy array|.</span>
+<span class="sd">    trans</span>
+<span class="sd">        Whether the first operator in the Lyapunov equation is</span>
+<span class="sd">        transposed.</span>
+<span class="sd">    options</span>
+<span class="sd">        The solver options to use (see</span>
+<span class="sd">        :func:`lyap_dense_solver_options`).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    X</span>
+<span class="sd">        Lyapunov equation solution as a |NumPy array|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_solve_lyap_dense_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+    <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">lyap_dense_solver_options</span><span class="p">(),</span> <span class="s1">&#39;scipy&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;scipy&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">E</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">A</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">solve</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">B</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">solve</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">if</span> <span class="n">trans</span><span class="p">:</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">B</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">solve_continuous_lyapunov</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="o">-</span><span class="n">B</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected Lyapunov equation solver (</span><span class="si">{options[&#39;type&#39;]}</span><span class="s2">).&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">X</span></div>
+
+
+<div class="viewcode-block" id="ricc_lrcf_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.scipy.ricc_lrcf_solver_options">[docs]</a><span class="k">def</span> <span class="nf">ricc_lrcf_solver_options</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Return available Riccati solvers with default options for the SciPy backend.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    A dict of available solvers with default solver options.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;scipy&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;scipy&#39;</span><span class="p">}}</span></div>
+
+
+<div class="viewcode-block" id="solve_ricc_lrcf"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.scipy.solve_ricc_lrcf">[docs]</a><span class="k">def</span> <span class="nf">solve_ricc_lrcf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">S</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute an approximate low-rank solution of a Riccati equation.</span>
+
+<span class="sd">    See :func:`pymor.algorithms.riccati.solve_ricc_lrcf` for a general</span>
+<span class="sd">    description.</span>
+
+<span class="sd">    This function uses `scipy.linalg.solve_continuous_are`, which</span>
+<span class="sd">    is a dense solver.</span>
+<span class="sd">    Therefore, we assume all |Operators| and |VectorArrays| can be</span>
+<span class="sd">    converted to |NumPy arrays| using</span>
+<span class="sd">    :func:`~pymor.algorithms.to_matrix.to_matrix` and</span>
+<span class="sd">    :func:`~pymor.vectorarrays.interfaces.VectorArrayInterface.to_numpy`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The non-parametric |Operator| A.</span>
+<span class="sd">    E</span>
+<span class="sd">        The non-parametric |Operator| E or `None`.</span>
+<span class="sd">    B</span>
+<span class="sd">        The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">    C</span>
+<span class="sd">        The operator C as a |VectorArray| from `A.source`.</span>
+<span class="sd">    R</span>
+<span class="sd">        The operator R as a 2D |NumPy array| or `None`.</span>
+<span class="sd">    S</span>
+<span class="sd">        The operator S as a |VectorArray| from `A.source` or `None`.</span>
+<span class="sd">    trans</span>
+<span class="sd">        Whether the first |Operator| in the Riccati equation is</span>
+<span class="sd">        transposed.</span>
+<span class="sd">    options</span>
+<span class="sd">        The solver options to use (see :func:`ricc_lrcf_solver_options`).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Z</span>
+<span class="sd">        Low-rank Cholesky factor of the Riccati equation solution,</span>
+<span class="sd">        |VectorArray| from `A.source`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_solve_ricc_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+    <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">ricc_lrcf_solver_options</span><span class="p">(),</span> <span class="s1">&#39;scipy&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;scipy&#39;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected Riccati equation solver (</span><span class="si">{options[&#39;type&#39;]}</span><span class="s2">).&quot;</span><span class="p">)</span>
+
+    <span class="n">A_source</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">to_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span>
+    <span class="n">E</span> <span class="o">=</span> <span class="n">to_matrix</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">E</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">B</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">C</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="n">S</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span> <span class="k">if</span> <span class="n">S</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">C</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">E</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">E</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">solve_continuous_are</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">C</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="n">R</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">S</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">solve_continuous_are</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">C</span><span class="p">),</span> <span class="n">R</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">S</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">A_source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">_chol</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="pos_ricc_lrcf_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.scipy.pos_ricc_lrcf_solver_options">[docs]</a><span class="k">def</span> <span class="nf">pos_ricc_lrcf_solver_options</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Return available positive Riccati solvers with default options for the SciPy backend.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    A dict of available solvers with default solver options.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;scipy&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;scipy&#39;</span><span class="p">}}</span></div>
+
+
+<div class="viewcode-block" id="solve_pos_ricc_lrcf"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.scipy.solve_pos_ricc_lrcf">[docs]</a><span class="k">def</span> <span class="nf">solve_pos_ricc_lrcf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">S</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute an approximate low-rank solution of a positive Riccati equation.</span>
+
+<span class="sd">    See :func:`pymor.algorithms.riccati.solve_pos_ricc_lrcf` for a</span>
+<span class="sd">    general description.</span>
+
+<span class="sd">    This function uses `scipy.linalg.solve_continuous_are`, which</span>
+<span class="sd">    is a dense solver.</span>
+<span class="sd">    Therefore, we assume all |Operators| and |VectorArrays| can be</span>
+<span class="sd">    converted to |NumPy arrays| using</span>
+<span class="sd">    :func:`~pymor.algorithms.to_matrix.to_matrix` and</span>
+<span class="sd">    :func:`~pymor.vectorarrays.interfaces.VectorArrayInterface.to_numpy`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The non-parametric |Operator| A.</span>
+<span class="sd">    E</span>
+<span class="sd">        The non-parametric |Operator| E or `None`.</span>
+<span class="sd">    B</span>
+<span class="sd">        The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">    C</span>
+<span class="sd">        The operator C as a |VectorArray| from `A.source`.</span>
+<span class="sd">    R</span>
+<span class="sd">        The operator R as a 2D |NumPy array| or `None`.</span>
+<span class="sd">    S</span>
+<span class="sd">        The operator S as a |VectorArray| from `A.source` or `None`.</span>
+<span class="sd">    trans</span>
+<span class="sd">        Whether the first |Operator| in the positive Riccati equation is</span>
+<span class="sd">        transposed.</span>
+<span class="sd">    options</span>
+<span class="sd">        The solver options to use (see</span>
+<span class="sd">        :func:`pos_ricc_lrcf_solver_options`).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Z</span>
+<span class="sd">        Low-rank Cholesky factor of the positive Riccati equation</span>
+<span class="sd">        solution, |VectorArray| from `A.source`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_solve_ricc_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+    <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">pos_ricc_lrcf_solver_options</span><span class="p">(),</span> <span class="s1">&#39;scipy&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;scipy&#39;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected positive Riccati equation solver (</span><span class="si">{options[&#39;type&#39;]}</span><span class="s2">).&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">C</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">B</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">solve_ricc_lrcf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="o">-</span><span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

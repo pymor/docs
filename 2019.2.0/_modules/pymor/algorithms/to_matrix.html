@@ -1,0 +1,254 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.to_matrix &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.to_matrix</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.linalg</span> <span class="k">as</span> <span class="nn">spla</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse.linalg</span> <span class="k">as</span> <span class="nn">spsla</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.rules</span> <span class="kn">import</span> <span class="n">RuleTable</span><span class="p">,</span> <span class="n">match_class</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.block</span> <span class="kn">import</span> <span class="n">BlockOperatorBase</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="p">(</span><span class="n">AdjointOperator</span><span class="p">,</span> <span class="n">ComponentProjection</span><span class="p">,</span> <span class="n">Concatenation</span><span class="p">,</span> <span class="n">IdentityOperator</span><span class="p">,</span>
+                                           <span class="n">LincombOperator</span><span class="p">,</span> <span class="n">LowRankOperator</span><span class="p">,</span> <span class="n">LowRankUpdatedOperator</span><span class="p">,</span>
+                                           <span class="n">VectorArrayOperator</span><span class="p">,</span> <span class="n">ZeroOperator</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+
+
+<div class="viewcode-block" id="to_matrix"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.to_matrix.to_matrix">[docs]</a><span class="k">def</span> <span class="nf">to_matrix</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Convert a linear |Operator| to a matrix.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op</span>
+<span class="sd">        The |Operator| to convert.</span>
+<span class="sd">    format</span>
+<span class="sd">        Format of the resulting matrix: |NumPy array| if &#39;dense&#39;,</span>
+<span class="sd">        otherwise the appropriate |SciPy spmatrix|.</span>
+<span class="sd">        If `None`, a choice between dense and sparse format is</span>
+<span class="sd">        automatically made.</span>
+<span class="sd">    mu</span>
+<span class="sd">        The |Parameter| for which to convert `op`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    res</span>
+<span class="sd">        The matrix equivalent to `op`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="nb">format</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">format</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;dense&#39;</span><span class="p">,</span> <span class="s1">&#39;bsr&#39;</span><span class="p">,</span> <span class="s1">&#39;coo&#39;</span><span class="p">,</span> <span class="s1">&#39;csc&#39;</span><span class="p">,</span> <span class="s1">&#39;csr&#39;</span><span class="p">,</span> <span class="s1">&#39;dia&#39;</span><span class="p">,</span> <span class="s1">&#39;dok&#39;</span><span class="p">,</span> <span class="s1">&#39;lil&#39;</span><span class="p">)</span>
+    <span class="n">op</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ToMatrixRules</span><span class="p">(</span><span class="nb">format</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ToMatrixRules"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.to_matrix.ToMatrixRules">[docs]</a><span class="k">class</span> <span class="nc">ToMatrixRules</span><span class="p">(</span><span class="n">RuleTable</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">format</span><span class="p">,</span> <span class="n">mu</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">NumpyMatrixOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_NumpyMatrixOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span>
+        <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">matrix</span>
+        <span class="k">elif</span> <span class="nb">format</span> <span class="o">==</span> <span class="s1">&#39;dense&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">sparse</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">matrix</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">sparse</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sps</span><span class="p">,</span> <span class="nb">format</span> <span class="o">+</span> <span class="s1">&#39;_matrix&#39;</span><span class="p">)(</span><span class="n">op</span><span class="o">.</span><span class="n">matrix</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">asformat</span><span class="p">(</span><span class="nb">format</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">BlockOperatorBase</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_BlockOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span>
+        <span class="n">op_blocks</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">blocks</span>
+        <span class="n">mat_blocks</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">num_range_blocks</span><span class="p">)]</span>
+        <span class="n">is_dense</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">num_range_blocks</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">num_source_blocks</span><span class="p">):</span>
+                <span class="n">mat_ij</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op_blocks</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">sps</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">mat_ij</span><span class="p">):</span>
+                    <span class="n">is_dense</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">mat_blocks</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mat_ij</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">is_dense</span> <span class="ow">or</span> <span class="nb">format</span> <span class="o">==</span> <span class="s1">&#39;dense&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bmat</span><span class="p">(</span><span class="n">mat_blocks</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">(</span><span class="n">mat_blocks</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">AdjointOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_AdjointOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operator</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">range_product</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">range_product</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">range_product</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">sps</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">res</span><span class="p">)</span> <span class="ow">and</span> <span class="n">sps</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">range_product</span><span class="p">):</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">range_product</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">range_product</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">source_product</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">source_product</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">source_product</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">sps</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">source_product</span><span class="p">):</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">source_product</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">spsla</span><span class="o">.</span><span class="n">spsolve</span><span class="p">(</span><span class="n">source_product</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">format</span> <span class="o">!=</span> <span class="s1">&#39;dense&#39;</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sps</span><span class="p">,</span> <span class="nb">format</span> <span class="o">+</span> <span class="s1">&#39;_matrix&#39;</span><span class="p">)(</span><span class="n">res</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">ComponentProjection</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_ComponentProjection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span>
+        <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="s1">&#39;dense&#39;</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">components</span><span class="p">):</span>
+                <span class="n">res</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">,))</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">components</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">((</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">asformat</span><span class="p">(</span><span class="nb">format</span> <span class="k">if</span> <span class="nb">format</span> <span class="k">else</span> <span class="s1">&#39;csc&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">Concatenation</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_Concatenation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">mats</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">o</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">]</span>
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">mats</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">sps</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">mats</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="ow">and</span> <span class="n">sps</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">mats</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="n">mats</span> <span class="o">=</span> <span class="n">mats</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">mats</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">mats</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">mats</span> <span class="o">=</span> <span class="n">mats</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">mats</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">mats</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])]</span>
+        <span class="k">return</span> <span class="n">mats</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">IdentityOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_IdentityOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span>
+        <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="s1">&#39;dense&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span> <span class="k">if</span> <span class="nb">format</span> <span class="k">else</span> <span class="s1">&#39;csc&#39;</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">LincombOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_LincombOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">op_coefficients</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">evaluate_coefficients</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">op_coefficients</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">)):</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">res</span> <span class="o">+</span> <span class="n">op_coefficients</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">LowRankOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_LowRankOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">inverted</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">left</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">op</span><span class="o">.</span><span class="n">core</span> <span class="o">@</span> <span class="n">op</span><span class="o">.</span><span class="n">right</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">left</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">spla</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">core</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">right</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">format</span> <span class="o">!=</span> <span class="s1">&#39;dense&#39;</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sps</span><span class="p">,</span> <span class="nb">format</span> <span class="o">+</span> <span class="s1">&#39;_matrix&#39;</span><span class="p">)(</span><span class="n">res</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">LowRankUpdatedOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_LowRankUpdatedOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">coeff</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operator</span><span class="p">)</span> <span class="o">+</span> <span class="n">op</span><span class="o">.</span><span class="n">lr_coeff</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">lr_operator</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">VectorArrayOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_VectorArrayOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">adjoint</span> <span class="k">else</span> <span class="n">op</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">format</span> <span class="o">!=</span> <span class="s1">&#39;dense&#39;</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sps</span><span class="p">,</span> <span class="nb">format</span> <span class="o">+</span> <span class="s1">&#39;_matrix&#39;</span><span class="p">)(</span><span class="n">res</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">ZeroOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_ZeroOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span>
+        <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="nb">format</span> <span class="o">==</span> <span class="s1">&#39;dense&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sps</span><span class="p">,</span> <span class="nb">format</span> <span class="o">+</span> <span class="s1">&#39;_matrix&#39;</span><span class="p">)((</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

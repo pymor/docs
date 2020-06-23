@@ -1,0 +1,605 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.adaptivegreedy &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.adaptivegreedy</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">fractions</span> <span class="kn">import</span> <span class="n">Fraction</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.greedy</span> <span class="kn">import</span> <span class="n">RBSurrogate</span>
+<span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">ExtensionError</span>
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">BasicInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+<span class="kn">from</span> <span class="nn">pymor.parallel.dummy</span> <span class="kn">import</span> <span class="n">dummy_pool</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.base</span> <span class="kn">import</span> <span class="n">Parameter</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.spaces</span> <span class="kn">import</span> <span class="n">CubicParameterSpace</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.deprecated</span> <span class="kn">import</span> <span class="n">Deprecated</span>
+
+
+<div class="viewcode-block" id="adaptive_weak_greedy"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.adaptivegreedy.adaptive_weak_greedy">[docs]</a><span class="k">def</span> <span class="nf">adaptive_weak_greedy</span><span class="p">(</span><span class="n">surrogate</span><span class="p">,</span> <span class="n">parameter_space</span><span class="p">,</span> <span class="n">target_error</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_extensions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                         <span class="n">validation_mus</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rho</span><span class="o">=</span><span class="mf">1.1</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">theta</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">visualize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                         <span class="n">visualize_vertex_size</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">pool</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Weak greedy basis generation algorithm with adaptively refined training set.</span>
+
+<span class="sd">    This method extends pyMOR&#39;s default :func:`~pymor.algorithms.greedy.weak_greedy`</span>
+<span class="sd">    greedy basis generation algorithm by adaptive refinement of the</span>
+<span class="sd">    parameter training set according to [HDO11]_ to prevent overfitting</span>
+<span class="sd">    of the approximation basis to the training set. This is achieved by</span>
+<span class="sd">    estimating the approximation error on an additional validation set of</span>
+<span class="sd">    parameters. If the ratio between the estimated errors on the validation</span>
+<span class="sd">    set and the validation set is larger than `rho`, the training set</span>
+<span class="sd">    is refined using standard grid refinement techniques.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    surrogate</span>
+<span class="sd">        See :func:`~pymor.algorithms.greedy.weak_greedy`.</span>
+<span class="sd">    parameter_space</span>
+<span class="sd">        The |ParameterSpace| for which to compute the approximation basis.</span>
+<span class="sd">    target_error</span>
+<span class="sd">        See :func:`~pymor.algorithms.greedy.weak_greedy`.</span>
+<span class="sd">    max_extensions</span>
+<span class="sd">        See :func:`~pymor.algorithms.greedy.weak_greedy`.</span>
+<span class="sd">    validation_mus</span>
+<span class="sd">        One of the following:</span>
+<span class="sd">          - a list of |Parameters| to use as validation set,</span>
+<span class="sd">          - a positive number indicating the number of random parameters</span>
+<span class="sd">            to use as validation set,</span>
+<span class="sd">          - a non-positive number, indicating the negative number of random</span>
+<span class="sd">            parameters to use as validation set in addition to the centers</span>
+<span class="sd">            of the elements of the adaptive training set.</span>
+<span class="sd">    rho</span>
+<span class="sd">        Maximum allowed ratio between maximum estimated error on validation</span>
+<span class="sd">        set vs. maximum estimated error on training set. If the ratio is</span>
+<span class="sd">        larger, the training set is refined.</span>
+<span class="sd">    gamma</span>
+<span class="sd">        Weight of the age penalty term in the training set refinement</span>
+<span class="sd">        indicators.</span>
+<span class="sd">    theta</span>
+<span class="sd">        Ratio of training set elements to select for refinement.</span>
+<span class="sd">        (One element is always refined.)</span>
+<span class="sd">    visualize</span>
+<span class="sd">        If `True`, visualize the refinement indicators. (Only available</span>
+<span class="sd">        for 2 and 3 dimensional parameter spaces.)</span>
+<span class="sd">    visualize_vertex_size</span>
+<span class="sd">        Size of the vertices in the visualization.</span>
+<span class="sd">    pool</span>
+<span class="sd">        See :func:`~pymor.algorithms.greedy.weak_greedy`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Dict with the following fields:</span>
+
+<span class="sd">        :extensions:             Number of greedy iterations.</span>
+<span class="sd">        :max_errs:               Sequence of maximum errors during the greedy run.</span>
+<span class="sd">        :max_err_mus:            The parameters corresponding to `max_errs`.</span>
+<span class="sd">        :max_val_errs:           Sequence of maximum errors on the validation set.</span>
+<span class="sd">        :max_val_err_mus:        The parameters corresponding to `max_val_errs`.</span>
+<span class="sd">        :refinements:            Number of refinements made in each extension step.</span>
+<span class="sd">        :training_set_sizes:     The final size of the training set in each extension step.</span>
+<span class="sd">        :time:                   Duration of the algorithm.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.adaptivegreedy.adaptive_weak_greedy&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">pool</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">pool</span> <span class="ow">is</span> <span class="n">dummy_pool</span><span class="p">:</span>
+        <span class="n">pool</span> <span class="o">=</span> <span class="n">dummy_pool</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Using pool of {len(pool)} workers for parallel greedy search.&#39;</span><span class="p">)</span>
+
+    <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="c1"># setup training and validation sets</span>
+    <span class="n">sample_set</span> <span class="o">=</span> <span class="n">AdaptiveSampleSet</span><span class="p">(</span><span class="n">parameter_space</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">validation_mus</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">validation_set</span> <span class="o">=</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">center_mus</span> <span class="o">+</span> <span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="o">-</span><span class="n">validation_mus</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">validation_set</span> <span class="o">=</span> <span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="n">validation_mus</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">visualize</span> <span class="ow">and</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Training set size: {len(sample_set.vertex_mus)}. Validation set size: {len(validation_set)}&#39;</span><span class="p">)</span>
+
+    <span class="n">extensions</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">max_errs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">max_err_mus</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">max_val_errs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">max_val_err_mus</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">refinements</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">training_set_sizes</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>  <span class="c1"># main loop</span>
+        <span class="n">current_refinements</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>  <span class="c1"># estimate reduction errors and refine training set until no overfitting is detected</span>
+
+            <span class="c1"># estimate on training set</span>
+            <span class="k">with</span> <span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Estimating errors ...&#39;</span><span class="p">):</span>
+                <span class="n">errors</span> <span class="o">=</span> <span class="n">surrogate</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">sample_set</span><span class="o">.</span><span class="n">vertex_mus</span><span class="p">,</span> <span class="n">return_all_values</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">max_err_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">errors</span><span class="p">)</span>
+            <span class="n">max_err</span><span class="p">,</span> <span class="n">max_err_mu</span> <span class="o">=</span> <span class="n">errors</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">],</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">vertex_mus</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">]</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Maximum error after </span><span class="si">{extensions}</span><span class="s1"> extensions: </span><span class="si">{max_err}</span><span class="s1"> (mu = </span><span class="si">{max_err_mu}</span><span class="s1">)&#39;</span><span class="p">)</span>
+
+            <span class="c1"># estimate on validation set</span>
+            <span class="n">max_val_err</span><span class="p">,</span> <span class="n">max_val_err_mu</span> <span class="o">=</span> <span class="n">surrogate</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">validation_set</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Maximum validation error: </span><span class="si">{max_val_err}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Validation error to training error ratio: {max_val_err/max_err:.3e}&#39;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">max_val_err</span> <span class="o">&gt;=</span> <span class="n">max_err</span> <span class="o">*</span> <span class="n">rho</span><span class="p">:</span>  <span class="c1"># overfitting?</span>
+
+                <span class="c1"># compute element indicators for training set refinement</span>
+                <span class="k">if</span> <span class="n">current_refinements</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info2</span><span class="p">(</span><span class="s1">&#39;Overfitting detected. Computing element indicators ...&#39;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info3</span><span class="p">(</span><span class="s1">&#39;Overfitting detected after refinement. Computing element indicators ...&#39;</span><span class="p">)</span>
+                <span class="n">vertex_errors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">errors</span><span class="p">[</span><span class="n">sample_set</span><span class="o">.</span><span class="n">vertex_ids</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">center_errors</span> <span class="o">=</span> <span class="n">surrogate</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">sample_set</span><span class="o">.</span><span class="n">center_mus</span><span class="p">,</span> <span class="n">return_all_values</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">indicators_age_part</span> <span class="o">=</span> <span class="p">(</span><span class="n">gamma</span> <span class="o">*</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">volumes</span> <span class="o">/</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">total_volume</span>
+                                       <span class="o">*</span> <span class="p">(</span><span class="n">sample_set</span><span class="o">.</span><span class="n">refinement_count</span> <span class="o">-</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">creation_times</span><span class="p">))</span>
+                <span class="n">indicators_error_part</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">([</span><span class="n">vertex_errors</span><span class="p">,</span> <span class="n">center_errors</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">max_err</span>
+                <span class="n">indicators</span> <span class="o">=</span> <span class="n">indicators_age_part</span> <span class="o">+</span> <span class="n">indicators_error_part</span>
+
+                <span class="c1"># select elements</span>
+                <span class="n">sorted_indicators_inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">indicators</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">refinement_elements</span> <span class="o">=</span> <span class="n">sorted_indicators_inds</span><span class="p">[:</span><span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_indicators_inds</span><span class="p">)</span> <span class="o">*</span> <span class="n">theta</span><span class="p">),</span> <span class="mi">1</span><span class="p">)]</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Refining {len(refinement_elements)} elements: </span><span class="si">{refinement_elements}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+                <span class="c1"># visualization</span>
+                <span class="k">if</span> <span class="n">visualize</span><span class="p">:</span>
+                    <span class="kn">from</span> <span class="nn">mpl_toolkits.mplot3d</span> <span class="kn">import</span> <span class="n">Axes3D</span>  <span class="c1"># NOQA</span>
+                    <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;estimated errors&#39;</span><span class="p">)</span>
+                    <span class="n">sample_set</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">vertex_data</span><span class="o">=</span><span class="n">errors</span><span class="p">,</span> <span class="n">center_data</span><span class="o">=</span><span class="n">center_errors</span><span class="p">,</span> <span class="n">new_figure</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;indicators_error_part&#39;</span><span class="p">)</span>
+                    <span class="n">vmax</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">([</span><span class="n">indicators_error_part</span><span class="p">,</span> <span class="n">indicators_age_part</span><span class="p">,</span> <span class="n">indicators</span><span class="p">])</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="p">{(</span><span class="s1">&#39;volume_data&#39;</span> <span class="k">if</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="s1">&#39;center_data&#39;</span><span class="p">):</span> <span class="n">indicators_error_part</span><span class="p">}</span>
+                    <span class="n">sample_set</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">vertex_size</span><span class="o">=</span><span class="n">visualize_vertex_size</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span> <span class="n">new_figure</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                         <span class="o">**</span><span class="n">data</span><span class="p">)</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;indicators_age_part&#39;</span><span class="p">)</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="p">{(</span><span class="s1">&#39;volume_data&#39;</span> <span class="k">if</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="s1">&#39;center_data&#39;</span><span class="p">):</span> <span class="n">indicators_age_part</span><span class="p">}</span>
+                    <span class="n">sample_set</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">vertex_size</span><span class="o">=</span><span class="n">visualize_vertex_size</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span> <span class="n">new_figure</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                         <span class="o">**</span><span class="n">data</span><span class="p">)</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;indicators&#39;</span><span class="p">)</span>
+                        <span class="n">sample_set</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">volume_data</span><span class="o">=</span><span class="n">indicators</span><span class="p">,</span>
+                                             <span class="n">center_data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">refinement_elements</span><span class="p">)),</span>
+                                             <span class="n">center_inds</span><span class="o">=</span><span class="n">refinement_elements</span><span class="p">,</span>
+                                             <span class="n">vertex_size</span><span class="o">=</span><span class="n">visualize_vertex_size</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span> <span class="n">new_figure</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;selected cells&#39;</span><span class="p">)</span>
+                        <span class="n">sample_set</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">center_data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">refinement_elements</span><span class="p">)),</span>
+                                             <span class="n">center_inds</span><span class="o">=</span><span class="n">refinement_elements</span><span class="p">,</span>
+                                             <span class="n">vertex_size</span><span class="o">=</span><span class="n">visualize_vertex_size</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span> <span class="n">new_figure</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+                <span class="c1"># refine training set</span>
+                <span class="n">sample_set</span><span class="o">.</span><span class="n">refine</span><span class="p">(</span><span class="n">refinement_elements</span><span class="p">)</span>
+                <span class="n">current_refinements</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="c1"># update validation set if needed</span>
+                <span class="k">if</span> <span class="n">validation_mus</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">validation_set</span> <span class="o">=</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">center_mus</span> <span class="o">+</span> <span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="o">-</span><span class="n">validation_mus</span><span class="p">)</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;New training set size: {len(sample_set.vertex_mus)}. &#39;</span>
+                            <span class="sa">f</span><span class="s1">&#39;New validation set size: {len(validation_set)}&#39;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Number of refinements: </span><span class="si">{sample_set.refinement_count}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">break</span>  <span class="c1"># no overfitting, leave the refinement loop</span>
+
+        <span class="n">max_errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">max_err</span><span class="p">)</span>
+        <span class="n">max_err_mus</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">max_err_mu</span><span class="p">)</span>
+        <span class="n">max_val_errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">max_val_err</span><span class="p">)</span>
+        <span class="n">max_val_err_mus</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">max_val_err_mu</span><span class="p">)</span>
+        <span class="n">refinements</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">current_refinements</span><span class="p">)</span>
+        <span class="n">training_set_sizes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sample_set</span><span class="o">.</span><span class="n">vertex_mus</span><span class="p">))</span>
+
+        <span class="c1"># break if traget error reached</span>
+        <span class="k">if</span> <span class="n">target_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">max_err</span> <span class="o">&lt;=</span> <span class="n">target_error</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Reached maximal error on snapshots of </span><span class="si">{max_err}</span><span class="s1"> &lt;= </span><span class="si">{target_error}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">break</span>
+
+        <span class="c1"># basis extension</span>
+        <span class="k">with</span> <span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Extending surrogate for mu = </span><span class="si">{max_err_mu}</span><span class="s1"> ...&#39;</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">surrogate</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">max_err_mu</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">ExtensionError</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Extension failed. Stopping now.&#39;</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="n">extensions</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+
+        <span class="c1"># break if prescribed basis size reached</span>
+        <span class="k">if</span> <span class="n">max_extensions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">extensions</span> <span class="o">&gt;=</span> <span class="n">max_extensions</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Maximum number of </span><span class="si">{max_extensions}</span><span class="s1"> extensions reached.&#39;</span><span class="p">)</span>
+            <span class="k">break</span>
+
+    <span class="n">tictoc</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Greedy search took </span><span class="si">{tictoc}</span><span class="s1"> seconds&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;max_errs&#39;</span><span class="p">:</span> <span class="n">max_errs</span><span class="p">,</span> <span class="s1">&#39;max_err_mus&#39;</span><span class="p">:</span> <span class="n">max_err_mus</span><span class="p">,</span> <span class="s1">&#39;extensions&#39;</span><span class="p">:</span> <span class="n">extensions</span><span class="p">,</span>
+            <span class="s1">&#39;max_val_errs&#39;</span><span class="p">:</span> <span class="n">max_val_errs</span><span class="p">,</span> <span class="s1">&#39;max_val_err_mus&#39;</span><span class="p">:</span> <span class="n">max_val_err_mus</span><span class="p">,</span>
+            <span class="s1">&#39;refinements&#39;</span><span class="p">:</span> <span class="n">refinements</span><span class="p">,</span> <span class="s1">&#39;training_set_sizes&#39;</span><span class="p">:</span> <span class="n">training_set_sizes</span><span class="p">,</span>
+            <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">tictoc</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="rb_adaptive_greedy"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.adaptivegreedy.rb_adaptive_greedy">[docs]</a><span class="k">def</span> <span class="nf">rb_adaptive_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">parameter_space</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                       <span class="n">use_estimator</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">error_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                       <span class="n">target_error</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_extensions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                       <span class="n">validation_mus</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rho</span><span class="o">=</span><span class="mf">1.1</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">theta</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span>
+                       <span class="n">extension_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">visualize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">visualize_vertex_size</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span>
+                       <span class="n">pool</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Reduced basis greedy basis generation with adaptively refined training set.</span>
+
+<span class="sd">    This method extends pyMOR&#39;s default :func:`~pymor.algorithms.greedy.rb_greedy`</span>
+<span class="sd">    greedy reduced basis generation algorithm by adaptive refinement of the</span>
+<span class="sd">    parameter training set [HDO11]_ to prevent overfitting</span>
+<span class="sd">    of the reduced basis to the training set as implemented in :func:`adaptive_weak_greedy`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        See :func:`~pymor.algorithms.greedy.rb_greedy`.</span>
+<span class="sd">    reductor</span>
+<span class="sd">        See :func:`~pymor.algorithms.greedy.rb_greedy`.</span>
+<span class="sd">    parameter_space</span>
+<span class="sd">        The |ParameterSpace| for which to compute the reduced model. If `None`,</span>
+<span class="sd">        the parameter space of `fom` is used.</span>
+<span class="sd">    use_estimator</span>
+<span class="sd">        See :func:`~pymor.algorithms.greedy.rb_greedy`.</span>
+<span class="sd">    error_norm</span>
+<span class="sd">        See :func:`~pymor.algorithms.greedy.rb_greedy`.</span>
+<span class="sd">    target_error</span>
+<span class="sd">        See :func:`~pymor.algorithms.greedy.weak_greedy`.</span>
+<span class="sd">    max_extensions</span>
+<span class="sd">        See :func:`~pymor.algorithms.greedy.weak_greedy`.</span>
+<span class="sd">    validation_mus</span>
+<span class="sd">        See :func:`~adaptive_weak_greedy`.</span>
+<span class="sd">    rho</span>
+<span class="sd">        See :func:`~adaptive_weak_greedy`.</span>
+<span class="sd">    gamma</span>
+<span class="sd">        See :func:`~adaptive_weak_greedy`.</span>
+<span class="sd">    theta</span>
+<span class="sd">        See :func:`~adaptive_weak_greedy`.</span>
+<span class="sd">    extension_params</span>
+<span class="sd">        See :func:`~pymor.algorithms.greedy.rb_greedy`.</span>
+<span class="sd">    visualize</span>
+<span class="sd">        See :func:`~adaptive_weak_greedy`.</span>
+<span class="sd">    visualize_vertex_size</span>
+<span class="sd">        See :func:`~adaptive_weak_greedy`.</span>
+<span class="sd">    pool</span>
+<span class="sd">        See :func:`~pymor.algorithms.greedy.weak_greedy`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Dict with the following fields:</span>
+
+<span class="sd">        :rom:                    The reduced |Model| obtained for the</span>
+<span class="sd">                                 computed basis.</span>
+<span class="sd">        :extensions:             Number of greedy iterations.</span>
+<span class="sd">        :max_errs:               Sequence of maximum errors during the greedy run.</span>
+<span class="sd">        :max_err_mus:            The parameters corresponding to `max_errs`.</span>
+<span class="sd">        :max_val_errs:           Sequence of maximum errors on the validation set.</span>
+<span class="sd">        :max_val_err_mus:        The parameters corresponding to `max_val_errs`.</span>
+<span class="sd">        :refinements:            Number of refinements made in each extension step.</span>
+<span class="sd">        :training_set_sizes:     The final size of the training set in each extension step.</span>
+<span class="sd">        :time:                   Duration of the algorithm.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">parameter_space</span> <span class="o">=</span> <span class="n">parameter_space</span> <span class="ow">or</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span>
+
+    <span class="n">surrogate</span> <span class="o">=</span> <span class="n">RBSurrogate</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">use_estimator</span><span class="p">,</span> <span class="n">error_norm</span><span class="p">,</span> <span class="n">extension_params</span><span class="p">,</span> <span class="n">pool</span> <span class="ow">or</span> <span class="n">dummy_pool</span><span class="p">)</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">adaptive_weak_greedy</span><span class="p">(</span><span class="n">surrogate</span><span class="p">,</span> <span class="n">parameter_space</span><span class="p">,</span> <span class="n">target_error</span><span class="o">=</span><span class="n">target_error</span><span class="p">,</span> <span class="n">max_extensions</span><span class="o">=</span><span class="n">max_extensions</span><span class="p">,</span>
+                                  <span class="n">validation_mus</span><span class="o">=</span><span class="n">validation_mus</span><span class="p">,</span> <span class="n">rho</span><span class="o">=</span><span class="n">rho</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span><span class="p">,</span> <span class="n">theta</span><span class="o">=</span><span class="n">theta</span><span class="p">,</span> <span class="n">visualize</span><span class="o">=</span><span class="n">visualize</span><span class="p">,</span>
+                                  <span class="n">visualize_vertex_size</span><span class="o">=</span><span class="n">visualize_vertex_size</span><span class="p">,</span> <span class="n">pool</span><span class="o">=</span><span class="n">pool</span><span class="p">)</span>
+    <span class="n">result</span><span class="p">[</span><span class="s1">&#39;rom&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">surrogate</span><span class="o">.</span><span class="n">rom</span>
+
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="adaptive_greedy"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.adaptivegreedy.adaptive_greedy">[docs]</a><span class="nd">@Deprecated</span><span class="p">(</span><span class="n">rb_adaptive_greedy</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">adaptive_greedy</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">rb_adaptive_greedy</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdaptiveSampleSet"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.adaptivegreedy.AdaptiveSampleSet">[docs]</a><span class="k">class</span> <span class="nc">AdaptiveSampleSet</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An adaptive parameter sample set.</span>
+
+<span class="sd">    Used by :func:`adaptive_weak_greedy`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_space</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter_space</span><span class="p">,</span> <span class="n">CubicParameterSpace</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameter_space</span> <span class="o">=</span> <span class="n">parameter_space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span> <span class="o">=</span> <span class="n">parameter_space</span><span class="o">.</span><span class="n">parameter_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ranges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">ranges</span><span class="p">[</span><span class="n">k</span><span class="p">])[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:],</span>
+                                              <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">shape</span><span class="p">),</span> <span class="mi">1</span><span class="p">])</span>
+                                      <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">shape</span> <span class="ow">in</span> <span class="n">parameter_space</span><span class="o">.</span><span class="n">parameter_type</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total_volume</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_vertex_to_id_map</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertex_mus</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refinement_count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">element_tree</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Element</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="n">Fraction</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">refine</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ids</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refinement_count</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">leafs</span> <span class="o">=</span> <span class="p">[</span><span class="n">node</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_iter_leafs</span><span class="p">())</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">leafs</span><span class="p">:</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">refine</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">map_vertex_to_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vertex</span><span class="p">):</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span> <span class="o">*</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">vertex</span><span class="p">))</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">({})</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">shape</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+            <span class="n">head</span><span class="p">,</span> <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="p">[:</span><span class="n">count</span><span class="p">],</span> <span class="n">values</span><span class="p">[</span><span class="n">count</span><span class="p">:]</span>
+            <span class="n">mu</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">head</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mu</span>
+
+    <span class="k">def</span> <span class="nf">visualize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vertex_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vertex_inds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">center_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">center_inds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">volume_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                  <span class="n">vertex_size</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_figure</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Can only visualize samples of dimension 2, 3&#39;</span><span class="p">)</span>
+
+        <span class="n">vertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">centers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">centers</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">vmin</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">vmin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+            <span class="k">if</span> <span class="n">vertex_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">vmin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">vmin</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">vertex_data</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">center_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">vmin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">vmin</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">center_data</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">volume_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">vmin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">vmin</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">volume_data</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">vmax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">vmax</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+            <span class="k">if</span> <span class="n">vertex_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">vmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">vmax</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">vertex_data</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">center_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">vmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">vmax</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">center_data</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">volume_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">vmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">vmax</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">volume_data</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+            <span class="kn">from</span> <span class="nn">matplotlib.collections</span> <span class="kn">import</span> <span class="n">PatchCollection</span>
+            <span class="kn">from</span> <span class="nn">matplotlib.patches</span> <span class="kn">import</span> <span class="n">Rectangle</span>
+            <span class="k">if</span> <span class="n">new_figure</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">xlim</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+            <span class="c1"># draw volumes</span>
+            <span class="n">rects</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">leaf</span><span class="p">,</span> <span class="n">level</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vertex_ids</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">):</span>
+                <span class="n">size</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="mi">2</span><span class="o">**</span><span class="n">level</span>
+                <span class="n">ll</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">[</span><span class="n">leaf</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+                <span class="n">rects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Rectangle</span><span class="p">(</span><span class="n">ll</span><span class="p">,</span> <span class="n">size</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">size</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                                       <span class="n">facecolor</span><span class="o">=</span><span class="s1">&#39;white&#39;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">volume_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">coll</span> <span class="o">=</span> <span class="n">PatchCollection</span><span class="p">(</span><span class="n">rects</span><span class="p">,</span> <span class="n">match_original</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">coll</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">volume_data</span><span class="p">)</span>
+                <span class="n">coll</span><span class="o">.</span><span class="n">set_clim</span><span class="p">(</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">coll</span> <span class="o">=</span> <span class="n">PatchCollection</span><span class="p">(</span><span class="n">rects</span><span class="p">,</span> <span class="n">match_original</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">add_collection</span><span class="p">(</span><span class="n">coll</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">sci</span><span class="p">(</span><span class="n">coll</span><span class="p">)</span>
+
+            <span class="c1"># draw vertex data</span>
+            <span class="k">if</span> <span class="n">vertex_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">vtx</span> <span class="o">=</span> <span class="n">vertices</span><span class="p">[</span><span class="n">vertex_inds</span><span class="p">]</span> <span class="k">if</span> <span class="n">vertex_inds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">vertices</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">vtx</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">vtx</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">vertex_data</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">vertex_size</span><span class="p">)</span>
+
+            <span class="c1"># draw center data</span>
+            <span class="k">if</span> <span class="n">center_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">cts</span> <span class="o">=</span> <span class="n">centers</span><span class="p">[</span><span class="n">center_inds</span><span class="p">]</span> <span class="k">if</span> <span class="n">center_inds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">centers</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">cts</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">cts</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">center_data</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">vertex_size</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">volume_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">center_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">vertex_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">new_figure</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">volume_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+            <span class="n">cube</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
+                             <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]])</span>
+
+            <span class="kn">from</span> <span class="nn">mpl_toolkits.mplot3d</span> <span class="kn">import</span> <span class="n">Axes3D</span>  <span class="c1"># NOQA</span>
+            <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+            <span class="k">if</span> <span class="n">new_figure</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
+
+            <span class="c1"># draw cells</span>
+            <span class="k">for</span> <span class="n">leaf</span><span class="p">,</span> <span class="n">level</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vertex_ids</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">):</span>
+                <span class="n">size</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="mi">2</span><span class="o">**</span><span class="n">level</span>
+                <span class="n">ll</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">[</span><span class="n">leaf</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+                <span class="n">c</span> <span class="o">=</span> <span class="n">cube</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span> <span class="o">*</span> <span class="n">size</span> <span class="o">+</span> <span class="n">ll</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot3D</span><span class="p">(</span><span class="n">c</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;lightgray&#39;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="n">p</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="c1"># draw vertex data</span>
+            <span class="k">if</span> <span class="n">vertex_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">vtx</span> <span class="o">=</span> <span class="n">vertices</span><span class="p">[</span><span class="n">vertex_inds</span><span class="p">]</span> <span class="k">if</span> <span class="n">vertex_inds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">vertices</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">vtx</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">vtx</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">vtx</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span>
+                               <span class="n">c</span><span class="o">=</span><span class="n">vertex_data</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">vertex_size</span><span class="p">)</span>
+
+            <span class="c1"># draw center data</span>
+            <span class="k">if</span> <span class="n">center_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">cts</span> <span class="o">=</span> <span class="n">centers</span><span class="p">[</span><span class="n">center_inds</span><span class="p">]</span> <span class="k">if</span> <span class="n">center_inds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">centers</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">cts</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">cts</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">cts</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span>
+                               <span class="n">c</span><span class="o">=</span><span class="n">center_data</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">vertex_size</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">p</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">new_figure</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">_iter_leafs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">walk</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">leaf</span> <span class="ow">in</span> <span class="n">walk</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+                        <span class="k">yield</span> <span class="n">leaf</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">node</span>
+
+        <span class="k">return</span> <span class="n">walk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">element_tree</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_update</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">centers</span><span class="p">,</span> <span class="n">vertex_ids</span><span class="p">,</span> <span class="n">creation_times</span> <span class="o">=</span> \
+            <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="p">((</span><span class="n">node</span><span class="o">.</span><span class="n">level</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">center</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">vertex_ids</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">creation_time</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iter_leafs</span><span class="p">())))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">levels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">volumes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_volume</span> <span class="o">/</span> <span class="p">((</span><span class="mi">2</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertex_ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vertex_ids</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">center_mus</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">map_vertex_to_mu</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">centers</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">creation_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">creation_times</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_add_vertex</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="n">v_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vertex_to_id_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">v_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">v_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vertex_mus</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">map_vertex_to_mu</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_vertex_to_id_map</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">v_id</span>
+        <span class="k">return</span> <span class="n">v_id</span>
+
+    <span class="k">class</span> <span class="nc">Element</span><span class="p">:</span>
+        <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;level&#39;</span><span class="p">,</span> <span class="s1">&#39;center&#39;</span><span class="p">,</span> <span class="s1">&#39;vertex_ids&#39;</span><span class="p">,</span> <span class="s1">&#39;children&#39;</span><span class="p">,</span> <span class="s1">&#39;creation_time&#39;</span><span class="p">]</span>
+
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">level</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">sample_set</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">level</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">center</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">creation_time</span> <span class="o">=</span> <span class="n">level</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">sample_set</span><span class="o">.</span><span class="n">refinement_count</span>
+            <span class="n">vertex_ids</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">lower_corner</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="o">-</span> <span class="n">Fraction</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="p">(</span><span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">center</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="nb">len</span><span class="p">(</span><span class="n">center</span><span class="p">)):</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">lower_corner</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">center</span><span class="p">)):</span>
+                    <span class="n">y</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">%</span> <span class="mi">2</span><span class="p">,</span> <span class="n">x</span> <span class="o">//</span> <span class="mi">2</span>
+                    <span class="k">if</span> <span class="n">y</span><span class="p">:</span>
+                        <span class="n">v</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">+=</span> <span class="n">Fraction</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="n">level</span><span class="p">)</span>
+                <span class="n">vertex_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sample_set</span><span class="o">.</span><span class="n">_add_vertex</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">v</span><span class="p">)))</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">vertex_ids</span> <span class="o">=</span> <span class="n">vertex_ids</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">def</span> <span class="nf">refine</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sample_set</span><span class="p">):</span>
+            <span class="n">level</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">level</span>
+            <span class="n">center</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">center</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="nb">len</span><span class="p">(</span><span class="n">center</span><span class="p">)):</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">center</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">center</span><span class="p">)):</span>
+                    <span class="n">y</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">%</span> <span class="mi">2</span><span class="p">,</span> <span class="n">x</span> <span class="o">//</span> <span class="mi">2</span>
+                    <span class="n">v</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">+=</span> <span class="n">Fraction</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="p">(</span><span class="n">level</span><span class="o">+</span><span class="mi">2</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">AdaptiveSampleSet</span><span class="o">.</span><span class="n">Element</span><span class="p">(</span><span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">sample_set</span><span class="p">))</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

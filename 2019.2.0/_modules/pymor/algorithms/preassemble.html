@@ -1,0 +1,136 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.preassemble &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.preassemble</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.rules</span> <span class="kn">import</span> <span class="n">RuleTable</span><span class="p">,</span> <span class="n">match_class</span><span class="p">,</span> <span class="n">match_generic</span>
+<span class="kn">from</span> <span class="nn">pymor.models.interfaces</span> <span class="kn">import</span> <span class="n">ModelInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.basic</span> <span class="kn">import</span> <span class="n">ProjectedOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="p">(</span><span class="n">LincombOperator</span><span class="p">,</span> <span class="n">Concatenation</span><span class="p">,</span>
+                                           <span class="n">AffineOperator</span><span class="p">,</span> <span class="n">AdjointOperator</span><span class="p">,</span> <span class="n">SelectionOperator</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.interfaces</span> <span class="kn">import</span> <span class="n">OperatorInterface</span>
+
+
+<div class="viewcode-block" id="preassemble"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.preassemble.preassemble">[docs]</a><span class="k">def</span> <span class="nf">preassemble</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Preassemble non-parametric operators.</span>
+
+<span class="sd">    If `obj` is a non-parametric |Operator|, return</span>
+<span class="sd">    `obj.assemble()` otherwise return `obj`. Recursively</span>
+<span class="sd">    replaces children of `obj`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">PreAssembleRules</span><span class="p">()</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PreAssembleRules"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.preassemble.PreAssembleRules">[docs]</a><span class="k">class</span> <span class="nc">PreAssembleRules</span><span class="p">(</span><span class="n">RuleTable</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">use_caching</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">ModelInterface</span><span class="p">,</span> <span class="n">AffineOperator</span><span class="p">,</span> <span class="n">Concatenation</span><span class="p">,</span> <span class="n">SelectionOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_recurse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">replace_children</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">LincombOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_recurse_and_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">replace_children</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">op</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">AdjointOperator</span><span class="p">,</span> <span class="n">ProjectedOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_AdjointOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">new_operator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operator</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_operator</span> <span class="ow">is</span> <span class="n">op</span><span class="o">.</span><span class="n">operator</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">op</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">source_product</span> <span class="ow">or</span> <span class="n">op</span><span class="o">.</span><span class="n">range_product</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">new_operator</span><span class="o">.</span><span class="n">H</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">operator</span><span class="o">=</span><span class="n">new_operator</span><span class="p">)</span>
+
+    <span class="nd">@match_generic</span><span class="p">(</span><span class="k">lambda</span> <span class="n">op</span><span class="p">:</span> <span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">parametric</span><span class="p">,</span> <span class="s1">&#39;non-parametric operator&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">OperatorInterface</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_identity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">op</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

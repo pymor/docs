@@ -1,0 +1,368 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.greedy &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.greedy</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">ExtensionError</span>
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">BasicInterface</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+<span class="kn">from</span> <span class="nn">pymor.parallel.dummy</span> <span class="kn">import</span> <span class="n">dummy_pool</span>
+<span class="kn">from</span> <span class="nn">pymor.parallel.interfaces</span> <span class="kn">import</span> <span class="n">RemoteObjectInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.deprecated</span> <span class="kn">import</span> <span class="n">Deprecated</span>
+
+
+<div class="viewcode-block" id="weak_greedy"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.greedy.weak_greedy">[docs]</a><span class="k">def</span> <span class="nf">weak_greedy</span><span class="p">(</span><span class="n">surrogate</span><span class="p">,</span> <span class="n">training_set</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_extensions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pool</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Weak greedy basis generation algorithm [BCDDPW11]_.</span>
+
+<span class="sd">    This algorithm generates an approximation basis for a given set of vectors</span>
+<span class="sd">    associated with a training set of parameters by iteratively evaluating a</span>
+<span class="sd">    :class:`surrogate &lt;WeakGreedySurrogate&gt;` for the approximation error on</span>
+<span class="sd">    the training set and adding the worst approximated vector (according to</span>
+<span class="sd">    the surrogate) to the basis.</span>
+
+<span class="sd">    The constructed basis is extracted from the surrogate after termination</span>
+<span class="sd">    of the algorithm.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    surrogate</span>
+<span class="sd">        An instance of :class:`WeakGreedySurrogate` representing the surrogate</span>
+<span class="sd">        for the approximation error.</span>
+<span class="sd">    training_set</span>
+<span class="sd">        The set of parameter samples on which to perform the greedy search.</span>
+<span class="sd">    atol</span>
+<span class="sd">        If not `None`, stop the algorithm if the maximum (estimated) error</span>
+<span class="sd">        on the training set drops below this value.</span>
+<span class="sd">    rtol</span>
+<span class="sd">        If not `None`, stop the algorithm if the maximum (estimated)</span>
+<span class="sd">        relative error on the training set drops below this value.</span>
+<span class="sd">    max_extensions</span>
+<span class="sd">        If not `None`, stop the algorithm after `max_extensions` extension</span>
+<span class="sd">        steps.</span>
+<span class="sd">    pool</span>
+<span class="sd">        If not `None`, a |WorkerPool| to use for parallelization. Parallelization</span>
+<span class="sd">        needs to be supported by `surrogate`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Dict with the following fields:</span>
+
+<span class="sd">        :max_errs:               Sequence of maximum estimated errors during the greedy run.</span>
+<span class="sd">        :max_err_mus:            The parameters corresponding to `max_errs`.</span>
+<span class="sd">        :extensions:             Number of performed basis extensions.</span>
+<span class="sd">        :time:                   Total runtime of the algorithm.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.greedy.weak_greedy&#39;</span><span class="p">)</span>
+    <span class="n">training_set</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">training_set</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Started greedy search on training set of size {len(training_set)}.&#39;</span><span class="p">)</span>
+
+    <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">training_set</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;There is nothing else to do for an empty training set.&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;max_errs&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;max_err_mus&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;extensions&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span><span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">pool</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pool</span> <span class="o">=</span> <span class="n">dummy_pool</span>
+    <span class="k">elif</span> <span class="n">pool</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">dummy_pool</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Using pool of {len(pool)} workers for parallel greedy search.&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Distribute the training set evenly among the workers.</span>
+    <span class="k">if</span> <span class="n">pool</span><span class="p">:</span>
+        <span class="n">training_set</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">scatter_list</span><span class="p">(</span><span class="n">training_set</span><span class="p">)</span>
+
+    <span class="n">extensions</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">max_errs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">max_err_mus</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Estimating errors ...&#39;</span><span class="p">):</span>
+            <span class="n">max_err</span><span class="p">,</span> <span class="n">max_err_mu</span> <span class="o">=</span> <span class="n">surrogate</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">training_set</span><span class="p">)</span>
+            <span class="n">max_errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">max_err</span><span class="p">)</span>
+            <span class="n">max_err_mus</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">max_err_mu</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Maximum error after </span><span class="si">{extensions}</span><span class="s1"> extensions: </span><span class="si">{max_err}</span><span class="s1"> (mu = </span><span class="si">{max_err_mu}</span><span class="s1">)&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">atol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">max_err</span> <span class="o">&lt;=</span> <span class="n">atol</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Absolute error tolerance (</span><span class="si">{atol}</span><span class="s1">) reached! Stoping extension loop.&#39;</span><span class="p">)</span>
+            <span class="k">break</span>
+
+        <span class="k">if</span> <span class="n">rtol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">max_err</span> <span class="o">/</span> <span class="n">max_errs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">rtol</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Relative error tolerance (</span><span class="si">{rtol}</span><span class="s1">) reached! Stoping extension loop.&#39;</span><span class="p">)</span>
+            <span class="k">break</span>
+
+        <span class="k">with</span> <span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Extending surrogate for mu = </span><span class="si">{max_err_mu}</span><span class="s1"> ...&#39;</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">surrogate</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">max_err_mu</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">ExtensionError</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Extension failed. Stopping now.&#39;</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="n">extensions</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">max_extensions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">extensions</span> <span class="o">&gt;=</span> <span class="n">max_extensions</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Maximum number of </span><span class="si">{max_extensions}</span><span class="s1"> extensions reached.&#39;</span><span class="p">)</span>
+            <span class="k">break</span>
+
+    <span class="n">tictoc</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Greedy search took </span><span class="si">{tictoc}</span><span class="s1"> seconds&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;max_errs&#39;</span><span class="p">:</span> <span class="n">max_errs</span><span class="p">,</span> <span class="s1">&#39;max_err_mus&#39;</span><span class="p">:</span> <span class="n">max_err_mus</span><span class="p">,</span> <span class="s1">&#39;extensions&#39;</span><span class="p">:</span> <span class="n">extensions</span><span class="p">,</span>
+            <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">tictoc</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="WeakGreedySurrogate"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.greedy.WeakGreedySurrogate">[docs]</a><span class="k">class</span> <span class="nc">WeakGreedySurrogate</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Surrogate for the approximation error in :func:`weak_greedy`.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="WeakGreedySurrogate.evaluate"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.greedy.WeakGreedySurrogate.evaluate">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mus</span><span class="p">,</span> <span class="n">return_all_values</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate the surrogate for given parameters.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mus</span>
+<span class="sd">            List of parameters for which to estimate the approximation</span>
+<span class="sd">            error. When parallelization is used, `mus` can be a |RemoteObject|.</span>
+<span class="sd">        return_all_values</span>
+<span class="sd">            See below.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        If `return_all_values` is `True`, an |array| of the estimated errors.</span>
+<span class="sd">        If `return_all_values` is `False`, the maximum estimated error as first</span>
+<span class="sd">        return value and the corresponding parameter as second return value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">extend</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="rb_greedy"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.greedy.rb_greedy">[docs]</a><span class="k">def</span> <span class="nf">rb_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">training_set</span><span class="p">,</span> <span class="n">use_estimator</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">error_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+              <span class="n">atol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_extensions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extension_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pool</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Weak Greedy basis generation using the RB approximation error as surrogate.</span>
+
+<span class="sd">    This algorithm generates a reduced basis using the :func:`weak greedy &lt;weak_greedy&gt;`</span>
+<span class="sd">    algorithm [BCDDPW11]_, where the approximation error is estimated from computing</span>
+<span class="sd">    solutions of the reduced order model for the current reduced basis and then estimating</span>
+<span class="sd">    the model reduction error.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The |Model| to reduce.</span>
+<span class="sd">    reductor</span>
+<span class="sd">        Reductor for reducing the given |Model|. This has to be</span>
+<span class="sd">        an object with a `reduce` method, such that `reductor.reduce()`</span>
+<span class="sd">        yields the reduced model, and an `exted_basis` method,</span>
+<span class="sd">        such that `reductor.extend_basis(U, copy_U=False, **extension_params)`</span>
+<span class="sd">        extends the current reduced basis by the vectors contained in `U`.</span>
+<span class="sd">        For an example see :class:`~pymor.reductors.coercive.CoerciveRBReductor`.</span>
+<span class="sd">    training_set</span>
+<span class="sd">        The training set of |Parameters| on which to perform the greedy search.</span>
+<span class="sd">    use_estimator</span>
+<span class="sd">        If `False`, exactly compute the model reduction error by also computing</span>
+<span class="sd">        the solution of `fom` for each training set |Parameter|. This is mainly</span>
+<span class="sd">        useful when no estimator for the model reduction error is available.</span>
+<span class="sd">    error_norm</span>
+<span class="sd">        If `use_estimator` is `False`, use this function to calculate the</span>
+<span class="sd">        norm of the error. If `None`, the Euclidean norm is used.</span>
+<span class="sd">    atol</span>
+<span class="sd">        See :func:`weak_greedy`.</span>
+<span class="sd">    rtol</span>
+<span class="sd">        See :func:`weak_greedy`.</span>
+<span class="sd">    max_extensions</span>
+<span class="sd">        See :func:`weak_greedy`.</span>
+<span class="sd">    extension_params</span>
+<span class="sd">        `dict` of parameters passed to the `reductor.extend_basis` method.</span>
+<span class="sd">        If `None`, `&#39;gram_schmidt&#39;` basis extension will be used as a default</span>
+<span class="sd">        for stationary problems (`fom.solve` returns `VectorArrays` of length 1)</span>
+<span class="sd">        and `&#39;pod&#39;` basis extension (adding a single POD mode) for instationary</span>
+<span class="sd">        problems.</span>
+<span class="sd">    pool</span>
+<span class="sd">        See :func:`weak_greedy`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Dict with the following fields:</span>
+
+<span class="sd">        :rom:                    The reduced |Model| obtained for the</span>
+<span class="sd">                                 computed basis.</span>
+<span class="sd">        :max_errs:               Sequence of maximum errors during the greedy run.</span>
+<span class="sd">        :max_err_mus:            The parameters corresponding to `max_errs`.</span>
+<span class="sd">        :extensions:             Number of performed basis extensions.</span>
+<span class="sd">        :time:                   Total runtime of the algorithm.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">surrogate</span> <span class="o">=</span> <span class="n">RBSurrogate</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">use_estimator</span><span class="p">,</span> <span class="n">error_norm</span><span class="p">,</span> <span class="n">extension_params</span><span class="p">,</span> <span class="n">pool</span> <span class="ow">or</span> <span class="n">dummy_pool</span><span class="p">)</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">weak_greedy</span><span class="p">(</span><span class="n">surrogate</span><span class="p">,</span> <span class="n">training_set</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span> <span class="n">max_extensions</span><span class="o">=</span><span class="n">max_extensions</span><span class="p">,</span> <span class="n">pool</span><span class="o">=</span><span class="n">pool</span><span class="p">)</span>
+    <span class="n">result</span><span class="p">[</span><span class="s1">&#39;rom&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">surrogate</span><span class="o">.</span><span class="n">rom</span>
+
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="RBSurrogate"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.greedy.RBSurrogate">[docs]</a><span class="k">class</span> <span class="nc">RBSurrogate</span><span class="p">(</span><span class="n">WeakGreedySurrogate</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Surrogate for the :func:`weak_greedy` error used in :func:`rb_greedy`.</span>
+
+<span class="sd">    Not intended to be used directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">use_estimator</span><span class="p">,</span> <span class="n">error_norm</span><span class="p">,</span> <span class="n">extension_params</span><span class="p">,</span> <span class="n">pool</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">use_estimator</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote_fom</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_error_norm</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_reductor</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote_fom</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_error_norm</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_reductor</span> <span class="o">=</span> \
+                <span class="n">pool</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">fom</span><span class="p">),</span> <span class="n">pool</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">error_norm</span><span class="p">),</span> <span class="n">pool</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">reductor</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rom</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="RBSurrogate.evaluate"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.greedy.RBSurrogate.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mus</span><span class="p">,</span> <span class="n">return_all_values</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rom</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Reducing ...&#39;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mus</span><span class="p">,</span> <span class="n">RemoteObjectInterface</span><span class="p">):</span>
+            <span class="n">mus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pool</span><span class="o">.</span><span class="n">scatter_list</span><span class="p">(</span><span class="n">mus</span><span class="p">)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pool</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_rb_surrogate_evaluate</span><span class="p">,</span>
+                                 <span class="n">rom</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rom</span><span class="p">,</span>
+                                 <span class="n">fom</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">remote_fom</span><span class="p">,</span>
+                                 <span class="n">reductor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">remote_reductor</span><span class="p">,</span>
+                                 <span class="n">mus</span><span class="o">=</span><span class="n">mus</span><span class="p">,</span>
+                                 <span class="n">error_norm</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">remote_error_norm</span><span class="p">,</span>
+                                 <span class="n">return_all_values</span><span class="o">=</span><span class="n">return_all_values</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">return_all_values</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">errs</span><span class="p">,</span> <span class="n">max_err_mus</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">result</span><span class="p">))</span>
+            <span class="n">max_err_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">errs</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">errs</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">],</span> <span class="n">max_err_mus</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">]</span></div>
+
+    <span class="k">def</span> <span class="nf">extend</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Computing solution snapshot for mu = </span><span class="si">{mu}</span><span class="s1"> ...&#39;</span><span class="p">):</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Extending basis with solution snapshot ...&#39;</span><span class="p">):</span>
+            <span class="n">extension_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extension_params</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">extension_params</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">extension_params</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;pod&#39;</span><span class="p">}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reductor</span><span class="o">.</span><span class="n">extend_basis</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">copy_U</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="p">(</span><span class="n">extension_params</span> <span class="ow">or</span> <span class="p">{}))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_estimator</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">remote_reductor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pool</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reductor</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Reducing ...&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">()</span></div>
+
+
+<span class="k">def</span> <span class="nf">_rb_surrogate_evaluate</span><span class="p">(</span><span class="n">rom</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fom</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reductor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mus</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">error_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_all_values</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">mus</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">return_all_values</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">fom</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">errors</span> <span class="o">=</span> <span class="p">[</span><span class="n">rom</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">),</span> <span class="n">mu</span><span class="p">)</span> <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mus</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">error_norm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">errors</span> <span class="o">=</span> <span class="p">[</span><span class="n">error_norm</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="o">-</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)))</span> <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mus</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">errors</span> <span class="o">=</span> <span class="p">[(</span><span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="o">-</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)))</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span> <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mus</span><span class="p">]</span>
+    <span class="c1"># most error_norms will return an array of length 1 instead of a number, so we extract the numbers</span>
+    <span class="c1"># if necessary</span>
+    <span class="n">errors</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s1">&#39;__len__&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">errors</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">return_all_values</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">errors</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">max_err_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">errors</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">errors</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">],</span> <span class="n">mus</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="greedy"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.greedy.greedy">[docs]</a><span class="nd">@Deprecated</span><span class="p">(</span><span class="n">rb_greedy</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">greedy</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="s1">&#39;samples&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">training_set</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;samples&#39;</span><span class="p">)</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;training_set&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">training_set</span>
+    <span class="k">return</span> <span class="n">rb_greedy</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

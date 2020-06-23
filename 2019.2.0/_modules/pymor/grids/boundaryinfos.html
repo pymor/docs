@@ -1,0 +1,144 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.grids.boundaryinfos &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.grids.boundaryinfos</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.grids.interfaces</span> <span class="kn">import</span> <span class="n">BoundaryInfoInterface</span>
+
+
+<div class="viewcode-block" id="EmptyBoundaryInfo"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.boundaryinfos.EmptyBoundaryInfo">[docs]</a><span class="k">class</span> <span class="nc">EmptyBoundaryInfo</span><span class="p">(</span><span class="n">BoundaryInfoInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|BoundaryInfo| with no boundary types attached to any boundary.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">boundary_types</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+
+<div class="viewcode-block" id="EmptyBoundaryInfo.mask"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.boundaryinfos.EmptyBoundaryInfo.mask">[docs]</a>    <span class="k">def</span> <span class="nf">mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">boundary_type</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Has no boundary_type &quot;</span><span class="si">{boundary_type}</span><span class="s1">&quot;&#39;</span></div></div>
+
+
+<div class="viewcode-block" id="GenericBoundaryInfo"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.boundaryinfos.GenericBoundaryInfo">[docs]</a><span class="k">class</span> <span class="nc">GenericBoundaryInfo</span><span class="p">(</span><span class="n">BoundaryInfoInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generic |BoundaryInfo| storing entity masks per boundary type.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">masks</span><span class="p">,</span> <span class="n">assert_unique_type</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">assert_some_type</span><span class="o">=</span><span class="p">()):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">boundary_types</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">masks</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_boundary_types</span><span class="p">(</span><span class="n">assert_unique_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">assert_unique_type</span><span class="p">,</span> <span class="n">assert_some_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">assert_some_type</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GenericBoundaryInfo.from_indicators"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.boundaryinfos.GenericBoundaryInfo.from_indicators">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_indicators</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">indicators</span><span class="p">,</span> <span class="n">assert_unique_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">assert_some_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create |BoundaryInfo| from indicator functions.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        grid</span>
+<span class="sd">            The |Grid| to which the |BoundaryInfo| is associated.</span>
+<span class="sd">        indicators</span>
+<span class="sd">            Dict where each key is a boundary type and the corresponding value is a boolean</span>
+<span class="sd">            valued function defined on the analytical domain which indicates if a point belongs</span>
+<span class="sd">            to a boundary of the given boundary type (the indicator functions must be vectorized).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">masks</span> <span class="o">=</span> <span class="p">{</span><span class="n">boundary_type</span><span class="p">:</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">codim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;bool&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">codim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+                 <span class="k">for</span> <span class="n">boundary_type</span> <span class="ow">in</span> <span class="n">indicators</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">boundary_type</span><span class="p">,</span> <span class="n">codims</span> <span class="ow">in</span> <span class="n">masks</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">mask</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">codims</span><span class="p">):</span>
+                <span class="n">mask</span><span class="p">[</span><span class="n">grid</span><span class="o">.</span><span class="n">boundaries</span><span class="p">(</span><span class="n">c</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="n">indicators</span><span class="p">[</span><span class="n">boundary_type</span><span class="p">](</span><span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="n">c</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)[</span><span class="n">grid</span><span class="o">.</span><span class="n">boundaries</span><span class="p">(</span><span class="n">c</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)])</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">masks</span><span class="p">,</span> <span class="n">assert_unique_type</span><span class="o">=</span><span class="n">assert_unique_type</span><span class="p">,</span> <span class="n">assert_some_type</span><span class="o">=</span><span class="n">assert_some_type</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GenericBoundaryInfo.mask"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.boundaryinfos.GenericBoundaryInfo.mask">[docs]</a>    <span class="k">def</span> <span class="nf">mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">boundary_type</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">1</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">dim</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">[</span><span class="n">boundary_type</span><span class="p">][</span><span class="n">codim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="AllDirichletBoundaryInfo"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.boundaryinfos.AllDirichletBoundaryInfo">[docs]</a><span class="k">class</span> <span class="nc">AllDirichletBoundaryInfo</span><span class="p">(</span><span class="n">BoundaryInfoInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|BoundaryInfo| where the boundary type &#39;dirichlet&#39; is attached to each boundary entity.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">boundary_types</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s1">&#39;dirichlet&#39;</span><span class="p">})</span>
+
+<div class="viewcode-block" id="AllDirichletBoundaryInfo.mask"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.boundaryinfos.AllDirichletBoundaryInfo.mask">[docs]</a>    <span class="k">def</span> <span class="nf">mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">boundary_type</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">boundary_type</span> <span class="o">==</span> <span class="s1">&#39;dirichlet&#39;</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Has no boundary_type &quot;</span><span class="si">{boundary_type}</span><span class="s1">&quot;&#39;</span>
+        <span class="k">assert</span> <span class="mi">1</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">dim</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">codim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;bool&#39;</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">boundary_mask</span><span class="p">(</span><span class="n">codim</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

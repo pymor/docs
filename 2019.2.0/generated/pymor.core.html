@@ -1,0 +1,2030 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.core package &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="pymor.discretizers package" href="pymor.discretizers.html" />
+    <link rel="prev" title="pymor.bindings package" href="pymor.bindings.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="pymor.discretizers.html" title="pymor.discretizers package"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="pymor.bindings.html" title="pymor.bindings package"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="pymor.html" accesskey="U">pymor package</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-pymor.core">
+<span id="pymor-core-package"></span><h1>pymor.core package<a class="headerlink" href="#module-pymor.core" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-pymor.core.cache">
+<span id="cache-module"></span><h3>cache module<a class="headerlink" href="#module-pymor.core.cache" title="Permalink to this headline">¶</a></h3>
+<p>This module provides the caching facilities of pyMOR.</p>
+<p>Any class that wishes to provide cached method calls should derive from
+<a class="reference internal" href="#pymor.core.cache.CacheableInterface" title="pymor.core.cache.CacheableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheableInterface</span></code></a>. Methods which are to be cached can then
+be marked using the <a class="reference internal" href="#pymor.core.cache.cached" title="pymor.core.cache.cached"><code class="xref py py-class docutils literal notranslate"><span class="pre">cached</span></code></a> decorator.</p>
+<p>To ensure consistency, <a class="reference internal" href="#pymor.core.cache.CacheableInterface" title="pymor.core.cache.CacheableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheableInterface</span></code></a> derives from
+<a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface" title="pymor.core.interfaces.ImmutableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImmutableInterface</span></code></a>: The return value of a cached method call should
+only depend on its arguments as well as the immutable state of the class
+instance.</p>
+<p>Making this assumption, the keys for cache lookup are created from
+the following data:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>the instance’s <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> in case of a <a class="reference internal" href="#pymor.core.cache.CacheRegion.persistent" title="pymor.core.cache.CacheRegion.persistent"><code class="xref py py-attr docutils literal notranslate"><span class="pre">persistent</span></code></a>
+<a class="reference internal" href="#pymor.core.cache.CacheRegion" title="pymor.core.cache.CacheRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheRegion</span></code></a>, else the instance’s
+<a class="reference internal" href="#pymor.core.interfaces.BasicInterface.uid" title="pymor.core.interfaces.BasicInterface.uid"><code class="xref py py-attr docutils literal notranslate"><span class="pre">uid</span></code></a>,</p></li>
+<li><p>the method’s <code class="docutils literal notranslate"><span class="pre">__name__</span></code>,</p></li>
+<li><p>the <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> of the arguments,</p></li>
+<li><p>the <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> of pyMOR’s global <a class="reference internal" href="#module-pymor.core.defaults" title="pymor.core.defaults"><code class="xref py py-mod docutils literal notranslate"><span class="pre">defaults</span></code></a>.</p></li>
+</ol>
+</div></blockquote>
+<p>Note that instances of <a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface" title="pymor.core.interfaces.ImmutableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImmutableInterface</span></code></a> are allowed to have mutable
+private attributes. It is the implementors responsibility not to break things.
+(See this <a class="reference internal" href="#immutableinterfacewarning"><span class="std std-ref">warning</span></a>.)</p>
+<p>Backends for storage of cached return values derive from <a class="reference internal" href="#pymor.core.cache.CacheRegion" title="pymor.core.cache.CacheRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheRegion</span></code></a>.
+Currently two backends are provided for memory-based and disk-based caching
+(<a class="reference internal" href="#pymor.core.cache.MemoryRegion" title="pymor.core.cache.MemoryRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">MemoryRegion</span></code></a> and <a class="reference internal" href="#pymor.core.cache.DiskRegion" title="pymor.core.cache.DiskRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">DiskRegion</span></code></a>). The available regions
+are stored in the module level <code class="docutils literal notranslate"><span class="pre">cache_regions</span></code> dict. The user can add
+additional regions (e.g. multiple disk cache regions) as required.
+<a class="reference internal" href="#pymor.core.cache.CacheableInterface.cache_region" title="pymor.core.cache.CacheableInterface.cache_region"><code class="xref py py-attr docutils literal notranslate"><span class="pre">CacheableInterface.cache_region</span></code></a> specifies a key of the <code class="docutils literal notranslate"><span class="pre">cache_regions</span></code> dict
+to select a cache region which should be used by the instance.
+(Setting <a class="reference internal" href="#pymor.core.cache.CacheableInterface.cache_region" title="pymor.core.cache.CacheableInterface.cache_region"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cache_region</span></code></a> to <code class="docutils literal notranslate"><span class="pre">None</span></code> or <code class="docutils literal notranslate"><span class="pre">'none'</span></code> disables caching.)</p>
+<p>By default, a ‘memory’, a ‘disk’ and a ‘persistent’ cache region are configured. The
+paths and maximum sizes of the disk regions, as well as the maximum number of keys of
+the memory cache region can be configured via the
+<code class="docutils literal notranslate"><span class="pre">pymor.core.cache.default_regions.disk_path</span></code>,
+<code class="docutils literal notranslate"><span class="pre">pymor.core.cache.default_regions.disk_max_size</span></code>,
+<code class="docutils literal notranslate"><span class="pre">pymor.core.cache.default_regions.persistent_path</span></code>,
+<code class="docutils literal notranslate"><span class="pre">pymor.core.cache.default_regions.persistent_max_size</span></code> and
+<code class="docutils literal notranslate"><span class="pre">pymor.core.cache.default_regions.memory_max_keys</span></code> <a class="reference internal" href="#module-pymor.core.defaults" title="pymor.core.defaults"><code class="xref py py-mod docutils literal notranslate"><span class="pre">defaults</span></code></a>.</p>
+<p>There two ways to disable and enable caching in pyMOR:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>Calling <a class="reference internal" href="#pymor.core.cache.disable_caching" title="pymor.core.cache.disable_caching"><code class="xref py py-func docutils literal notranslate"><span class="pre">disable_caching</span></code></a> (<a class="reference internal" href="#pymor.core.cache.enable_caching" title="pymor.core.cache.enable_caching"><code class="xref py py-func docutils literal notranslate"><span class="pre">enable_caching</span></code></a>), to disable
+(enable) caching globally.</p></li>
+<li><p>Calling <a class="reference internal" href="#pymor.core.cache.CacheableInterface.disable_caching" title="pymor.core.cache.CacheableInterface.disable_caching"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CacheableInterface.disable_caching</span></code></a>
+(<a class="reference internal" href="#pymor.core.cache.CacheableInterface.enable_caching" title="pymor.core.cache.CacheableInterface.enable_caching"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CacheableInterface.enable_caching</span></code></a>) to disable (enable) caching
+for a given instance.</p></li>
+</ol>
+</div></blockquote>
+<p>Caching of a method is only active if caching has been enabled both globally
+(enabled by default) and on instance level. For debugging purposes, it is moreover
+possible to set the environment variable <code class="docutils literal notranslate"><span class="pre">PYMOR_CACHE_DISABLE=1</span></code> which overrides
+any call to <a class="reference internal" href="#pymor.core.cache.enable_caching" title="pymor.core.cache.enable_caching"><code class="xref py py-func docutils literal notranslate"><span class="pre">enable_caching</span></code></a>.</p>
+<p>A cache region can be emptied using <a class="reference internal" href="#pymor.core.cache.CacheRegion.clear" title="pymor.core.cache.CacheRegion.clear"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CacheRegion.clear</span></code></a>. The function
+<a class="reference internal" href="#pymor.core.cache.clear_caches" title="pymor.core.cache.clear_caches"><code class="xref py py-func docutils literal notranslate"><span class="pre">clear_caches</span></code></a> clears each cache region registered in <code class="docutils literal notranslate"><span class="pre">cache_regions</span></code>.</p>
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.cache.CacheRegion">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.cache.</code><code class="sig-name descname">CacheRegion</code><a class="reference internal" href="../_modules/pymor/core/cache.html#CacheRegion"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.CacheRegion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Base class for all pyMOR cache regions.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.cache.CacheRegion" title="pymor.core.cache.CacheRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheRegion</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.cache.CacheRegion.clear" title="pymor.core.cache.CacheRegion.clear"><code class="xref py py-meth docutils literal notranslate"><span class="pre">clear</span></code></a>, <a class="reference internal" href="#pymor.core.cache.CacheRegion.get" title="pymor.core.cache.CacheRegion.get"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get</span></code></a>, <a class="reference internal" href="#pymor.core.cache.CacheRegion.set" title="pymor.core.cache.CacheRegion.set"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.cache.CacheRegion" title="pymor.core.cache.CacheRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheRegion</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.cache.CacheRegion.persistent" title="pymor.core.cache.CacheRegion.persistent"><code class="xref py py-attr docutils literal notranslate"><span class="pre">persistent</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="attribute">
+<dt id="pymor.core.cache.CacheRegion.persistent">
+<code class="sig-name descname">persistent</code><a class="headerlink" href="#pymor.core.cache.CacheRegion.persistent" title="Permalink to this definition">¶</a></dt>
+<dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, cache entries are kept between multiple
+program runs.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.cache.CacheRegion.clear">
+<code class="sig-name descname">clear</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#CacheRegion.clear"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.CacheRegion.clear" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clear the entire cache region.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.cache.CacheRegion.get">
+<code class="sig-name descname">get</code><span class="sig-paren">(</span><em class="sig-param">key</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#CacheRegion.get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.CacheRegion.get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return cache entry for given key.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>key</dt><dd><p>The key for the cache entry.</p>
+</dd>
+</dl>
+</div>
+<div class="admonition-returns admonition">
+<p class="admonition-title">Returns</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">(True,</span> <span class="pre">entry)</span></code></dt><dd><p>in case the <code class="docutils literal notranslate"><span class="pre">key</span></code> has been found in the cache region.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">(False,</span> <span class="pre">None)</span></code></dt><dd><p>in case the <code class="docutils literal notranslate"><span class="pre">key</span></code> is not present in the cache region.</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.cache.CacheRegion.set">
+<code class="sig-name descname">set</code><span class="sig-paren">(</span><em class="sig-param">key</em>, <em class="sig-param">value</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#CacheRegion.set"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.CacheRegion.set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set cache entry for <code class="docutils literal notranslate"><span class="pre">key</span></code> to given <code class="docutils literal notranslate"><span class="pre">value</span></code>.</p>
+<p>This method is usually called only once for
+any given <code class="docutils literal notranslate"><span class="pre">key</span></code> (with the exemption of issues
+due to concurrency).</p>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.cache.CacheableInterface">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.cache.</code><code class="sig-name descname">CacheableInterface</code><a class="reference internal" href="../_modules/pymor/core/cache.html#CacheableInterface"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.CacheableInterface" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface" title="pymor.core.interfaces.ImmutableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">pymor.core.interfaces.ImmutableInterface</span></code></a></p>
+<p>Base class for anything that wants to use our built-in caching.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.cache.CacheableInterface" title="pymor.core.cache.CacheableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheableInterface</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.cache.CacheableInterface.cached_method_call" title="pymor.core.cache.CacheableInterface.cached_method_call"><code class="xref py py-meth docutils literal notranslate"><span class="pre">cached_method_call</span></code></a>, <a class="reference internal" href="#pymor.core.cache.CacheableInterface.disable_caching" title="pymor.core.cache.CacheableInterface.disable_caching"><code class="xref py py-meth docutils literal notranslate"><span class="pre">disable_caching</span></code></a>, <a class="reference internal" href="#pymor.core.cache.CacheableInterface.enable_caching" title="pymor.core.cache.CacheableInterface.enable_caching"><code class="xref py py-meth docutils literal notranslate"><span class="pre">enable_caching</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface" title="pymor.core.interfaces.ImmutableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImmutableInterface</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.generate_sid" title="pymor.core.interfaces.ImmutableInterface.generate_sid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">generate_sid</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.with_" title="pymor.core.interfaces.ImmutableInterface.with_"><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.__setattr__" title="pymor.core.interfaces.ImmutableInterface.__setattr__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">__setattr__</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface" title="pymor.core.interfaces.BasicInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicInterface</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface.disable_logging" title="pymor.core.interfaces.BasicInterface.disable_logging"><code class="xref py py-meth docutils literal notranslate"><span class="pre">disable_logging</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.enable_logging" title="pymor.core.interfaces.BasicInterface.enable_logging"><code class="xref py py-meth docutils literal notranslate"><span class="pre">enable_logging</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.has_interface_name" title="pymor.core.interfaces.BasicInterface.has_interface_name"><code class="xref py py-meth docutils literal notranslate"><span class="pre">has_interface_name</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.implementor_names" title="pymor.core.interfaces.BasicInterface.implementor_names"><code class="xref py py-meth docutils literal notranslate"><span class="pre">implementor_names</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.implementors" title="pymor.core.interfaces.BasicInterface.implementors"><code class="xref py py-meth docutils literal notranslate"><span class="pre">implementors</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.cache.CacheableInterface" title="pymor.core.cache.CacheableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheableInterface</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.cache.CacheableInterface.cache_region" title="pymor.core.cache.CacheableInterface.cache_region"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cache_region</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.sid_ignore" title="pymor.core.interfaces.ImmutableInterface.sid_ignore"><code class="xref py py-attr docutils literal notranslate"><span class="pre">sid_ignore</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface" title="pymor.core.interfaces.ImmutableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImmutableInterface</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.sid" title="pymor.core.interfaces.ImmutableInterface.sid"><code class="xref py py-attr docutils literal notranslate"><span class="pre">sid</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface" title="pymor.core.interfaces.BasicInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicInterface</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface.logger" title="pymor.core.interfaces.BasicInterface.logger"><code class="xref py py-attr docutils literal notranslate"><span class="pre">logger</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.logging_disabled" title="pymor.core.interfaces.BasicInterface.logging_disabled"><code class="xref py py-attr docutils literal notranslate"><span class="pre">logging_disabled</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.name" title="pymor.core.interfaces.BasicInterface.name"><code class="xref py py-attr docutils literal notranslate"><span class="pre">name</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.uid" title="pymor.core.interfaces.BasicInterface.uid"><code class="xref py py-attr docutils literal notranslate"><span class="pre">uid</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="attribute">
+<dt id="pymor.core.cache.CacheableInterface.cache_region">
+<code class="sig-name descname">cache_region</code><a class="headerlink" href="#pymor.core.cache.CacheableInterface.cache_region" title="Permalink to this definition">¶</a></dt>
+<dd><p>Name of the <a class="reference internal" href="#pymor.core.cache.CacheRegion" title="pymor.core.cache.CacheRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheRegion</span></code></a> to use. Must correspond to a key in
+the <code class="xref py py-attr docutils literal notranslate"><span class="pre">cache_regions</span></code> dict. If <code class="docutils literal notranslate"><span class="pre">None</span></code> or <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, caching
+is disabled.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.cache.CacheableInterface.cached_method_call">
+<code class="sig-name descname">cached_method_call</code><span class="sig-paren">(</span><em class="sig-param">method</em>, <em class="sig-param">*args</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#CacheableInterface.cached_method_call"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.CacheableInterface.cached_method_call" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call a given <code class="docutils literal notranslate"><span class="pre">method</span></code> and cache the return value.</p>
+<p>This method can be used as an alternative to the <a class="reference internal" href="#pymor.core.cache.cached" title="pymor.core.cache.cached"><code class="xref py py-func docutils literal notranslate"><span class="pre">cached</span></code></a>
+decorator.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>method</dt><dd><p>The method that is to be called. This has to be a method
+of <code class="docutils literal notranslate"><span class="pre">self</span></code>.</p>
+</dd>
+<dt>args</dt><dd><p>Positional arguments for <code class="docutils literal notranslate"><span class="pre">method</span></code>.</p>
+</dd>
+<dt>kwargs</dt><dd><p>Keyword arguments for <code class="docutils literal notranslate"><span class="pre">method</span></code></p>
+</dd>
+</dl>
+</div>
+<div class="admonition-returns admonition">
+<p class="admonition-title">Returns</p>
+<p>The (possibly cached) return value of <code class="docutils literal notranslate"><span class="pre">method(*args,</span> <span class="pre">**kwargs)</span></code>.</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.cache.CacheableInterface.disable_caching">
+<code class="sig-name descname">disable_caching</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#CacheableInterface.disable_caching"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.CacheableInterface.disable_caching" title="Permalink to this definition">¶</a></dt>
+<dd><p>Disable caching for this instance.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.cache.CacheableInterface.enable_caching">
+<code class="sig-name descname">enable_caching</code><span class="sig-paren">(</span><em class="sig-param">region</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#CacheableInterface.enable_caching"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.CacheableInterface.enable_caching" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enable caching for this instance.</p>
+<p>When setting the object’s cache region to a <a class="reference internal" href="#pymor.core.cache.CacheRegion.persistent" title="pymor.core.cache.CacheRegion.persistent"><code class="xref py py-attr docutils literal notranslate"><span class="pre">persistent</span></code></a>
+<a class="reference internal" href="#pymor.core.cache.CacheRegion" title="pymor.core.cache.CacheRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheRegion</span></code></a>, the object’s <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> will be computed.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>region</dt><dd><p>Name of the <code class="docutils literal notranslate"><span class="pre">CacheRegion</span></code> to use. Must correspond to a key in
+the <code class="xref py py-attr docutils literal notranslate"><span class="pre">cache_regions</span></code> dict. If <code class="docutils literal notranslate"><span class="pre">None</span></code> or <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, caching
+is disabled.</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.cache.DiskRegion">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.cache.</code><code class="sig-name descname">DiskRegion</code><span class="sig-paren">(</span><em class="sig-param">path</em>, <em class="sig-param">max_size</em>, <em class="sig-param">persistent</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#DiskRegion"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.DiskRegion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pymor.core.cache.CacheRegion" title="pymor.core.cache.CacheRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">pymor.core.cache.CacheRegion</span></code></a></p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.cache.DiskRegion" title="pymor.core.cache.DiskRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">DiskRegion</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.cache.CacheRegion.clear" title="pymor.core.cache.CacheRegion.clear"><code class="xref py py-meth docutils literal notranslate"><span class="pre">clear</span></code></a>, <a class="reference internal" href="#pymor.core.cache.CacheRegion.get" title="pymor.core.cache.CacheRegion.get"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get</span></code></a>, <a class="reference internal" href="#pymor.core.cache.CacheRegion.set" title="pymor.core.cache.CacheRegion.set"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.cache.CacheRegion" title="pymor.core.cache.CacheRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheRegion</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.cache.CacheRegion.persistent" title="pymor.core.cache.CacheRegion.persistent"><code class="xref py py-attr docutils literal notranslate"><span class="pre">persistent</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="method">
+<dt id="pymor.core.cache.DiskRegion.clear">
+<code class="sig-name descname">clear</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#DiskRegion.clear"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.DiskRegion.clear" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clear the entire cache region.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.cache.DiskRegion.get">
+<code class="sig-name descname">get</code><span class="sig-paren">(</span><em class="sig-param">key</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#DiskRegion.get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.DiskRegion.get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return cache entry for given key.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>key</dt><dd><p>The key for the cache entry.</p>
+</dd>
+</dl>
+</div>
+<div class="admonition-returns admonition">
+<p class="admonition-title">Returns</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">(True,</span> <span class="pre">entry)</span></code></dt><dd><p>in case the <code class="docutils literal notranslate"><span class="pre">key</span></code> has been found in the cache region.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">(False,</span> <span class="pre">None)</span></code></dt><dd><p>in case the <code class="docutils literal notranslate"><span class="pre">key</span></code> is not present in the cache region.</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.cache.DiskRegion.set">
+<code class="sig-name descname">set</code><span class="sig-paren">(</span><em class="sig-param">key</em>, <em class="sig-param">value</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#DiskRegion.set"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.DiskRegion.set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set cache entry for <code class="docutils literal notranslate"><span class="pre">key</span></code> to given <code class="docutils literal notranslate"><span class="pre">value</span></code>.</p>
+<p>This method is usually called only once for
+any given <code class="docutils literal notranslate"><span class="pre">key</span></code> (with the exemption of issues
+due to concurrency).</p>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.cache.MemoryRegion">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.cache.</code><code class="sig-name descname">MemoryRegion</code><span class="sig-paren">(</span><em class="sig-param">max_keys</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#MemoryRegion"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.MemoryRegion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pymor.core.cache.CacheRegion" title="pymor.core.cache.CacheRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">pymor.core.cache.CacheRegion</span></code></a></p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.cache.MemoryRegion" title="pymor.core.cache.MemoryRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">MemoryRegion</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.cache.CacheRegion.clear" title="pymor.core.cache.CacheRegion.clear"><code class="xref py py-meth docutils literal notranslate"><span class="pre">clear</span></code></a>, <a class="reference internal" href="#pymor.core.cache.CacheRegion.get" title="pymor.core.cache.CacheRegion.get"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get</span></code></a>, <a class="reference internal" href="#pymor.core.cache.CacheRegion.set" title="pymor.core.cache.CacheRegion.set"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.cache.MemoryRegion" title="pymor.core.cache.MemoryRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">MemoryRegion</span></code></a></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">NO_VALUE</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymor.core.cache.CacheRegion" title="pymor.core.cache.CacheRegion"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheRegion</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.cache.CacheRegion.persistent" title="pymor.core.cache.CacheRegion.persistent"><code class="xref py py-attr docutils literal notranslate"><span class="pre">persistent</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="method">
+<dt id="pymor.core.cache.MemoryRegion.clear">
+<code class="sig-name descname">clear</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#MemoryRegion.clear"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.MemoryRegion.clear" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clear the entire cache region.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.cache.MemoryRegion.get">
+<code class="sig-name descname">get</code><span class="sig-paren">(</span><em class="sig-param">key</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#MemoryRegion.get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.MemoryRegion.get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return cache entry for given key.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>key</dt><dd><p>The key for the cache entry.</p>
+</dd>
+</dl>
+</div>
+<div class="admonition-returns admonition">
+<p class="admonition-title">Returns</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">(True,</span> <span class="pre">entry)</span></code></dt><dd><p>in case the <code class="docutils literal notranslate"><span class="pre">key</span></code> has been found in the cache region.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">(False,</span> <span class="pre">None)</span></code></dt><dd><p>in case the <code class="docutils literal notranslate"><span class="pre">key</span></code> is not present in the cache region.</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.cache.MemoryRegion.set">
+<code class="sig-name descname">set</code><span class="sig-paren">(</span><em class="sig-param">key</em>, <em class="sig-param">value</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#MemoryRegion.set"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.MemoryRegion.set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set cache entry for <code class="docutils literal notranslate"><span class="pre">key</span></code> to given <code class="docutils literal notranslate"><span class="pre">value</span></code>.</p>
+<p>This method is usually called only once for
+any given <code class="docutils literal notranslate"><span class="pre">key</span></code> (with the exemption of issues
+due to concurrency).</p>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.cache.cached">
+<code class="sig-prename descclassname">pymor.core.cache.</code><code class="sig-name descname">cached</code><span class="sig-paren">(</span><em class="sig-param">function</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#cached"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.cached" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decorator to make a method of <code class="docutils literal notranslate"><span class="pre">CacheableInterface</span></code> actually cached.</p>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.cache.cleanup_non_persisten_regions">
+<code class="sig-prename descclassname">pymor.core.cache.</code><code class="sig-name descname">cleanup_non_persisten_regions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#cleanup_non_persisten_regions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.cleanup_non_persisten_regions" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.cache.clear_caches">
+<code class="sig-prename descclassname">pymor.core.cache.</code><code class="sig-name descname">clear_caches</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#clear_caches"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.clear_caches" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clear all cache regions.</p>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.cache.default_regions">
+<code class="sig-prename descclassname">pymor.core.cache.</code><code class="sig-name descname">default_regions</code><span class="sig-paren">(</span><em class="sig-param">disk_path='/tmp/pymor.cache.pymor'</em>, <em class="sig-param">disk_max_size=1073741824</em>, <em class="sig-param">persistent_path='/tmp/pymor.persistent.cache.pymor'</em>, <em class="sig-param">persistent_max_size=1073741824</em>, <em class="sig-param">memory_max_keys=1000</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#default_regions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.default_regions" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.cache.disable_caching">
+<code class="sig-prename descclassname">pymor.core.cache.</code><code class="sig-name descname">disable_caching</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#disable_caching"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.disable_caching" title="Permalink to this definition">¶</a></dt>
+<dd><p>Globally disable caching.</p>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.cache.enable_caching">
+<code class="sig-prename descclassname">pymor.core.cache.</code><code class="sig-name descname">enable_caching</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/cache.html#enable_caching"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.cache.enable_caching" title="Permalink to this definition">¶</a></dt>
+<dd><p>Globally enable caching.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-pymor.core.config">
+<span id="config-module"></span><h3>config module<a class="headerlink" href="#module-pymor.core.config" title="Permalink to this headline">¶</a></h3>
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.config.Config">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.config.</code><code class="sig-name descname">Config</code><a class="reference internal" href="../_modules/pymor/core/config.html#Config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.config.Config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.config.Config" title="pymor.core.config.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">version</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="method">
+<dt id="pymor.core.config.Config.__dir__">
+<code class="sig-name descname">__dir__</code><span class="sig-paren">(</span><em class="sig-param">old=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/config.html#Config.__dir__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.config.Config.__dir__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Default dir() implementation.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.config.Config.__repr__">
+<code class="sig-name descname">__repr__</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/config.html#Config.__repr__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.config.Config.__repr__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return repr(self).</p>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.config.is_jupyter">
+<code class="sig-prename descclassname">pymor.core.config.</code><code class="sig-name descname">is_jupyter</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/config.html#is_jupyter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.config.is_jupyter" title="Permalink to this definition">¶</a></dt>
+<dd><p>This Method is not foolprof and might fail with any given jupyter release
+:return: True if we believe to be running in a Jupyter Notebook or Lab</p>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.config.is_nbconvert">
+<code class="sig-prename descclassname">pymor.core.config.</code><code class="sig-name descname">is_nbconvert</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/config.html#is_nbconvert"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.config.is_nbconvert" title="Permalink to this definition">¶</a></dt>
+<dd><p>In some visualization cases we need to be able to detect if a notebook
+is executed with nbconvert to disable async loading</p>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.config.is_windows_platform">
+<code class="sig-prename descclassname">pymor.core.config.</code><code class="sig-name descname">is_windows_platform</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/config.html#is_windows_platform"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.config.is_windows_platform" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-pymor.core.defaults">
+<span id="defaults-module"></span><h3>defaults module<a class="headerlink" href="#module-pymor.core.defaults" title="Permalink to this headline">¶</a></h3>
+<p>This module contains pyMOR’s facilities for handling default values.</p>
+<p>A default value in pyMOR is always the default value of some
+function argument. To mark the value of an optional function argument
+as a user-modifiable default value use the <a class="reference internal" href="#pymor.core.defaults.defaults" title="pymor.core.defaults.defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">defaults</span></code></a> decorator.
+As an additional feature, if <code class="docutils literal notranslate"><span class="pre">None</span></code> is passed for such an argument,
+its default value is used instead of <code class="docutils literal notranslate"><span class="pre">None</span></code>. This is useful
+for writing code of the following form:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@default</span><span class="p">(</span><span class="s1">&#39;option&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">algorithm</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">option</span><span class="o">=</span><span class="mi">42</span><span class="p">):</span>
+    <span class="o">...</span>
+
+<span class="k">def</span> <span class="nf">method_called_by_user</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">option_for_algorithm</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="o">...</span>
+    <span class="n">algorithm</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">option</span><span class="o">=</span><span class="n">option_for_algorithm</span><span class="p">)</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<p>If the user does not provide <code class="docutils literal notranslate"><span class="pre">option_for_algorithm</span></code> to
+<code class="docutils literal notranslate"><span class="pre">method_called_by_user</span></code>, the default <code class="docutils literal notranslate"><span class="pre">42</span></code> is automatically chosen
+without the implementor of <code class="docutils literal notranslate"><span class="pre">method_called_by_user</span></code> having to care
+about this.</p>
+<p>The user interface for handling default values in pyMOR is provided
+by <a class="reference internal" href="#pymor.core.defaults.set_defaults" title="pymor.core.defaults.set_defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_defaults</span></code></a>, <a class="reference internal" href="#pymor.core.defaults.load_defaults_from_file" title="pymor.core.defaults.load_defaults_from_file"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_defaults_from_file</span></code></a>,
+<a class="reference internal" href="#pymor.core.defaults.write_defaults_to_file" title="pymor.core.defaults.write_defaults_to_file"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_defaults_to_file</span></code></a> and <a class="reference internal" href="#pymor.core.defaults.print_defaults" title="pymor.core.defaults.print_defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">print_defaults</span></code></a>.</p>
+<p>If pyMOR is imported, it will automatically search for a configuration
+file named <code class="docutils literal notranslate"><span class="pre">pymor_defaults.py</span></code> in the current working directory.
+If found, the file is loaded via <a class="reference internal" href="#pymor.core.defaults.load_defaults_from_file" title="pymor.core.defaults.load_defaults_from_file"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_defaults_from_file</span></code></a>.
+However, as a security precaution, the file will only be loaded if it is
+owned by the user running the Python interpreter
+(<a class="reference internal" href="#pymor.core.defaults.load_defaults_from_file" title="pymor.core.defaults.load_defaults_from_file"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_defaults_from_file</span></code></a> uses <code class="docutils literal notranslate"><span class="pre">exec</span></code> to load the configuration).
+As an alternative, the environment variable <code class="docutils literal notranslate"><span class="pre">PYMOR_DEFAULTS</span></code> can be
+used to specify the path of a configuration file. If empty or set to
+<code class="docutils literal notranslate"><span class="pre">NONE</span></code>, no configuration file will be loaded whatsoever.</p>
+<div class="admonition warning" id="defaults-warning">
+<p class="admonition-title">Warning</p>
+<p>The state of pyMOR’s global defaults enters the calculation of each
+<a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a>. Thus, if you first instantiate an immutable object and
+then change the defaults, the resulting object will have a different
+<a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> than if you first change the defaults. (This is necessary
+as the object can save internal state upon initialization, which
+depends on the state of the global defaults.) As a consequence, the
+key generated for <a class="reference internal" href="#module-pymor.core.cache" title="pymor.core.cache"><code class="xref py py-mod docutils literal notranslate"><span class="pre">caching</span></code></a> will depend on the
+time the defaults have been changed. While no wrong results will be
+produced, changing defaults at different times will cause unnecessary
+cache misses and will pollute the cache with duplicate entries.</p>
+<p>An exemption from this rule are defaults which are listed in the
+<code class="docutils literal notranslate"><span class="pre">sid_ignore</span></code> argument of the <a class="reference internal" href="#pymor.core.defaults.defaults" title="pymor.core.defaults.defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">defaults</span></code></a> decorator. Such
+defaults will not enter the <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> calculation. This allows the
+user to change defaults related to input/output, e.g.
+<a class="reference internal" href="#module-pymor.core.logger" title="pymor.core.logger"><code class="xref py py-mod docutils literal notranslate"><span class="pre">logging</span></code></a>, without breaking caching.
+Before marking defaults as ignored in your own code, however, make
+sure to double check that these defaults will not affect the result
+of any mathematical algorithm.</p>
+</div>
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.defaults.DefaultContainer">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.defaults.</code><code class="sig-name descname">DefaultContainer</code><a class="reference internal" href="../_modules/pymor/core/defaults.html#DefaultContainer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.defaults.DefaultContainer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Internal singleton class holding all default values defined in pyMOR.</p>
+<p>Not to be used directly.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.defaults.DefaultContainer" title="pymor.core.defaults.DefaultContainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">DefaultContainer</span></code></a></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">get</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">import_all</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">keys</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">update</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.defaults.DefaultContainer" title="pymor.core.defaults.DefaultContainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">DefaultContainer</span></code></a></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">sid</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="method">
+<dt id="pymor.core.defaults.DefaultContainer.__new__">
+<em class="property">static </em><code class="sig-name descname">__new__</code><span class="sig-paren">(</span><em class="sig-param">cls</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/defaults.html#DefaultContainer.__new__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.defaults.DefaultContainer.__new__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create and return a new object.  See help(type) for accurate signature.</p>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.defaults.defaults">
+<code class="sig-prename descclassname">pymor.core.defaults.</code><code class="sig-name descname">defaults</code><span class="sig-paren">(</span><em class="sig-param">*args</em>, <em class="sig-param">sid_ignore=()</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/defaults.html#defaults"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.defaults.defaults" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function decorator for marking function arguments as user-configurable defaults.</p>
+<p>If a function decorated with <a class="reference internal" href="#pymor.core.defaults.defaults" title="pymor.core.defaults.defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">defaults</span></code></a> is called, the values of the marked
+default parameters are set to the values defined via <a class="reference internal" href="#pymor.core.defaults.load_defaults_from_file" title="pymor.core.defaults.load_defaults_from_file"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_defaults_from_file</span></code></a>
+or <a class="reference internal" href="#pymor.core.defaults.set_defaults" title="pymor.core.defaults.set_defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_defaults</span></code></a> in case no value has been provided by the caller of the function.
+Moreover, if <code class="docutils literal notranslate"><span class="pre">None</span></code> is passed as a value for a default argument, the argument
+is set to its default value, as well. If no value has been specified using
+<a class="reference internal" href="#pymor.core.defaults.set_defaults" title="pymor.core.defaults.set_defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_defaults</span></code></a> or <a class="reference internal" href="#pymor.core.defaults.load_defaults_from_file" title="pymor.core.defaults.load_defaults_from_file"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_defaults_from_file</span></code></a>, the default value provided in
+the function signature is used.</p>
+<p>If the argument <code class="docutils literal notranslate"><span class="pre">arg</span></code> of function <code class="docutils literal notranslate"><span class="pre">f</span></code> in sub-module <code class="docutils literal notranslate"><span class="pre">m</span></code> of package <code class="docutils literal notranslate"><span class="pre">p</span></code> is
+marked as a default value, its value will be changeable by the aforementioned
+methods under the path <code class="docutils literal notranslate"><span class="pre">p.m.f.arg</span></code>.</p>
+<p>Note that the <code class="docutils literal notranslate"><span class="pre">defaults</span></code> decorator can also be used in user code.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>args</dt><dd><p>List of strings containing the names of the arguments of the decorated
+function to mark as pyMOR defaults. Each of these arguments has to be
+a keyword argument (with a default value).</p>
+</dd>
+<dt>sid_ignore</dt><dd><p>List of strings naming the defaults in <code class="docutils literal notranslate"><span class="pre">args</span></code> which should not enter
+<a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> calculation (because they do not affect the outcome of any
+computation). Such defaults will typically be IO related. Use with
+extreme caution!</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.defaults.defaults_sid">
+<code class="sig-prename descclassname">pymor.core.defaults.</code><code class="sig-name descname">defaults_sid</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/defaults.html#defaults_sid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.defaults.defaults_sid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> for pyMOR’s global <a class="reference internal" href="#module-pymor.core.defaults" title="pymor.core.defaults"><code class="xref py py-mod docutils literal notranslate"><span class="pre">defaults</span></code></a>.</p>
+<p>This method is used for the calculation of <a class="reference internal" href="#state-id"><span class="std std-ref">state ids</span></a> of <a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface" title="pymor.core.interfaces.ImmutableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">immutable</span></code></a>
+objects and for <a class="reference internal" href="#module-pymor.core.cache" title="pymor.core.cache"><code class="xref py py-mod docutils literal notranslate"><span class="pre">cache</span></code></a> key generation.</p>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.defaults.load_defaults_from_file">
+<code class="sig-prename descclassname">pymor.core.defaults.</code><code class="sig-name descname">load_defaults_from_file</code><span class="sig-paren">(</span><em class="sig-param">filename='./pymor_defaults.py'</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/defaults.html#load_defaults_from_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.defaults.load_defaults_from_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads <a class="reference internal" href="#module-pymor.core.defaults" title="pymor.core.defaults"><code class="xref py py-mod docutils literal notranslate"><span class="pre">default</span></code></a> values defined in configuration file.</p>
+<p>Suitable configuration files can be created via <a class="reference internal" href="#pymor.core.defaults.write_defaults_to_file" title="pymor.core.defaults.write_defaults_to_file"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_defaults_to_file</span></code></a>.
+The file is loaded via Python’s <a class="reference external" href="https://docs.python.org/3/library/functions.html#exec" title="(in Python v3.8)"><code class="xref py py-func docutils literal notranslate"><span class="pre">exec</span></code></a> function, so be very careful
+with configuration files you have not created your own. You have been
+warned!</p>
+<p>Note that defaults should generally only be changed/loaded before
+<a class="reference internal" href="#state-id"><span class="std std-ref">state ids</span></a> have been calculated. See this <a class="reference internal" href="#defaults-warning"><span class="std std-ref">warning</span></a>
+for details.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>filename</dt><dd><p>Path of the configuration file.</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.defaults.print_defaults">
+<code class="sig-prename descclassname">pymor.core.defaults.</code><code class="sig-name descname">print_defaults</code><span class="sig-paren">(</span><em class="sig-param">import_all=True</em>, <em class="sig-param">shorten_paths=2</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/defaults.html#print_defaults"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.defaults.print_defaults" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print all <a class="reference internal" href="#module-pymor.core.defaults" title="pymor.core.defaults"><code class="xref py py-mod docutils literal notranslate"><span class="pre">default</span></code></a> values set in pyMOR.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>import_all</dt><dd><p>While <a class="reference internal" href="#pymor.core.defaults.print_defaults" title="pymor.core.defaults.print_defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">print_defaults</span></code></a> will always print all defaults defined in
+loaded configuration files or set via <a class="reference internal" href="#pymor.core.defaults.set_defaults" title="pymor.core.defaults.set_defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_defaults</span></code></a>, default
+values set in the function signature can only be printed after the
+modules containing these functions have been imported. If <code class="docutils literal notranslate"><span class="pre">import_all</span></code>
+is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, <a class="reference internal" href="#pymor.core.defaults.print_defaults" title="pymor.core.defaults.print_defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">print_defaults</span></code></a> will therefore first import all
+of pyMOR’s modules, to provide a complete lists of defaults.</p>
+</dd>
+<dt>shorten_paths</dt><dd><p>Shorten the paths of all default values by <code class="docutils literal notranslate"><span class="pre">shorten_paths</span></code> components.
+The last two path components will always be printed.</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.defaults.set_defaults">
+<code class="sig-prename descclassname">pymor.core.defaults.</code><code class="sig-name descname">set_defaults</code><span class="sig-paren">(</span><em class="sig-param">defaults</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/defaults.html#set_defaults"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.defaults.set_defaults" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set <a class="reference internal" href="#module-pymor.core.defaults" title="pymor.core.defaults"><code class="xref py py-mod docutils literal notranslate"><span class="pre">default</span></code></a> values.</p>
+<p>This method sets the default value of function arguments marked via the
+<a class="reference internal" href="#pymor.core.defaults.defaults" title="pymor.core.defaults.defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">defaults</span></code></a> decorator, overriding default values specified in the
+function signature or set earlier via <a class="reference internal" href="#pymor.core.defaults.load_defaults_from_file" title="pymor.core.defaults.load_defaults_from_file"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_defaults_from_file</span></code></a> or
+previous <a class="reference internal" href="#pymor.core.defaults.set_defaults" title="pymor.core.defaults.set_defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_defaults</span></code></a> calls.</p>
+<p>Note that defaults should generally only be changed/loaded before state ids
+have been calculated. See this <a class="reference internal" href="#defaults-warning"><span class="std std-ref">warning</span></a> for details.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>defaults</dt><dd><p>Dictionary of default values. Keys are the full paths of the default
+values (see <a class="reference internal" href="#pymor.core.defaults.defaults" title="pymor.core.defaults.defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">defaults</span></code></a>).</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.defaults.write_defaults_to_file">
+<code class="sig-prename descclassname">pymor.core.defaults.</code><code class="sig-name descname">write_defaults_to_file</code><span class="sig-paren">(</span><em class="sig-param">filename='./pymor_defaults.py'</em>, <em class="sig-param">packages=('pymor'</em>, <em class="sig-param">)</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/defaults.html#write_defaults_to_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.defaults.write_defaults_to_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write the currently set <a class="reference internal" href="#module-pymor.core.defaults" title="pymor.core.defaults"><code class="xref py py-mod docutils literal notranslate"><span class="pre">default</span></code></a> values to a configuration file.</p>
+<p>The resulting file is an ordinary Python script and can be modified
+by the user at will. It can be loaded in a later session using
+<a class="reference internal" href="#pymor.core.defaults.load_defaults_from_file" title="pymor.core.defaults.load_defaults_from_file"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_defaults_from_file</span></code></a>.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>filename</dt><dd><p>Name of the file to write to.</p>
+</dd>
+<dt>packages</dt><dd><p>List of package names.
+To discover all default values that have been defined using the
+<a class="reference internal" href="#pymor.core.defaults.defaults" title="pymor.core.defaults.defaults"><code class="xref py py-func docutils literal notranslate"><span class="pre">defaults</span></code></a> decorator, <code class="docutils literal notranslate"><span class="pre">write_defaults_to_file</span></code> will
+recursively import all sub-modules of the named packages before
+creating the configuration file.</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+</div>
+<div class="section" id="module-pymor.core.exceptions">
+<span id="exceptions-module"></span><h3>exceptions module<a class="headerlink" href="#module-pymor.core.exceptions" title="Permalink to this headline">¶</a></h3>
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.AccuracyError">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">AccuracyError</code><a class="reference internal" href="../_modules/pymor/core/exceptions.html#AccuracyError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.AccuracyError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
+<p>Is raised if the result of a computation is inaccurate</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.ConstError">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">ConstError</code><a class="reference internal" href="../_modules/pymor/core/exceptions.html#ConstError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.ConstError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
+<p>I get thrown when you try to add a new member to
+a locked class instance</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.ExtensionError">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">ExtensionError</code><a class="reference internal" href="../_modules/pymor/core/exceptions.html#ExtensionError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.ExtensionError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
+<p>Is raised if a (basis) extension algorithm fails.</p>
+<p>This will mostly happen during a basis extension when the new snapshot is already
+in the span of the basis.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.GmshMissing">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">GmshMissing</code><a class="reference internal" href="../_modules/pymor/core/exceptions.html#GmshMissing"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.GmshMissing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
+<p>Is raised when a Gmsh is not found.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.ImageCollectionError">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">ImageCollectionError</code><span class="sig-paren">(</span><em class="sig-param">op</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/exceptions.html#ImageCollectionError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.ImageCollectionError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
+<p>Is raised when a pymor.algorithms.image.estimate_image fails for given operator.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.InversionError">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">InversionError</code><a class="reference internal" href="../_modules/pymor/core/exceptions.html#InversionError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.InversionError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
+<p>Is raised if an operator inversion algorithm fails.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.LinAlgError">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">LinAlgError</code><a class="reference internal" href="../_modules/pymor/core/exceptions.html#LinAlgError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.LinAlgError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
+<p>Is raised if a linear algebra operation fails.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.MeshioMissing">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">MeshioMissing</code><a class="reference internal" href="../_modules/pymor/core/exceptions.html#MeshioMissing"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.MeshioMissing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
+<p>Is raised when meshio is not available.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.NewtonError">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">NewtonError</code><a class="reference internal" href="../_modules/pymor/core/exceptions.html#NewtonError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.NewtonError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
+<p>Is raised if the Newton algorithm fails to converge.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.NoMatchingRuleError">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">NoMatchingRuleError</code><span class="sig-paren">(</span><em class="sig-param">obj</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/exceptions.html#NoMatchingRuleError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.NoMatchingRuleError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#NotImplementedError" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">NotImplementedError</span></code></a></p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">NotImplementedError</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.QtMissing">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">QtMissing</code><span class="sig-paren">(</span><em class="sig-param">msg=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/exceptions.html#QtMissing"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.QtMissing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ImportError" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImportError</span></code></a></p>
+<p>Raise me where having importable Qt bindings is non-optional</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ImportError</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">msg</span></code>, <code class="xref py py-attr docutils literal notranslate"><span class="pre">name</span></code>, <code class="xref py py-attr docutils literal notranslate"><span class="pre">path</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.RuleNotMatchingError">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">RuleNotMatchingError</code><a class="reference internal" href="../_modules/pymor/core/exceptions.html#RuleNotMatchingError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.RuleNotMatchingError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#NotImplementedError" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">NotImplementedError</span></code></a></p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">NotImplementedError</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.exceptions.SIDGenerationError">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.exceptions.</code><code class="sig-name descname">SIDGenerationError</code><a class="reference internal" href="../_modules/pymor/core/exceptions.html#SIDGenerationError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.exceptions.SIDGenerationError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
+<p>Is raised when generate_sid fails.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_traceback</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">args</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+</div>
+<div class="section" id="module-pymor.core.interfaces">
+<span id="interfaces-module"></span><h3>interfaces module<a class="headerlink" href="#module-pymor.core.interfaces" title="Permalink to this headline">¶</a></h3>
+<p>This module provides base classes from which most classes in pyMOR inherit.</p>
+<p>The purpose of these classes is to provide some common functionality for
+all objects in pyMOR. The most notable features provided by <a class="reference internal" href="#pymor.core.interfaces.BasicInterface" title="pymor.core.interfaces.BasicInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicInterface</span></code></a>
+are the following:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface" title="pymor.core.interfaces.BasicInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicInterface</span></code></a> sets class <a class="reference internal" href="#pymor.core.interfaces.UberMeta" title="pymor.core.interfaces.UberMeta"><code class="xref py py-class docutils literal notranslate"><span class="pre">UberMeta</span></code></a> as metaclass
+which itself inherits from <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABCMeta" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABCMeta</span></code></a>. Thus it is possible
+to define interface classes with abstract methods using the
+<code class="xref py py-func docutils literal notranslate"><span class="pre">abstractmethod</span></code> decorator. There are also decorators for
+abstract class methods, static methods, and properties.</p></li>
+<li><p>Using metaclass magic, each <em>class</em> deriving from <a class="reference internal" href="#pymor.core.interfaces.BasicInterface" title="pymor.core.interfaces.BasicInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicInterface</span></code></a>
+comes with its own <a class="reference internal" href="#module-pymor.core.logger" title="pymor.core.logger"><code class="xref py py-mod docutils literal notranslate"><span class="pre">logger</span></code></a> instance accessible through its <code class="docutils literal notranslate"><span class="pre">logger</span></code>
+attribute. The logger prefix is automatically set to the class name.</p></li>
+<li><p>Logging can be disabled and re-enabled for each <em>instance</em> using the
+<a class="reference internal" href="#pymor.core.interfaces.BasicInterface.disable_logging" title="pymor.core.interfaces.BasicInterface.disable_logging"><code class="xref py py-meth docutils literal notranslate"><span class="pre">BasicInterface.disable_logging</span></code></a> and <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.enable_logging" title="pymor.core.interfaces.BasicInterface.enable_logging"><code class="xref py py-meth docutils literal notranslate"><span class="pre">BasicInterface.enable_logging</span></code></a>
+methods.</p></li>
+<li><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface.uid" title="pymor.core.interfaces.BasicInterface.uid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">BasicInterface.uid</span></code></a> provides a unique id for each instance. While
+<code class="docutils literal notranslate"><span class="pre">id(obj)</span></code> is only guaranteed to be unique among all living Python objects,
+<a class="reference internal" href="#pymor.core.interfaces.BasicInterface.uid" title="pymor.core.interfaces.BasicInterface.uid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">BasicInterface.uid</span></code></a> will be (almost) unique among all pyMOR objects
+that have ever existed, including previous runs of the application. This
+is achieved by building the id from a uuid4 which is newly created for
+each pyMOR run and a counter which is increased for any object that requests
+an uid.</p></li>
+<li><p>If not set by the user to another value, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.name" title="pymor.core.interfaces.BasicInterface.name"><code class="xref py py-attr docutils literal notranslate"><span class="pre">BasicInterface.name</span></code></a> is
+set to the name of the object’s class.</p></li>
+</ol>
+</div></blockquote>
+<p><a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface" title="pymor.core.interfaces.ImmutableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImmutableInterface</span></code></a> derives from <a class="reference internal" href="#pymor.core.interfaces.BasicInterface" title="pymor.core.interfaces.BasicInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicInterface</span></code></a> and adds the following
+functionality:</p>
+<blockquote>
+<div><ol class="arabic">
+<li><p>Using more metaclass magic, each instance which derives from
+<a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface" title="pymor.core.interfaces.ImmutableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImmutableInterface</span></code></a> is locked after its <code class="docutils literal notranslate"><span class="pre">__init__</span></code> method has returned.
+Each attempt to change one of its attributes raises an exception. Private
+attributes (of the form <code class="docutils literal notranslate"><span class="pre">_name</span></code>) are exempted from this rule.</p></li>
+<li><p>A unique <span class="target" id="state-id">state id</span> for the instance can be calculated by calling
+<a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.generate_sid" title="pymor.core.interfaces.ImmutableInterface.generate_sid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">generate_sid</span></code></a> and is then stored as the object’s
+<code class="docutils literal notranslate"><span class="pre">sid</span></code> attribute.
+The state id is obtained by deterministically serializing the object’s state
+and then computing a checksum of the resulting byte stream.</p></li>
+<li><p><a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.sid_ignore" title="pymor.core.interfaces.ImmutableInterface.sid_ignore"><code class="xref py py-attr docutils literal notranslate"><span class="pre">ImmutableInterface.sid_ignore</span></code></a> can be set to a set of attribute names
+which should be excluded from state id calculation.</p></li>
+<li><p><a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.with_" title="pymor.core.interfaces.ImmutableInterface.with_"><code class="xref py py-meth docutils literal notranslate"><span class="pre">ImmutableInterface.with_</span></code></a> can be used to create a copy of an instance with
+some changed attributes. E.g.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">obj</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="n">y</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>creates a copy with the <code class="docutils literal notranslate"><span class="pre">a</span></code> and <code class="docutils literal notranslate"><span class="pre">b</span></code> attributes of <code class="docutils literal notranslate"><span class="pre">obj</span></code> set to <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code>.
+<code class="docutils literal notranslate"><span class="pre">with_</span></code> is implemented by creating a new instance, passing the arguments of
+<code class="docutils literal notranslate"><span class="pre">with_</span></code> to <code class="docutils literal notranslate"><span class="pre">__init__</span></code>. The missing <code class="docutils literal notranslate"><span class="pre">__init__</span></code> arguments are taken from instance
+attributes of the same name.</p>
+</li>
+</ol>
+</div></blockquote>
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.interfaces.BasicInterface">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.interfaces.</code><code class="sig-name descname">BasicInterface</code><a class="reference internal" href="../_modules/pymor/core/interfaces.html#BasicInterface"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.BasicInterface" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Base class for most classes in pyMOR.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface" title="pymor.core.interfaces.BasicInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicInterface</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface.disable_logging" title="pymor.core.interfaces.BasicInterface.disable_logging"><code class="xref py py-meth docutils literal notranslate"><span class="pre">disable_logging</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.enable_logging" title="pymor.core.interfaces.BasicInterface.enable_logging"><code class="xref py py-meth docutils literal notranslate"><span class="pre">enable_logging</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.has_interface_name" title="pymor.core.interfaces.BasicInterface.has_interface_name"><code class="xref py py-meth docutils literal notranslate"><span class="pre">has_interface_name</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.implementor_names" title="pymor.core.interfaces.BasicInterface.implementor_names"><code class="xref py py-meth docutils literal notranslate"><span class="pre">implementor_names</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.implementors" title="pymor.core.interfaces.BasicInterface.implementors"><code class="xref py py-meth docutils literal notranslate"><span class="pre">implementors</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface" title="pymor.core.interfaces.BasicInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicInterface</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface.logger" title="pymor.core.interfaces.BasicInterface.logger"><code class="xref py py-attr docutils literal notranslate"><span class="pre">logger</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.logging_disabled" title="pymor.core.interfaces.BasicInterface.logging_disabled"><code class="xref py py-attr docutils literal notranslate"><span class="pre">logging_disabled</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.name" title="pymor.core.interfaces.BasicInterface.name"><code class="xref py py-attr docutils literal notranslate"><span class="pre">name</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.uid" title="pymor.core.interfaces.BasicInterface.uid"><code class="xref py py-attr docutils literal notranslate"><span class="pre">uid</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="attribute">
+<dt id="pymor.core.interfaces.BasicInterface.logger">
+<code class="sig-name descname">logger</code><a class="headerlink" href="#pymor.core.interfaces.BasicInterface.logger" title="Permalink to this definition">¶</a></dt>
+<dd><p>A per-class instance of <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Logger" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">logging.Logger</span></code></a> with the class
+name as prefix.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pymor.core.interfaces.BasicInterface.logging_disabled">
+<code class="sig-name descname">logging_disabled</code><a class="headerlink" href="#pymor.core.interfaces.BasicInterface.logging_disabled" title="Permalink to this definition">¶</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if logging has been disabled.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pymor.core.interfaces.BasicInterface.name">
+<code class="sig-name descname">name</code><a class="headerlink" href="#pymor.core.interfaces.BasicInterface.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>The name of the instance. If not set by the user, the name is
+set to the class name.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pymor.core.interfaces.BasicInterface.uid">
+<code class="sig-name descname">uid</code><a class="headerlink" href="#pymor.core.interfaces.BasicInterface.uid" title="Permalink to this definition">¶</a></dt>
+<dd><p>A unique id for each instance. The uid is obtained by using
+<a class="reference internal" href="#pymor.core.interfaces.UID" title="pymor.core.interfaces.UID"><code class="xref py py-class docutils literal notranslate"><span class="pre">UID</span></code></a> and is unique for all pyMOR objects ever created.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.interfaces.BasicInterface.__repr__">
+<code class="sig-name descname">__repr__</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#BasicInterface.__repr__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.BasicInterface.__repr__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return repr(self).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.interfaces.BasicInterface.disable_logging">
+<code class="sig-name descname">disable_logging</code><span class="sig-paren">(</span><em class="sig-param">doit=True</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#BasicInterface.disable_logging"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.BasicInterface.disable_logging" title="Permalink to this definition">¶</a></dt>
+<dd><p>Disable logging output for this instance.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.interfaces.BasicInterface.enable_logging">
+<code class="sig-name descname">enable_logging</code><span class="sig-paren">(</span><em class="sig-param">doit=True</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#BasicInterface.enable_logging"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.BasicInterface.enable_logging" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enable logging output for this instance.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.interfaces.BasicInterface.has_interface_name">
+<em class="property">classmethod </em><code class="sig-name descname">has_interface_name</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#BasicInterface.has_interface_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.BasicInterface.has_interface_name" title="Permalink to this definition">¶</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if the class name ends with <code class="docutils literal notranslate"><span class="pre">Interface</span></code>. Used for introspection.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.interfaces.BasicInterface.implementor_names">
+<em class="property">classmethod </em><code class="sig-name descname">implementor_names</code><span class="sig-paren">(</span><em class="sig-param">descend=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#BasicInterface.implementor_names"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.BasicInterface.implementor_names" title="Permalink to this definition">¶</a></dt>
+<dd><p>For convenience I return a list of my implementor names instead of class objects</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.interfaces.BasicInterface.implementors">
+<em class="property">classmethod </em><code class="sig-name descname">implementors</code><span class="sig-paren">(</span><em class="sig-param">descend=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#BasicInterface.implementors"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.BasicInterface.implementors" title="Permalink to this definition">¶</a></dt>
+<dd><p>I return a, potentially empty, list of my subclass-objects.
+If <code class="docutils literal notranslate"><span class="pre">descend</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, I traverse my entire subclass hierarchy and return a flattened list.</p>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.interfaces.ImmutableInterface">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.interfaces.</code><code class="sig-name descname">ImmutableInterface</code><a class="reference internal" href="../_modules/pymor/core/interfaces.html#ImmutableInterface"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.ImmutableInterface" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pymor.core.interfaces.BasicInterface" title="pymor.core.interfaces.BasicInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">pymor.core.interfaces.BasicInterface</span></code></a></p>
+<p>Base class for immutable objects in pyMOR.</p>
+<p>Instances of <code class="docutils literal notranslate"><span class="pre">ImmutableInterface</span></code> are immutable in the sense that
+after execution of <code class="docutils literal notranslate"><span class="pre">__init__</span></code>, any modification of a non-private
+attribute will raise an exception.</p>
+<div class="admonition warning" id="immutableinterfacewarning">
+<p class="admonition-title">Warning</p>
+<p>For instances of <code class="docutils literal notranslate"><span class="pre">ImmutableInterface</span></code>,
+the result of member function calls should be completely
+determined by the function’s arguments together with the
+object’s <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> and the current state of pyMOR’s
+global <a class="reference internal" href="#module-pymor.core.defaults" title="pymor.core.defaults"><code class="xref py py-mod docutils literal notranslate"><span class="pre">defaults</span></code></a>.</p>
+</div>
+<p>While, in principle, you are allowed to modify private members after
+instance initialization, this should never affect the outcome of
+future method calls. In particular, if you update any internal state
+after initialization, you have to ensure that this state is not affected
+by possible changes of the global <a class="reference internal" href="#module-pymor.core.defaults" title="pymor.core.defaults"><code class="xref py py-mod docutils literal notranslate"><span class="pre">defaults</span></code></a>.</p>
+<p>Also note that mutable private attributes will cause false cache
+misses when these attributes enter <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> calculation. If your
+implementation uses such attributes, you should therefore add their
+names to the <a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.sid_ignore" title="pymor.core.interfaces.ImmutableInterface.sid_ignore"><code class="xref py py-attr docutils literal notranslate"><span class="pre">sid_ignore</span></code></a> set.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface" title="pymor.core.interfaces.ImmutableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImmutableInterface</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.generate_sid" title="pymor.core.interfaces.ImmutableInterface.generate_sid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">generate_sid</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.with_" title="pymor.core.interfaces.ImmutableInterface.with_"><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.__setattr__" title="pymor.core.interfaces.ImmutableInterface.__setattr__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">__setattr__</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface" title="pymor.core.interfaces.BasicInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicInterface</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface.disable_logging" title="pymor.core.interfaces.BasicInterface.disable_logging"><code class="xref py py-meth docutils literal notranslate"><span class="pre">disable_logging</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.enable_logging" title="pymor.core.interfaces.BasicInterface.enable_logging"><code class="xref py py-meth docutils literal notranslate"><span class="pre">enable_logging</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.has_interface_name" title="pymor.core.interfaces.BasicInterface.has_interface_name"><code class="xref py py-meth docutils literal notranslate"><span class="pre">has_interface_name</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.implementor_names" title="pymor.core.interfaces.BasicInterface.implementor_names"><code class="xref py py-meth docutils literal notranslate"><span class="pre">implementor_names</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.implementors" title="pymor.core.interfaces.BasicInterface.implementors"><code class="xref py py-meth docutils literal notranslate"><span class="pre">implementors</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface" title="pymor.core.interfaces.ImmutableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImmutableInterface</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.sid" title="pymor.core.interfaces.ImmutableInterface.sid"><code class="xref py py-attr docutils literal notranslate"><span class="pre">sid</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.sid_ignore" title="pymor.core.interfaces.ImmutableInterface.sid_ignore"><code class="xref py py-attr docutils literal notranslate"><span class="pre">sid_ignore</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface" title="pymor.core.interfaces.BasicInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicInterface</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.interfaces.BasicInterface.logger" title="pymor.core.interfaces.BasicInterface.logger"><code class="xref py py-attr docutils literal notranslate"><span class="pre">logger</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.logging_disabled" title="pymor.core.interfaces.BasicInterface.logging_disabled"><code class="xref py py-attr docutils literal notranslate"><span class="pre">logging_disabled</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.name" title="pymor.core.interfaces.BasicInterface.name"><code class="xref py py-attr docutils literal notranslate"><span class="pre">name</span></code></a>, <a class="reference internal" href="#pymor.core.interfaces.BasicInterface.uid" title="pymor.core.interfaces.BasicInterface.uid"><code class="xref py py-attr docutils literal notranslate"><span class="pre">uid</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="attribute">
+<dt id="pymor.core.interfaces.ImmutableInterface.sid">
+<code class="sig-name descname">sid</code><a class="headerlink" href="#pymor.core.interfaces.ImmutableInterface.sid" title="Permalink to this definition">¶</a></dt>
+<dd><p>The objects <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a>. Only available after
+<a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface.generate_sid" title="pymor.core.interfaces.ImmutableInterface.generate_sid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">generate_sid</span></code></a> has been called.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pymor.core.interfaces.ImmutableInterface.sid_ignore">
+<code class="sig-name descname">sid_ignore</code><a class="headerlink" href="#pymor.core.interfaces.ImmutableInterface.sid_ignore" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set of attributes not to include in <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> calculation.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.interfaces.ImmutableInterface.__setattr__">
+<code class="sig-name descname">__setattr__</code><span class="sig-paren">(</span><em class="sig-param">key</em>, <em class="sig-param">value</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#ImmutableInterface.__setattr__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.ImmutableInterface.__setattr__" title="Permalink to this definition">¶</a></dt>
+<dd><p>depending on _locked state I delegate the setattr call to object or
+raise an Exception</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.interfaces.ImmutableInterface.generate_sid">
+<code class="sig-name descname">generate_sid</code><span class="sig-paren">(</span><em class="sig-param">debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#ImmutableInterface.generate_sid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.ImmutableInterface.generate_sid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a unique <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> for the given object.</p>
+<p>The generated state id is stored in the object’s <code class="docutils literal notranslate"><span class="pre">sid</span></code> attribute.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>debug</dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, produce some debugging output.</p>
+</dd>
+</dl>
+</div>
+<div class="admonition-returns admonition">
+<p class="admonition-title">Returns</p>
+<p>The generated <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a>.</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.core.interfaces.ImmutableInterface.with_">
+<code class="sig-name descname">with_</code><span class="sig-paren">(</span><em class="sig-param">new_type=None</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#ImmutableInterface.with_"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.ImmutableInterface.with_" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a copy with changed attributes.</p>
+<p>A a new class instance is created with the given keyword arguments as
+arguments for <code class="docutils literal notranslate"><span class="pre">__init__</span></code>.  Missing arguments are obtained form instance
+attributes with the
+same name.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>new_type</dt><dd><p>If not None, return an instance of this class (instead of <code class="docutils literal notranslate"><span class="pre">type(self)</span></code>).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></dt><dd><p>Names of attributes to change with their new values. Each attribute name
+has to be an argument to <code class="docutils literal notranslate"><span class="pre">__init__</span></code>.</p>
+</dd>
+</dl>
+</div>
+<div class="admonition-returns admonition">
+<p class="admonition-title">Returns</p>
+<p>Copy of <code class="docutils literal notranslate"><span class="pre">self</span></code> with changed attributes.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.interfaces.ImmutableMeta">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.interfaces.</code><code class="sig-name descname">ImmutableMeta</code><span class="sig-paren">(</span><em class="sig-param">name</em>, <em class="sig-param">bases</em>, <em class="sig-param">namespace</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#ImmutableMeta"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.ImmutableMeta" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pymor.core.interfaces.UberMeta" title="pymor.core.interfaces.UberMeta"><code class="xref py py-class docutils literal notranslate"><span class="pre">pymor.core.interfaces.UberMeta</span></code></a></p>
+<p>Metaclass for <a class="reference internal" href="#pymor.core.interfaces.ImmutableInterface" title="pymor.core.interfaces.ImmutableInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImmutableInterface</span></code></a>.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABCMeta" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABCMeta</span></code></a></p></td>
+<td><p><a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABCMeta.register" title="(in Python v3.8)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register</span></code></a>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">__instancecheck__</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">__subclasscheck__</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">mro</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">__dir__</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">__prepare__</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">__sizeof__</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">__subclasses__</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="method">
+<dt id="pymor.core.interfaces.ImmutableMeta.__new__">
+<em class="property">static </em><code class="sig-name descname">__new__</code><span class="sig-paren">(</span><em class="sig-param">cls</em>, <em class="sig-param">classname</em>, <em class="sig-param">bases</em>, <em class="sig-param">classdict</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#ImmutableMeta.__new__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.ImmutableMeta.__new__" title="Permalink to this definition">¶</a></dt>
+<dd><p>I copy docstrings from base class methods to deriving classes.</p>
+<p>Copying of docstrings is disabled when the <code class="docutils literal notranslate"><span class="pre">PYMOR_WITH_SPHINX</span></code> environment
+variable is set to <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.interfaces.UID">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.interfaces.</code><code class="sig-name descname">UID</code><a class="reference internal" href="../_modules/pymor/core/interfaces.html#UID"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.UID" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Provides unique, quickly computed ids by combining a session UUID4 with a counter.</p>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.interfaces.UID" title="pymor.core.interfaces.UID"><code class="xref py py-class docutils literal notranslate"><span class="pre">UID</span></code></a></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">counter</span></code>, <code class="xref py py-attr docutils literal notranslate"><span class="pre">prefix</span></code>, <code class="xref py py-attr docutils literal notranslate"><span class="pre">uid</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.interfaces.UberMeta">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.interfaces.</code><code class="sig-name descname">UberMeta</code><span class="sig-paren">(</span><em class="sig-param">name</em>, <em class="sig-param">bases</em>, <em class="sig-param">namespace</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#UberMeta"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.UberMeta" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABCMeta" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABCMeta</span></code></a></p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.interfaces.UberMeta" title="pymor.core.interfaces.UberMeta"><code class="xref py py-class docutils literal notranslate"><span class="pre">UberMeta</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.core.interfaces.UberMeta.__new__" title="pymor.core.interfaces.UberMeta.__new__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">__new__</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABCMeta" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABCMeta</span></code></a></p></td>
+<td><p><a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABCMeta.register" title="(in Python v3.8)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register</span></code></a>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">__instancecheck__</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">__subclasscheck__</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">mro</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">__dir__</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">__prepare__</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">__sizeof__</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">__subclasses__</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="method">
+<dt id="pymor.core.interfaces.UberMeta.__new__">
+<em class="property">static </em><code class="sig-name descname">__new__</code><span class="sig-paren">(</span><em class="sig-param">cls</em>, <em class="sig-param">classname</em>, <em class="sig-param">bases</em>, <em class="sig-param">classdict</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#UberMeta.__new__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.UberMeta.__new__" title="Permalink to this definition">¶</a></dt>
+<dd><p>I copy docstrings from base class methods to deriving classes.</p>
+<p>Copying of docstrings is disabled when the <code class="docutils literal notranslate"><span class="pre">PYMOR_WITH_SPHINX</span></code> environment
+variable is set to <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.interfaces.classinstancemethod">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.interfaces.</code><code class="sig-name descname">classinstancemethod</code><span class="sig-paren">(</span><em class="sig-param">cls_meth</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#classinstancemethod"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.classinstancemethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.interfaces.classinstancemethod" title="pymor.core.interfaces.classinstancemethod"><code class="xref py py-class docutils literal notranslate"><span class="pre">classinstancemethod</span></code></a></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">instancemethod</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.interfaces.generate_sid">
+<code class="sig-prename descclassname">pymor.core.interfaces.</code><code class="sig-name descname">generate_sid</code><span class="sig-paren">(</span><em class="sig-param">obj</em>, <em class="sig-param">debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/interfaces.html#generate_sid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.interfaces.generate_sid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a unique <a class="reference internal" href="#state-id"><span class="std std-ref">state id</span></a> for the current state of the given object.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>obj</dt><dd><p>The object for which to compute the state sid.</p>
+</dd>
+<dt>debug</dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, produce some debug output.</p>
+</dd>
+</dl>
+</div>
+<div class="admonition-returns admonition">
+<p class="admonition-title">Returns</p>
+<p>The generated state id.</p>
+</div>
+</dd></dl>
+
+</div>
+<div class="section" id="module-pymor.core.logger">
+<span id="logger-module"></span><h3>logger module<a class="headerlink" href="#module-pymor.core.logger" title="Permalink to this headline">¶</a></h3>
+<p>This module contains pyMOR’s logging facilities.</p>
+<p>pyMOR’s logging facilities are based on the <a class="reference external" href="https://docs.python.org/3/library/logging.html#module-logging" title="(in Python v3.8)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">logging</span></code></a> module of the
+Python standard library. To obtain a new logger object use <a class="reference internal" href="#pymor.core.logger.getLogger" title="pymor.core.logger.getLogger"><code class="xref py py-func docutils literal notranslate"><span class="pre">getLogger</span></code></a>.
+Logging can be configured via the <a class="reference internal" href="#pymor.core.logger.set_log_format" title="pymor.core.logger.set_log_format"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_log_format</span></code></a> and
+<a class="reference internal" href="#pymor.core.logger.set_log_levels" title="pymor.core.logger.set_log_levels"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_log_levels</span></code></a> methods.</p>
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.logger.ColoredFormatter">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.logger.</code><code class="sig-name descname">ColoredFormatter</code><a class="reference internal" href="../_modules/pymor/core/logger.html#ColoredFormatter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.logger.ColoredFormatter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Formatter" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">logging.Formatter</span></code></a></p>
+<p>A logging.Formatter that inserts tty control characters to color
+loglevel keyword output. Coloring can be disabled by setting the
+<code class="docutils literal notranslate"><span class="pre">PYMOR_COLORS_DISABLE</span></code> environment variable to <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.logger.ColoredFormatter" title="pymor.core.logger.ColoredFormatter"><code class="xref py py-class docutils literal notranslate"><span class="pre">ColoredFormatter</span></code></a></p></td>
+<td><p><a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Formatter.format" title="(in Python v3.8)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">format</span></code></a>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">format_html</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Formatter" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Formatter</span></code></a></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">converter</span></code>, <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Formatter.formatException" title="(in Python v3.8)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">formatException</span></code></a>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">formatMessage</span></code>, <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Formatter.formatStack" title="(in Python v3.8)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">formatStack</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Formatter.formatTime" title="(in Python v3.8)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">formatTime</span></code></a>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">usesTime</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Formatter" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Formatter</span></code></a></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">default_msec_format</span></code>, <code class="xref py py-attr docutils literal notranslate"><span class="pre">default_time_format</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="method">
+<dt id="pymor.core.logger.ColoredFormatter.format">
+<code class="sig-name descname">format</code><span class="sig-paren">(</span><em class="sig-param">record</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/logger.html#ColoredFormatter.format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.logger.ColoredFormatter.format" title="Permalink to this definition">¶</a></dt>
+<dd><p>Format the specified record as text.</p>
+<p>The record’s attribute dictionary is used as the operand to a
+string formatting operation which yields the returned string.
+Before formatting the dictionary, a couple of preparatory steps
+are carried out. The message attribute of the record is computed
+using LogRecord.getMessage(). If the formatting string uses the
+time (as determined by a call to usesTime(), formatTime() is
+called to format the event time. If there is exception information,
+it is formatted using formatException() and appended to the message.</p>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.logger.DummyLogger">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.logger.</code><code class="sig-name descname">DummyLogger</code><a class="reference internal" href="../_modules/pymor/core/logger.html#DummyLogger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.logger.DummyLogger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.logger.DummyLogger" title="pymor.core.logger.DummyLogger"><code class="xref py py-class docutils literal notranslate"><span class="pre">DummyLogger</span></code></a></p></td>
+<td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">block</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">critical</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">debug</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">error</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">exception</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">getChild</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">getEffectiveLevel</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">info</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">info2</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">info3</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">isEnabledFor</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">log</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">nop</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">warn</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">warning</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.core.logger.DummyLogger" title="pymor.core.logger.DummyLogger"><code class="xref py py-class docutils literal notranslate"><span class="pre">DummyLogger</span></code></a></p></td>
+<td><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">propagate</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.logger.LogIndenter">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.logger.</code><code class="sig-name descname">LogIndenter</code><span class="sig-paren">(</span><em class="sig-param">logger</em>, <em class="sig-param">doit</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/logger.html#LogIndenter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.logger.LogIndenter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.logger.default_handler">
+<code class="sig-prename descclassname">pymor.core.logger.</code><code class="sig-name descname">default_handler</code><span class="sig-paren">(</span><em class="sig-param">filename=''</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/logger.html#default_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.logger.default_handler" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.logger.getLogger">
+<code class="sig-prename descclassname">pymor.core.logger.</code><code class="sig-name descname">getLogger</code><span class="sig-paren">(</span><em class="sig-param">module</em>, <em class="sig-param">level=None</em>, <em class="sig-param">filename=''</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/logger.html#getLogger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.logger.getLogger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the logger of the respective module for pyMOR’s logging facility.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>module</dt><dd><p>Name of the module.</p>
+</dd>
+<dt>level</dt><dd><p>If set, <code class="docutils literal notranslate"><span class="pre">logger.setLevel(level)</span></code> is called (see
+<a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Logger.setLevel" title="(in Python v3.8)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">setLevel</span></code></a>).</p>
+</dd>
+<dt>filename</dt><dd><p>If not empty, path of an existing file where everything logged will be
+written to.</p>
+</dd>
+</dl>
+</div>
+<div class="admonition-defaults admonition">
+<p class="admonition-title">Defaults</p>
+<p>filename
+(see <a class="reference internal" href="#module-pymor.core.defaults" title="pymor.core.defaults"><code class="xref py py-mod docutils literal notranslate"><span class="pre">pymor.core.defaults</span></code></a>)</p>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.logger.set_log_format">
+<code class="sig-prename descclassname">pymor.core.logger.</code><code class="sig-name descname">set_log_format</code><span class="sig-paren">(</span><em class="sig-param">max_hierarchy_level=1</em>, <em class="sig-param">indent_blocks=True</em>, <em class="sig-param">block_timings=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/logger.html#set_log_format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.logger.set_log_format" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set log levels for pyMOR’s logging facility.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>max_hierarchy_level</dt><dd><p>The number of components of the loggers name which are printed.
+(The first component is always stripped, the last component always
+preserved.)</p>
+</dd>
+<dt>indent_blocks</dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, indent log messages inside a code block started with
+<code class="docutils literal notranslate"><span class="pre">with</span> <span class="pre">logger.block(...)</span></code>.</p>
+</dd>
+<dt>block_timings</dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, measure the duration of a code block started with
+<code class="docutils literal notranslate"><span class="pre">with</span> <span class="pre">logger.block(...)</span></code>.</p>
+</dd>
+</dl>
+</div>
+<div class="admonition-defaults admonition">
+<p class="admonition-title">Defaults</p>
+<p>max_hierarchy_level, indent_blocks, block_timings
+(see <a class="reference internal" href="#module-pymor.core.defaults" title="pymor.core.defaults"><code class="xref py py-mod docutils literal notranslate"><span class="pre">pymor.core.defaults</span></code></a>)</p>
+</div>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.logger.set_log_levels">
+<code class="sig-prename descclassname">pymor.core.logger.</code><code class="sig-name descname">set_log_levels</code><span class="sig-paren">(</span><em class="sig-param">levels=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/logger.html#set_log_levels"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.logger.set_log_levels" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set log levels for pyMOR’s logging facility.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>levels</dt><dd><p>Dict of log levels. Keys are names of loggers (see <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.getLogger" title="(in Python v3.8)"><code class="xref py py-func docutils literal notranslate"><span class="pre">logging.getLogger</span></code></a>),
+values are the log levels to set for the loggers of the given names
+(see <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Logger.setLevel" title="(in Python v3.8)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">setLevel</span></code></a>).</p>
+</dd>
+</dl>
+</div>
+<div class="admonition-defaults admonition">
+<p class="admonition-title">Defaults</p>
+<p>levels
+(see <a class="reference internal" href="#module-pymor.core.defaults" title="pymor.core.defaults"><code class="xref py py-mod docutils literal notranslate"><span class="pre">pymor.core.defaults</span></code></a>)</p>
+</div>
+</dd></dl>
+
+</div>
+<div class="section" id="module-pymor.core.pickle">
+<span id="pickle-module"></span><h3>pickle module<a class="headerlink" href="#module-pymor.core.pickle" title="Permalink to this headline">¶</a></h3>
+<p>This module contains methods for object serialization.</p>
+<p>Instead of importing serialization functions from Python’s
+<a class="reference external" href="https://docs.python.org/3/library/pickle.html#module-pickle" title="(in Python v3.8)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">pickle</span></code></a> module directly, you should use the <code class="docutils literal notranslate"><span class="pre">dump</span></code>, <code class="docutils literal notranslate"><span class="pre">dumps</span></code>,
+<code class="docutils literal notranslate"><span class="pre">load</span></code>, <code class="docutils literal notranslate"><span class="pre">loads</span></code> functions defined here. In particular, these
+methods will use <a class="reference internal" href="#pymor.core.pickle.dumps_function" title="pymor.core.pickle.dumps_function"><code class="xref py py-func docutils literal notranslate"><span class="pre">dumps_function</span></code></a> to serialize
+function objects which cannot be pickled by Python’s standard
+methods. Note, however, pickling such methods should be avoided
+since the implementation of <a class="reference internal" href="#pymor.core.pickle.dumps_function" title="pymor.core.pickle.dumps_function"><code class="xref py py-func docutils literal notranslate"><span class="pre">dumps_function</span></code></a> uses non-portable
+implementation details of CPython to achieve its goals.</p>
+<hr class="docutils" />
+<dl class="class">
+<dt id="pymor.core.pickle.Module">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.core.pickle.</code><code class="sig-name descname">Module</code><span class="sig-paren">(</span><em class="sig-param">mod</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/pickle.html#Module"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.pickle.Module" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.pickle._global_names">
+<code class="sig-prename descclassname">pymor.core.pickle.</code><code class="sig-name descname">_global_names</code><span class="sig-paren">(</span><em class="sig-param">code_object</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/pickle.html#_global_names"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.pickle._global_names" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return all names in code_object.co_names which are used in a LOAD_GLOBAL statement.</p>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.pickle.dump">
+<code class="sig-prename descclassname">pymor.core.pickle.</code><code class="sig-name descname">dump</code><span class="sig-paren">(</span><em class="sig-param">obj</em>, <em class="sig-param">file</em>, <em class="sig-param">protocol=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/pickle.html#dump"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.pickle.dump" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.pickle.dumps">
+<code class="sig-prename descclassname">pymor.core.pickle.</code><code class="sig-name descname">dumps</code><span class="sig-paren">(</span><em class="sig-param">obj</em>, <em class="sig-param">protocol=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/pickle.html#dumps"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.pickle.dumps" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.pickle.dumps_function">
+<code class="sig-prename descclassname">pymor.core.pickle.</code><code class="sig-name descname">dumps_function</code><span class="sig-paren">(</span><em class="sig-param">function</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/pickle.html#dumps_function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.pickle.dumps_function" title="Permalink to this definition">¶</a></dt>
+<dd><p>Tries hard to pickle a function object:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>The function’s code object is serialized using the <a class="reference external" href="https://docs.python.org/3/library/marshal.html#module-marshal" title="(in Python v3.8)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">marshal</span></code></a> module.</p></li>
+<li><p>For all global names used in the function’s code object the corresponding
+object in the function’s global namespace is pickled. In case this object
+is a module, the modules __package__ name is pickled.</p></li>
+<li><p>All default arguments are pickled.</p></li>
+<li><p>All objects in the function’s closure are pickled.</p></li>
+</ol>
+</div></blockquote>
+<p>Note that also this is heavily implementation specific and will probably only
+work with CPython. If possible, avoid using this method.</p>
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.pickle.load">
+<code class="sig-prename descclassname">pymor.core.pickle.</code><code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param">file</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/pickle.html#load"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.pickle.load" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.pickle.loads">
+<code class="sig-prename descclassname">pymor.core.pickle.</code><code class="sig-name descname">loads</code><span class="sig-paren">(</span><em class="sig-param">str</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/pickle.html#loads"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.pickle.loads" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<hr class="docutils" />
+<dl class="function">
+<dt id="pymor.core.pickle.loads_function">
+<code class="sig-prename descclassname">pymor.core.pickle.</code><code class="sig-name descname">loads_function</code><span class="sig-paren">(</span><em class="sig-param">s</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/core/pickle.html#loads_function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.core.pickle.loads_function" title="Permalink to this definition">¶</a></dt>
+<dd><p>Restores a function serialized with <a class="reference internal" href="#pymor.core.pickle.dumps_function" title="pymor.core.pickle.dumps_function"><code class="xref py py-func docutils literal notranslate"><span class="pre">dumps_function</span></code></a>.</p>
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">pymor.core package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a><ul>
+<li><a class="reference internal" href="#module-pymor.core.cache">cache module</a></li>
+<li><a class="reference internal" href="#module-pymor.core.config">config module</a></li>
+<li><a class="reference internal" href="#module-pymor.core.defaults">defaults module</a></li>
+<li><a class="reference internal" href="#module-pymor.core.exceptions">exceptions module</a></li>
+<li><a class="reference internal" href="#module-pymor.core.interfaces">interfaces module</a></li>
+<li><a class="reference internal" href="#module-pymor.core.logger">logger module</a></li>
+<li><a class="reference internal" href="#module-pymor.core.pickle">pickle module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="pymor.bindings.html"
+                        title="previous chapter">pymor.bindings package</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="pymor.discretizers.html"
+                        title="next chapter">pymor.discretizers package</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/generated/pymor.core.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="pymor.discretizers.html" title="pymor.discretizers package"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="pymor.bindings.html" title="pymor.bindings package"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="pymor.html" >pymor package</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

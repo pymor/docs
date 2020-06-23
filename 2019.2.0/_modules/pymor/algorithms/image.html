@@ -1,0 +1,357 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.image &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.image</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.gram_schmidt</span> <span class="kn">import</span> <span class="n">gram_schmidt</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.rules</span> <span class="kn">import</span> <span class="n">RuleTable</span><span class="p">,</span> <span class="n">match_class</span><span class="p">,</span> <span class="n">match_generic</span>
+<span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">ImageCollectionError</span><span class="p">,</span> <span class="n">NoMatchingRuleError</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">Concatenation</span><span class="p">,</span> <span class="n">LincombOperator</span><span class="p">,</span> <span class="n">SelectionOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.ei</span> <span class="kn">import</span> <span class="n">EmpiricalInterpolatedOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.interfaces</span> <span class="kn">import</span> <span class="n">OperatorInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.interfaces</span> <span class="kn">import</span> <span class="n">VectorArrayInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.numpy</span> <span class="kn">import</span> <span class="n">NumpyVectorSpace</span>
+
+
+<div class="viewcode-block" id="estimate_image"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.image.estimate_image">[docs]</a><span class="k">def</span> <span class="nf">estimate_image</span><span class="p">(</span><span class="n">operators</span><span class="o">=</span><span class="p">(),</span> <span class="n">vectors</span><span class="o">=</span><span class="p">(),</span>
+                   <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extends</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">orthonormalize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">riesz_representatives</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Estimate the image of given |Operators| for all mu.</span>
+
+<span class="sd">    Let `operators` be a list of |Operators| with common source and range, and let</span>
+<span class="sd">    `vectors` be a list of |VectorArrays| or vector-like |Operators| in the range</span>
+<span class="sd">    of these operators. Given a |VectorArray| `domain` of vectors in the source of the</span>
+<span class="sd">    operators, this algorithms determines a |VectorArray| `image` of range vectors</span>
+<span class="sd">    such that the linear span of `image` contains:</span>
+
+<span class="sd">    - `op.apply(U, mu=mu)` for all operators `op` in `operators`, for all possible |Parameters|</span>
+<span class="sd">      `mu` and for all |VectorArrays| `U` contained in the linear span of `domain`,</span>
+<span class="sd">    - `U` for all |VectorArrays| in `vectors`,</span>
+<span class="sd">    - `v.as_range_array(mu)` for all |Operators| in `vectors` and all possible |Parameters| `mu`.</span>
+
+<span class="sd">    The algorithm will try to choose `image` as small as possible. However, no optimality</span>
+<span class="sd">    is guaranteed. The image estimation algorithm is specified by :class:`CollectOperatorRangeRules`</span>
+<span class="sd">    and :class:`CollectVectorRangeRules`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    operators</span>
+<span class="sd">        See above.</span>
+<span class="sd">    vectors</span>
+<span class="sd">        See above.</span>
+<span class="sd">    domain</span>
+<span class="sd">        See above. If `None`, an empty `domain` |VectorArray| is assumed.</span>
+<span class="sd">    extends</span>
+<span class="sd">        For some operators, e.g. |EmpiricalInterpolatedOperator|, as well as for all</span>
+<span class="sd">        elements of `vectors`, `image` is estimated independently from the choice of</span>
+<span class="sd">        `domain`.  If `extends` is `True`, such operators are ignored. (This is useful</span>
+<span class="sd">        in case these vectors have already been obtained by earlier calls to this</span>
+<span class="sd">        function.)</span>
+<span class="sd">    orthonormalize</span>
+<span class="sd">        Compute an orthonormal basis for the linear span of `image` using the</span>
+<span class="sd">        :func:`~pymor.algorithms.gram_schmidt.gram_schmidt` algorithm.</span>
+<span class="sd">    product</span>
+<span class="sd">        Inner product |Operator| w.r.t. which to orthonormalize.</span>
+<span class="sd">    riesz_representatives</span>
+<span class="sd">        If `True`, compute Riesz representatives of the vectors in `image` before</span>
+<span class="sd">        orthonormalizing (useful for dual norm computation when the range of the</span>
+<span class="sd">        `operators` is a dual space).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    The |VectorArray| `image`.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ImageCollectionError</span>
+<span class="sd">        Is raised when for a given |Operator| no image estimate is possible.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">operators</span> <span class="ow">or</span> <span class="n">vectors</span>
+    <span class="n">domain_space</span> <span class="o">=</span> <span class="n">operators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">source</span> <span class="k">if</span> <span class="n">operators</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">image_space</span> <span class="o">=</span> <span class="n">operators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">range</span> <span class="k">if</span> <span class="n">operators</span> \
+        <span class="k">else</span> <span class="n">vectors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">space</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">vectors</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">VectorArrayInterface</span><span class="p">)</span> \
+        <span class="k">else</span> <span class="n">vectors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">range</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">domain_space</span> <span class="ow">and</span> <span class="n">op</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">image_space</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">operators</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">v</span> <span class="ow">in</span> <span class="n">image_space</span>
+        <span class="p">)</span>
+        <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">v</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">image_space</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">)</span> <span class="ow">and</span> <span class="n">v</span><span class="o">.</span><span class="n">linear</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">vectors</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">domain_space</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">domain</span> <span class="ow">in</span> <span class="n">domain_space</span>
+    <span class="k">assert</span> <span class="n">product</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">product</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">product</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">image_space</span>
+
+    <span class="n">image</span> <span class="o">=</span> <span class="n">image_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">extends</span><span class="p">:</span>
+        <span class="n">rules</span> <span class="o">=</span> <span class="n">CollectVectorRangeRules</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">vectors</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">rules</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">NoMatchingRuleError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ImageCollectionError</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">obj</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">operators</span> <span class="ow">and</span> <span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">domain_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">operators</span><span class="p">:</span>
+        <span class="n">rules</span> <span class="o">=</span> <span class="n">CollectOperatorRangeRules</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">extends</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">rules</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">NoMatchingRuleError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ImageCollectionError</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">obj</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">riesz_representatives</span> <span class="ow">and</span> <span class="n">product</span><span class="p">:</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">product</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">orthonormalize</span><span class="p">:</span>
+        <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">image</span></div>
+
+
+<div class="viewcode-block" id="estimate_image_hierarchical"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.image.estimate_image_hierarchical">[docs]</a><span class="k">def</span> <span class="nf">estimate_image_hierarchical</span><span class="p">(</span><span class="n">operators</span><span class="o">=</span><span class="p">(),</span> <span class="n">vectors</span><span class="o">=</span><span class="p">(),</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extends</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                <span class="n">orthonormalize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">riesz_representatives</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Estimate the image of given |Operators| for all mu.</span>
+
+<span class="sd">    This is an extended version of :func:`estimate_image`, which calls</span>
+<span class="sd">    :func:`estimate_image` individually for each vector of `domain`.</span>
+
+<span class="sd">    As a result, the vectors in the returned `image` |VectorArray| will</span>
+<span class="sd">    be ordered by the `domain` vector they correspond to (starting with</span>
+<span class="sd">    vectors which correspond to the elements of `vectors` and to |Operators|</span>
+<span class="sd">    for which the image is estimated independently from `domain`).</span>
+
+<span class="sd">    This function also returns an `image_dims` list, such that the first</span>
+<span class="sd">    `image_dims[i+1]` vectors of `image` correspond to the first `i`</span>
+<span class="sd">    vectors of `domain` (the first `image_dims[0]` vectors correspond</span>
+<span class="sd">    to `vectors` and to |Operators| with fixed image estimate).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    operators</span>
+<span class="sd">        See :func:`estimate_image`.</span>
+<span class="sd">    vectors</span>
+<span class="sd">        See :func:`estimate_image`.</span>
+<span class="sd">    domain</span>
+<span class="sd">        See :func:`estimate_image`.</span>
+<span class="sd">    extends</span>
+<span class="sd">        When additional vectors have been appended to the `domain` |VectorArray|</span>
+<span class="sd">        after :func:`estimate_image_hierarchical` has been called, and</span>
+<span class="sd">        :func:`estimate_image_hierarchical` shall be called again for the extended</span>
+<span class="sd">        `domain` array, `extends` can be set to `(image, image_dims)`, where</span>
+<span class="sd">        `image`, `image_dims` are the return values of the last</span>
+<span class="sd">        :func:`estimate_image_hierarchical` call. The old `domain` vectors will</span>
+<span class="sd">        then be skipped during computation and `image`, `image_dims` will be</span>
+<span class="sd">        modified in-place.</span>
+<span class="sd">    orthonormalize</span>
+<span class="sd">        See :func:`estimate_image`.</span>
+<span class="sd">    product</span>
+<span class="sd">        See :func:`estimate_image`.</span>
+<span class="sd">    riesz_representatives</span>
+<span class="sd">        See :func:`estimate_image`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    image</span>
+<span class="sd">        See above.</span>
+<span class="sd">    image_dims</span>
+<span class="sd">        See above.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ImageCollectionError</span>
+<span class="sd">        Is raised when for a given |Operator| no image estimate is possible.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">operators</span> <span class="ow">or</span> <span class="n">vectors</span>
+    <span class="n">domain_space</span> <span class="o">=</span> <span class="n">operators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">source</span> <span class="k">if</span> <span class="n">operators</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">image_space</span> <span class="o">=</span> <span class="n">operators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">range</span> <span class="k">if</span> <span class="n">operators</span> \
+        <span class="k">else</span> <span class="n">vectors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">space</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">vectors</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">VectorArrayInterface</span><span class="p">)</span> \
+        <span class="k">else</span> <span class="n">vectors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">range</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">domain_space</span> <span class="ow">and</span> <span class="n">op</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">image_space</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">operators</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">v</span> <span class="ow">in</span> <span class="n">image_space</span>
+        <span class="p">)</span>
+        <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">v</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">image_space</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">)</span> <span class="ow">and</span> <span class="n">v</span><span class="o">.</span><span class="n">linear</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">vectors</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">domain_space</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">domain</span> <span class="ow">in</span> <span class="n">domain_space</span>
+    <span class="k">assert</span> <span class="n">product</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">product</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">product</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">image_space</span>
+    <span class="k">assert</span> <span class="n">extends</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">extends</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.image.estimate_image_hierarchical&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">operators</span> <span class="ow">and</span> <span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">domain_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">extends</span><span class="p">:</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">extends</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">image_dims</span> <span class="o">=</span> <span class="n">extends</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">ind_range</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">image_dims</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span> <span class="k">if</span> <span class="n">operators</span> <span class="k">else</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">image_dims</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">image_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+        <span class="n">image_dims</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">ind_range</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span> <span class="k">if</span> <span class="n">operators</span> <span class="k">else</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">ind_range</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Estimating image for basis vector </span><span class="si">{i}</span><span class="s1"> ...&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="n">new_image</span> <span class="o">=</span> <span class="n">estimate_image</span><span class="p">(</span><span class="n">operators</span><span class="p">,</span> <span class="n">vectors</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">extends</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                       <span class="n">orthonormalize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span>
+                                       <span class="n">riesz_representatives</span><span class="o">=</span><span class="n">riesz_representatives</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_image</span> <span class="o">=</span> <span class="n">estimate_image</span><span class="p">(</span><span class="n">operators</span><span class="p">,</span> <span class="p">[],</span> <span class="n">domain</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">extends</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                       <span class="n">orthonormalize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span>
+                                       <span class="n">riesz_representatives</span><span class="o">=</span><span class="n">riesz_representatives</span><span class="p">)</span>
+
+        <span class="n">gram_schmidt_offset</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+        <span class="n">image</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_image</span><span class="p">,</span> <span class="n">remove_from_other</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">orthonormalize</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Orthonormalizing ...&#39;</span><span class="p">):</span>
+                <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">gram_schmidt_offset</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">image_dims</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">image</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">image</span><span class="p">,</span> <span class="n">image_dims</span></div>
+
+
+<div class="viewcode-block" id="CollectOperatorRangeRules"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.image.CollectOperatorRangeRules">[docs]</a><span class="k">class</span> <span class="nc">CollectOperatorRangeRules</span><span class="p">(</span><span class="n">RuleTable</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|RuleTable| for the :func:`estimate_image` algorithm.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">extends</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">use_caching</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+    <span class="nd">@match_generic</span><span class="p">(</span><span class="k">lambda</span> <span class="n">op</span><span class="p">:</span> <span class="n">op</span><span class="o">.</span><span class="n">linear</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">parametric</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_apply_operator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">))</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">LincombOperator</span><span class="p">,</span> <span class="n">SelectionOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_recurse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_children</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">EmpiricalInterpolatedOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_EmpiricalInterpolatedOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="s1">&#39;collateral_basis&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">extends</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">collateral_basis</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">Concatenation</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_Concatenation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">firstrange</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+            <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">firstrange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">extends</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">firstrange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">extends</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">operators</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span></div>
+
+
+<div class="viewcode-block" id="CollectVectorRangeRules"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.image.CollectVectorRangeRules">[docs]</a><span class="k">class</span> <span class="nc">CollectVectorRangeRules</span><span class="p">(</span><span class="n">RuleTable</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|RuleTable| for the :func:`estimate_image` algorithm.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">use_caching</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="n">image</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">VectorArrayInterface</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_VectorArray</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+
+    <span class="nd">@match_generic</span><span class="p">(</span><span class="k">lambda</span> <span class="n">op</span><span class="p">:</span> <span class="n">op</span><span class="o">.</span><span class="n">linear</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">parametric</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_as_range_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">as_range_array</span><span class="p">())</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">LincombOperator</span><span class="p">,</span> <span class="n">SelectionOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_recurse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_children</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">Concatenation</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_Concatenation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">firstrange</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+            <span class="n">CollectVectorRangeRules</span><span class="p">(</span><span class="n">firstrange</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">CollectOperatorRangeRules</span><span class="p">(</span><span class="n">firstrange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">operators</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,286 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.parallel.ipython &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.parallel.ipython</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+
+<span class="kn">from</span> <span class="nn">pymor.core.config</span> <span class="kn">import</span> <span class="n">config</span>
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">BasicInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.parallel.basic</span> <span class="kn">import</span> <span class="n">WorkerPoolBase</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.counter</span> <span class="kn">import</span> <span class="n">Counter</span>
+
+
+<span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_IPYTHON</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">ipyparallel</span> <span class="kn">import</span> <span class="n">Client</span><span class="p">,</span> <span class="ne">TimeoutError</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">IPython.parallel</span> <span class="kn">import</span> <span class="n">Client</span><span class="p">,</span> <span class="ne">TimeoutError</span>
+
+
+<div class="viewcode-block" id="new_ipcluster_pool"><a class="viewcode-back" href="../../../generated/pymor.parallel.html#pymor.parallel.ipython.new_ipcluster_pool">[docs]</a><span class="k">class</span> <span class="nc">new_ipcluster_pool</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Create a new IPython parallel cluster and connect to it.</span>
+
+<span class="sd">    This context manager can be used to create an :class:`IPythonPool`</span>
+<span class="sd">    |WorkerPool|. When entering the context a new IPython cluster is</span>
+<span class="sd">    created using the `ipcluster` script and an :class:`IPythonPool`</span>
+<span class="sd">    is instantiated for the newly created cluster. When leaving</span>
+<span class="sd">    the context the cluster is shut down.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    profile</span>
+<span class="sd">        Passed as `--profile` parameter to the `ipcluster` script.</span>
+<span class="sd">    cluster_id</span>
+<span class="sd">        Passed as `--cluster-id` parameter to the `ipcluster` script.</span>
+<span class="sd">    nun_engines</span>
+<span class="sd">        Passed as `--n` parameter to the `ipcluster` script.</span>
+<span class="sd">    ipython_dir</span>
+<span class="sd">        Passed as `--ipython-dir` parameter to the `ipcluster` script.</span>
+<span class="sd">    min_wait</span>
+<span class="sd">        Wait at least this many seconds before trying to connect to the</span>
+<span class="sd">        new cluster.</span>
+<span class="sd">    timeout</span>
+<span class="sd">        Wait at most this many seconds for all Ipython cluster engines to</span>
+<span class="sd">        become available.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">profile</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cluster_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_engines</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ipython_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_wait</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">profile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;--profile=&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;--cluster-id=&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_engines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;--n=&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_engines</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ipython_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;--ipython-dir=&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ipython_dir</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s1">&#39;ipcluster start --daemonize&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">args</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Staring IPython cluster with &quot;&#39;</span> <span class="o">+</span> <span class="n">cmd</span> <span class="o">+</span> <span class="s1">&#39;&quot;&#39;</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+
+        <span class="n">num_engines</span><span class="p">,</span> <span class="n">timeout</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_engines</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_wait</span><span class="p">)</span>
+        <span class="n">waited</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_wait</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">while</span> <span class="n">client</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="n">profile</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="p">,</span> <span class="n">cluster_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_id</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">TimeoutError</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">waited</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s1">&#39;Could not connect to IPython cluster controller&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">waited</span> <span class="o">%</span> <span class="mi">10</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Waiting for controller to start ...&#39;</span><span class="p">)</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">waited</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="n">num_engines</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">client</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">waited</span> <span class="o">&lt;</span> <span class="n">timeout</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">waited</span> <span class="o">%</span> <span class="mi">10</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Waiting for engines to start ...&#39;</span><span class="p">)</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">waited</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">client</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s1">&#39;IPython cluster engines failed to start&#39;</span><span class="p">)</span>
+            <span class="n">wait</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">waited</span><span class="p">,</span> <span class="n">timeout</span> <span class="o">-</span> <span class="n">waited</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">wait</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Waiting </span><span class="si">{wait}</span><span class="s1"> more seconds for engines to start ...&#39;</span><span class="p">)</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">wait</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">running</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+            <span class="k">while</span> <span class="n">running</span> <span class="o">&lt;</span> <span class="n">num_engines</span> <span class="ow">and</span> <span class="n">waited</span> <span class="o">&lt;</span> <span class="n">timeout</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">waited</span> <span class="o">%</span> <span class="mi">10</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Waiting for {num_engines-running} of </span><span class="si">{num_engines}</span><span class="s1"> engines to start ...&#39;</span><span class="p">)</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">waited</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">running</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+            <span class="n">running</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">running</span> <span class="o">&lt;</span> <span class="n">num_engines</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;{num_engines-running} of </span><span class="si">{num_engines}</span><span class="s1"> IPython cluster engines failed to start&#39;</span><span class="p">)</span>
+        <span class="c1"># make sure all (potential) engines are in the same cwd, so they can import the same code</span>
+        <span class="n">client</span><span class="p">[:]</span><span class="o">.</span><span class="n">apply_sync</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pool</span> <span class="o">=</span> <span class="n">IPythonPool</span><span class="p">(</span><span class="n">profile</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="p">,</span> <span class="n">cluster_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pool</span>
+
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_val</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pool</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">profile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;--profile=&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;--cluster-id=&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ipython_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;--ipython-dir=&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ipython_dir</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s1">&#39;ipcluster stop&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">args</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Stopping IPython cluster with &quot;&#39;</span> <span class="o">+</span> <span class="n">cmd</span> <span class="o">+</span> <span class="s1">&#39;&quot;&#39;</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IPythonPool"><a class="viewcode-back" href="../../../generated/pymor.parallel.html#pymor.parallel.ipython.IPythonPool">[docs]</a><span class="k">class</span> <span class="nc">IPythonPool</span><span class="p">(</span><span class="n">WorkerPoolBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|WorkerPool| based on the IPython parallel computing features.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    num_engines</span>
+<span class="sd">        Number of IPython engines to use. If `None`, all available</span>
+<span class="sd">        engines are used.</span>
+<span class="sd">    kwargs</span>
+<span class="sd">        Keyword arguments used to instantiate the IPython cluster client.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_engines</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_engines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">view</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">[:</span><span class="n">num_engines</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">view</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">[:]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Connected to {len(self.view)} engines&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">view</span><span class="o">.</span><span class="n">map_sync</span><span class="p">(</span><span class="n">_setup_worker</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">view</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_remote_objects_created</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+
+<div class="viewcode-block" id="IPythonPool.__len__"><a class="viewcode-back" href="../../../generated/pymor.parallel.html#pymor.parallel.ipython.IPythonPool.__len__">[docs]</a>    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">view</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_push_object</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="n">remote_id</span> <span class="o">=</span> <span class="n">RemoteId</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_remote_objects_created</span><span class="o">.</span><span class="n">inc</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">view</span><span class="o">.</span><span class="n">apply_sync</span><span class="p">(</span><span class="n">_push_object</span><span class="p">,</span> <span class="n">remote_id</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">remote_id</span>
+
+    <span class="k">def</span> <span class="nf">_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">view</span><span class="o">.</span><span class="n">apply_sync</span><span class="p">(</span><span class="n">_worker_call_function</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply_only</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">view</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">worker</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">view</span><span class="o">.</span><span class="n">apply_sync</span><span class="p">(</span><span class="n">_worker_call_function</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">chunks</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">view</span><span class="o">.</span><span class="n">map_sync</span><span class="p">(</span><span class="n">_worker_call_function</span><span class="p">,</span>
+                                    <span class="o">*</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="p">((</span><span class="n">function</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">chunks</span><span class="p">))))</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="n">result</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_remove_object</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_id</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">view</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_remove_object</span><span class="p">,</span> <span class="n">remote_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RemoteId"><a class="viewcode-back" href="../../../generated/pymor.parallel.html#pymor.parallel.ipython.RemoteId">[docs]</a><span class="k">class</span> <span class="nc">RemoteId</span><span class="p">(</span><span class="nb">int</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+<span class="k">def</span> <span class="nf">_worker_call_function</span><span class="p">(</span><span class="n">function</span><span class="p">,</span> <span class="n">loop</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">_remote_objects</span>
+    <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="p">(</span><span class="n">_remote_objects</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">RemoteId</span><span class="p">)</span> <span class="k">else</span>  <span class="c1"># NOQA</span>
+                  <span class="n">v</span><span class="p">)</span>
+              <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="k">if</span> <span class="n">loop</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">function</span><span class="p">(</span><span class="o">*</span><span class="n">a</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">function</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_setup_worker</span><span class="p">(</span><span class="n">worker_id</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">_remote_objects</span>
+    <span class="n">_remote_objects</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="c1"># ensure that each worker starts with a different RandomState</span>
+    <span class="kn">from</span> <span class="nn">pymor.tools</span> <span class="kn">import</span> <span class="n">random</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">default_random_state</span><span class="p">()</span>
+    <span class="n">new_state</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">16</span><span class="p">)</span> <span class="o">+</span> <span class="n">worker_id</span><span class="p">)</span>
+    <span class="n">random</span><span class="o">.</span><span class="n">_default_random_state</span> <span class="o">=</span> <span class="n">new_state</span>
+
+
+<span class="k">def</span> <span class="nf">_push_object</span><span class="p">(</span><span class="n">remote_id</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">_remote_objects</span>
+    <span class="n">_remote_objects</span><span class="p">[</span><span class="n">remote_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">obj</span>  <span class="c1"># NOQA</span>
+
+
+<span class="k">def</span> <span class="nf">_remove_object</span><span class="p">(</span><span class="n">remote_id</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">_remote_objects</span>
+    <span class="k">del</span> <span class="n">_remote_objects</span><span class="p">[</span><span class="n">remote_id</span><span class="p">]</span>  <span class="c1"># NOQA</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

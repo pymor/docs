@@ -1,0 +1,1055 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.operators.cg &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.operators.cg</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot; This module provides some operators for continuous finite element discretizations.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.sparse</span> <span class="kn">import</span> <span class="n">coo_matrix</span><span class="p">,</span> <span class="n">csc_matrix</span>
+
+<span class="kn">from</span> <span class="nn">pymor.functions.interfaces</span> <span class="kn">import</span> <span class="n">FunctionInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.referenceelements</span> <span class="kn">import</span> <span class="n">triangle</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">square</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixBasedOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.numpy</span> <span class="kn">import</span> <span class="n">NumpyVectorSpace</span>
+
+
+<div class="viewcode-block" id="CGVectorSpace"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.CGVectorSpace">[docs]</a><span class="k">def</span> <span class="nf">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="nb">id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="L2ProductFunctionalP1"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.L2ProductFunctionalP1">[docs]</a><span class="k">class</span> <span class="nc">L2ProductFunctionalP1</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Linear finite element functional representing the inner product with an L2-|Function|.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        |Grid| for which to assemble the functional.</span>
+<span class="sd">    function</span>
+<span class="sd">        The |Function| with which to take the inner product.</span>
+<span class="sd">    dirichlet_clear_dofs</span>
+<span class="sd">        If `True`, set dirichlet boundary DOFs to zero.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| determining the Dirichlet boundaries in case</span>
+<span class="sd">        `dirichlet_clear_dofs` is set to `True`.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the functional.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">dirichlet_clear_dofs</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">boundary_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="ow">in</span> <span class="p">{</span><span class="n">line</span><span class="p">,</span> <span class="n">triangle</span><span class="p">}</span>
+        <span class="k">assert</span> <span class="n">function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">()</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">dirichlet_clear_dofs</span> <span class="ow">or</span> <span class="n">boundary_info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">function</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+
+        <span class="c1"># evaluate function at element centers</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">function</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+
+        <span class="c1"># evaluate the shape functions at the quadrature points on the reference</span>
+        <span class="c1"># element -&gt; shape = (number of shape functions, number of quadrature points)</span>
+        <span class="n">q</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">reference_element</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">SF</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]))</span>
+        <span class="k">elif</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">SF</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)),</span>
+                           <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                           <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="c1"># integrate the products of the function with the shape functions on each element</span>
+        <span class="c1"># -&gt; shape = (g.size(0), number of shape functions)</span>
+        <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;e,pi,e,i-&gt;ep&#39;</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">SF</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="c1"># map local DOFs to global DOFs</span>
+        <span class="c1"># FIXME This implementation is horrible, find a better way!</span>
+        <span class="n">SF_I</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">SF_I</span><span class="p">),</span> <span class="n">SF_I</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_dofs</span> <span class="ow">and</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="n">DI</span> <span class="o">=</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="n">I</span><span class="p">[</span><span class="n">DI</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">return</span> <span class="n">I</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="BoundaryL2ProductFunctional"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.BoundaryL2ProductFunctional">[docs]</a><span class="k">class</span> <span class="nc">BoundaryL2ProductFunctional</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Linear finite element functional representing the inner product with an L2-|Function| on the boundary.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        |Grid| for which to assemble the functional.</span>
+<span class="sd">    function</span>
+<span class="sd">        The |Function| with which to take the inner product.</span>
+<span class="sd">    boundary_type</span>
+<span class="sd">        The type of domain boundary (e.g. &#39;neumann&#39;) on which to assemble the functional.</span>
+<span class="sd">        If `None` the functional is assembled over the whole boundary.</span>
+<span class="sd">    dirichlet_clear_dofs</span>
+<span class="sd">        If `True`, set dirichlet boundary DOFs to zero.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        If `boundary_type` is specified or `dirichlet_clear_dofs` is `True`, the</span>
+<span class="sd">        |BoundaryInfo| determining which boundary entity belongs to which physical boundary.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the functional.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">boundary_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dirichlet_clear_dofs</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">boundary_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="ow">in</span> <span class="p">{</span><span class="n">line</span><span class="p">,</span> <span class="n">triangle</span><span class="p">,</span> <span class="n">square</span><span class="p">}</span>
+        <span class="k">assert</span> <span class="n">function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">()</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="p">(</span><span class="n">boundary_type</span> <span class="ow">or</span> <span class="n">dirichlet_clear_dofs</span><span class="p">)</span> <span class="ow">or</span> <span class="n">boundary_info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">function</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+
+        <span class="n">NI</span> <span class="o">=</span> <span class="n">bi</span><span class="o">.</span><span class="n">boundaries</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_type</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_type</span> <span class="k">else</span> <span class="n">g</span><span class="o">.</span><span class="n">boundaries</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="n">I</span><span class="p">[</span><span class="n">NI</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">function</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="n">NI</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">function</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="n">NI</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="n">q</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># remove last dimension of q, as line coordinates are one dimensional</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">SF</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">,</span> <span class="n">q</span><span class="p">])</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;e,pi,e,i-&gt;ep&#39;</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">SF</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="n">NI</span><span class="p">],</span> <span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">SF_I</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)[</span><span class="n">NI</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">I</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">SF_I</span><span class="p">),</span> <span class="n">SF_I</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_dofs</span> <span class="ow">and</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="n">DI</span> <span class="o">=</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="n">I</span><span class="p">[</span><span class="n">DI</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">return</span> <span class="n">I</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="BoundaryDirichletFunctional"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.BoundaryDirichletFunctional">[docs]</a><span class="k">class</span> <span class="nc">BoundaryDirichletFunctional</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Linear finite element functional for enforcing Dirichlet boundary values.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        |Grid| for which to assemble the functional.</span>
+<span class="sd">    dirichlet_data</span>
+<span class="sd">        |Function| providing the Dirichlet boundary values.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| determining the Dirichlet boundaries.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the functional.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">dirichlet_data</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="ow">in</span> <span class="p">{</span><span class="n">line</span><span class="p">,</span> <span class="n">triangle</span><span class="p">,</span> <span class="n">square</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">dirichlet_data</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+
+        <span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+        <span class="n">DI</span> <span class="o">=</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+        <span class="n">I</span><span class="p">[</span><span class="n">DI</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_data</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">DI</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">I</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="L2ProductFunctionalQ1"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.L2ProductFunctionalQ1">[docs]</a><span class="k">class</span> <span class="nc">L2ProductFunctionalQ1</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Bilinear finite element functional representing the inner product with an L2-|Function|.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        |Grid| for which to assemble the functional.</span>
+<span class="sd">    function</span>
+<span class="sd">        The |Function| with which to take the inner product.</span>
+<span class="sd">    dirichlet_clear_dofs</span>
+<span class="sd">        If `True`, set dirichlet boundary DOFs to zero.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| determining the Dirichlet boundaries in case</span>
+<span class="sd">        `dirichlet_clear_dofs` is set to `True`.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the functional.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">dirichlet_clear_dofs</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">boundary_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="ow">in</span> <span class="p">{</span><span class="n">square</span><span class="p">}</span>
+        <span class="k">assert</span> <span class="n">function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">()</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">dirichlet_clear_dofs</span> <span class="ow">or</span> <span class="n">boundary_info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">function</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+
+        <span class="c1"># evaluate function at all quadrature points -&gt; shape = (g.size(0), number of quadrature points)</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">function</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+
+        <span class="c1"># evaluate the shape functions at the quadrature points on the reference</span>
+        <span class="c1"># element -&gt; shape = (number of shape functions, number of quadrature points)</span>
+        <span class="n">q</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">reference_element</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">SF</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span>
+                           <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+                           <span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span>
+                           <span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">])))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="c1"># integrate the products of the function with the shape functions on each element</span>
+        <span class="c1"># -&gt; shape = (g.size(0), number of shape functions)</span>
+        <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;e,pi,e,i-&gt;ep&#39;</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">SF</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="c1"># map local DOFs to global DOFs</span>
+        <span class="c1"># FIXME This implementation is horrible, find a better way!</span>
+        <span class="n">SF_I</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">SF_I</span><span class="p">),</span> <span class="n">SF_I</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_dofs</span> <span class="ow">and</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="n">DI</span> <span class="o">=</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="n">I</span><span class="p">[</span><span class="n">DI</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">return</span> <span class="n">I</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="L2ProductP1"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.L2ProductP1">[docs]</a><span class="k">class</span> <span class="nc">L2ProductP1</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|Operator| representing the L2-product between linear finite element functions.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The |Grid| for which to assemble the product.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| for the treatment of Dirichlet boundary conditions.</span>
+<span class="sd">    dirichlet_clear_rows</span>
+<span class="sd">        If `True`, set the rows of the system matrix corresponding to Dirichlet boundary</span>
+<span class="sd">        DOFs to zero.</span>
+<span class="sd">    dirichlet_clear_columns</span>
+<span class="sd">        If `True`, set columns of the system matrix corresponding to Dirichlet boundary</span>
+<span class="sd">        DOFs to zero.</span>
+<span class="sd">    dirichlet_clear_diag</span>
+<span class="sd">        If `True`, also set diagonal entries corresponding to Dirichlet boundary DOFs to</span>
+<span class="sd">        zero. Otherwise, if either `dirichlet_clear_rows` or `dirichlet_clear_columns` is</span>
+<span class="sd">        `True`, the diagonal entries are set to one.</span>
+<span class="sd">    coefficient_function</span>
+<span class="sd">        Coefficient |Function| for product with `shape_range == ()`.</span>
+<span class="sd">        If `None`, constant one is assumed.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the product.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">dirichlet_clear_rows</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dirichlet_clear_columns</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">dirichlet_clear_diag</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">coefficient_function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span> <span class="ow">in</span> <span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">triangle</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">coefficient_function</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+
+        <span class="c1"># our shape functions</span>
+        <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">SF</span> <span class="o">=</span> <span class="p">[</span><span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+                  <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                  <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+            <span class="n">q</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">triangle</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">SF</span> <span class="o">=</span> <span class="p">[</span><span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                  <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+            <span class="n">q</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="c1"># evaluate the shape functions on the quadrature points</span>
+        <span class="n">SFQ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">SF</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Integrate the products of the shape functions on each element&#39;</span><span class="p">)</span>
+        <span class="c1"># -&gt; shape = (g.size(0), number of shape functions ** 2)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">C</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iq,jq,q,e,e-&gt;eij&#39;</span><span class="p">,</span> <span class="n">SFQ</span><span class="p">,</span> <span class="n">SFQ</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">C</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="k">del</span> <span class="n">C</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iq,jq,q,e-&gt;eij&#39;</span><span class="p">,</span> <span class="n">SFQ</span><span class="p">,</span> <span class="n">SFQ</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="k">del</span> <span class="n">SFQ</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Determine global dofs ...&#39;</span><span class="p">)</span>
+        <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Boundary treatment ...&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_rows</span><span class="p">:</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">SF_I0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SF_INTS</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_columns</span><span class="p">:</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">SF_I1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SF_INTS</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_diag</span> <span class="ow">and</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_rows</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_columns</span><span class="p">):</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size</span><span class="p">)))</span>
+                <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+                <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_I1</span><span class="p">,</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Assemble system matrix ...&#39;</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="p">(</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+        <span class="k">del</span> <span class="n">SF_INTS</span><span class="p">,</span> <span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">csc_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>  <span class="c1"># See DiffusionOperatorP1 for why copy() is necessary</span>
+
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="L2ProductQ1"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.L2ProductQ1">[docs]</a><span class="k">class</span> <span class="nc">L2ProductQ1</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|Operator| representing the L2-product between bilinear finite element functions.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The |Grid| for which to assemble the product.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| for the treatment of Dirichlet boundary conditions.</span>
+<span class="sd">    dirichlet_clear_rows</span>
+<span class="sd">        If `True`, set the rows of the system matrix corresponding to Dirichlet boundary</span>
+<span class="sd">        DOFs to zero.</span>
+<span class="sd">    dirichlet_clear_columns</span>
+<span class="sd">        If `True`, set columns of the system matrix corresponding to Dirichlet boundary</span>
+<span class="sd">        DOFs to zero.</span>
+<span class="sd">    dirichlet_clear_diag</span>
+<span class="sd">        If `True`, also set diagonal entries corresponding to Dirichlet boundary DOFs to</span>
+<span class="sd">        zero. Otherwise, if either `dirichlet_clear_rows` or `dirichlet_clear_columns`</span>
+<span class="sd">        is `True`, the diagonal entries are set to one.</span>
+<span class="sd">    coefficient_function</span>
+<span class="sd">        Coefficient |Function| for product with `shape_range == ()`.</span>
+<span class="sd">        If `None`, constant one is assumed.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the product.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">dirichlet_clear_rows</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dirichlet_clear_columns</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">dirichlet_clear_diag</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">coefficient_function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span> <span class="ow">in</span> <span class="p">{</span><span class="n">square</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">coefficient_function</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+
+        <span class="c1"># our shape functions</span>
+        <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">SF</span> <span class="o">=</span> <span class="p">[</span><span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span>
+                  <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+                  <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span>
+                  <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">])]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="n">q</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">square</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># evaluate the shape functions on the quadrature points</span>
+        <span class="n">SFQ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">SF</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Integrate the products of the shape functions on each element&#39;</span><span class="p">)</span>
+        <span class="c1"># -&gt; shape = (g.size(0), number of shape functions ** 2)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">C</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iq,jq,q,e,e-&gt;eij&#39;</span><span class="p">,</span> <span class="n">SFQ</span><span class="p">,</span> <span class="n">SFQ</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">C</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="k">del</span> <span class="n">C</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iq,jq,q,e-&gt;eij&#39;</span><span class="p">,</span> <span class="n">SFQ</span><span class="p">,</span> <span class="n">SFQ</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="k">del</span> <span class="n">SFQ</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Determine global dofs ...&#39;</span><span class="p">)</span>
+        <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="mi">4</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">])</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Boundary treatment ...&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_rows</span><span class="p">:</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">SF_I0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SF_INTS</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_columns</span><span class="p">:</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">SF_I1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SF_INTS</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_diag</span> <span class="ow">and</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_rows</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_columns</span><span class="p">):</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size</span><span class="p">)))</span>
+                <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+                <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_I1</span><span class="p">,</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Assemble system matrix ...&#39;</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="p">(</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+        <span class="k">del</span> <span class="n">SF_INTS</span><span class="p">,</span> <span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">csc_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>  <span class="c1"># See DiffusionOperatorP1 for why copy() is necessary</span>
+
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="DiffusionOperatorP1"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.DiffusionOperatorP1">[docs]</a><span class="k">class</span> <span class="nc">DiffusionOperatorP1</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Diffusion |Operator| for linear finite elements.</span>
+
+<span class="sd">    The operator is of the form ::</span>
+
+<span class="sd">        (Lu)(x) = c ∇ ⋅ [ d(x) ∇ u(x) ]</span>
+
+<span class="sd">    The function `d` can be scalar- or matrix-valued.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The |Grid| for which to assemble the operator.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| for the treatment of Dirichlet boundary conditions.</span>
+<span class="sd">    diffusion_function</span>
+<span class="sd">        The |Function| `d(x)` with `shape_range == ()` or</span>
+<span class="sd">        `shape_range = (grid.dim, grid.dim)`. If `None`, constant one is</span>
+<span class="sd">        assumed.</span>
+<span class="sd">    diffusion_constant</span>
+<span class="sd">        The constant `c`. If `None`, `c` is set to one.</span>
+<span class="sd">    dirichlet_clear_columns</span>
+<span class="sd">        If `True`, set columns of the system matrix corresponding to Dirichlet boundary</span>
+<span class="sd">        DOFs to zero to obtain a symmetric system matrix. Otherwise, only the rows will</span>
+<span class="sd">        be set to zero.</span>
+<span class="sd">    dirichlet_clear_diag</span>
+<span class="sd">        If `True`, also set diagonal entries corresponding to Dirichlet boundary DOFs to</span>
+<span class="sd">        zero. Otherwise they are set to one.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">diffusion_function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">diffusion_constant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">dirichlet_clear_columns</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dirichlet_clear_diag</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="ow">in</span> <span class="p">{</span><span class="n">triangle</span><span class="p">,</span> <span class="n">line</span><span class="p">},</span> <span class="s1">&#39;A simplicial grid is expected!&#39;</span>
+        <span class="k">assert</span> <span class="n">diffusion_function</span> <span class="ow">is</span> <span class="kc">None</span> \
+            <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">diffusion_function</span><span class="p">,</span> <span class="n">FunctionInterface</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">diffusion_function</span><span class="o">.</span><span class="n">dim_domain</span> <span class="o">==</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span>
+                <span class="ow">and</span> <span class="n">diffusion_function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">()</span>
+                <span class="ow">or</span> <span class="n">diffusion_function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dim</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">diffusion_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">diffusion_function</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+
+        <span class="c1"># gradients of shape functions</span>
+        <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">SF_GRAD</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.</span><span class="p">],</span>
+                                <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+                                <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]))</span>
+        <span class="k">elif</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">SF_GRAD</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="o">-</span><span class="mf">1.</span><span class="p">],</span>
+                                <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calulate gradients of shape functions transformed by reference map ...&#39;</span><span class="p">)</span>
+        <span class="n">SF_GRADS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;eij,pj-&gt;epi&#39;</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">jacobian_inverse_transposed</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">SF_GRAD</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculate all local scalar products beween gradients ...&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">():</span>
+            <span class="n">D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;epi,eqi,e,e-&gt;epq&#39;</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">volumes</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">D</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="k">del</span> <span class="n">D</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;epi,eqj,e,eij-&gt;epq&#39;</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">volumes</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">D</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="k">del</span> <span class="n">D</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;epi,eqi,e-&gt;epq&#39;</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">volumes</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="k">del</span> <span class="n">SF_GRADS</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_constant</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">SF_INTS</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_constant</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Determine global dofs ...&#39;</span><span class="p">)</span>
+        <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Boundary treatment ...&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">SF_I0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SF_INTS</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_columns</span><span class="p">:</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">SF_I1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SF_INTS</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_diag</span><span class="p">:</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size</span><span class="p">)))</span>
+                <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+                <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_I1</span><span class="p">,</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Assemble system matrix ...&#39;</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="p">(</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+        <span class="k">del</span> <span class="n">SF_INTS</span><span class="p">,</span> <span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">csc_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># The call to copy() is necessary to resize the data arrays of the sparse matrix:</span>
+        <span class="c1"># During the conversion to crs_matrix, entries corresponding with the same</span>
+        <span class="c1"># coordinates are summed up, resulting in shorter data arrays. The shortening</span>
+        <span class="c1"># is implemented by calling self.prune() which creates the view self.data[:self.nnz].</span>
+        <span class="c1"># Thus, the original data array is not deleted and all memory stays allocated.</span>
+
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="DiffusionOperatorQ1"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.DiffusionOperatorQ1">[docs]</a><span class="k">class</span> <span class="nc">DiffusionOperatorQ1</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Diffusion |Operator| for bilinear finite elements.</span>
+
+<span class="sd">    The operator is of the form ::</span>
+
+<span class="sd">        (Lu)(x) = c ∇ ⋅ [ d(x) ∇ u(x) ]</span>
+
+<span class="sd">    The function `d` can be scalar- or matrix-valued.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The |Grid| for which to assemble the operator.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| for the treatment of Dirichlet boundary conditions.</span>
+<span class="sd">    diffusion_function</span>
+<span class="sd">        The |Function| `d(x)` with `shape_range == ()` or</span>
+<span class="sd">        `shape_range = (grid.dim, grid.dim)`. If `None`, constant one is</span>
+<span class="sd">        assumed.</span>
+<span class="sd">    diffusion_constant</span>
+<span class="sd">        The constant `c`. If `None`, `c` is set to one.</span>
+<span class="sd">    dirichlet_clear_columns</span>
+<span class="sd">        If `True`, set columns of the system matrix corresponding to Dirichlet boundary</span>
+<span class="sd">        DOFs to zero to obtain a symmetric system matrix. Otherwise, only the rows will</span>
+<span class="sd">        be set to zero.</span>
+<span class="sd">    dirichlet_clear_diag</span>
+<span class="sd">        If `True`, also set diagonal entries corresponding to Dirichlet boundary DOFs to</span>
+<span class="sd">        zero. Otherwise they are set to one.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">diffusion_function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">diffusion_constant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">dirichlet_clear_columns</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dirichlet_clear_diag</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="ow">in</span> <span class="p">{</span><span class="n">square</span><span class="p">},</span> <span class="s1">&#39;A square grid is expected!&#39;</span>
+        <span class="k">assert</span> <span class="n">diffusion_function</span> <span class="ow">is</span> <span class="kc">None</span> \
+            <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">diffusion_function</span><span class="p">,</span> <span class="n">FunctionInterface</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">diffusion_function</span><span class="o">.</span><span class="n">dim_domain</span> <span class="o">==</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span>
+                <span class="ow">and</span> <span class="n">diffusion_function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">()</span>
+                <span class="ow">or</span> <span class="n">diffusion_function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dim</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">diffusion_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">diffusion_function</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+
+        <span class="c1"># gradients of shape functions</span>
+        <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">q</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">reference_element</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">SF_GRAD</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.</span><span class="p">,</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.</span><span class="p">],</span>
+                                <span class="p">[</span><span class="mf">1.</span> <span class="o">-</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span>
+                                <span class="p">[</span><span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span>
+                                <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="mf">1.</span> <span class="o">-</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calulate gradients of shape functions transformed by reference map ...&#39;</span><span class="p">)</span>
+        <span class="n">SF_GRADS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;eij,pjc-&gt;epic&#39;</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">jacobian_inverse_transposed</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">SF_GRAD</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculate all local scalar products beween gradients ...&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">():</span>
+            <span class="n">D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;epic,eqic,c,e,e-&gt;epq&#39;</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">D</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="k">del</span> <span class="n">D</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;epic,eqjc,c,e,eij-&gt;epq&#39;</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">D</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="k">del</span> <span class="n">D</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;epic,eqic,c,e-&gt;epq&#39;</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="k">del</span> <span class="n">SF_GRADS</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_constant</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">SF_INTS</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_constant</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Determine global dofs ...&#39;</span><span class="p">)</span>
+
+        <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="mi">4</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">])</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Boundary treatment ...&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">SF_I0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SF_INTS</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_columns</span><span class="p">:</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">SF_I1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SF_INTS</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_diag</span><span class="p">:</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size</span><span class="p">)))</span>
+                <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+                <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_I1</span><span class="p">,</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Assemble system matrix ...&#39;</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="p">(</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+        <span class="k">del</span> <span class="n">SF_INTS</span><span class="p">,</span> <span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">csc_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># The call to copy() is necessary to resize the data arrays of the sparse matrix:</span>
+        <span class="c1"># During the conversion to crs_matrix, entries corresponding with the same</span>
+        <span class="c1"># coordinates are summed up, resulting in shorter data arrays. The shortening</span>
+        <span class="c1"># is implemented by calling self.prune() which creates the view self.data[:self.nnz].</span>
+        <span class="c1"># Thus, the original data array is not deleted and all memory stays allocated.</span>
+
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="AdvectionOperatorP1"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.AdvectionOperatorP1">[docs]</a><span class="k">class</span> <span class="nc">AdvectionOperatorP1</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Linear advection |Operator| for linear finite elements.</span>
+
+<span class="sd">    The operator is of the form ::</span>
+
+<span class="sd">        (Lu)(x) = c ∇ ⋅ [ v(x) u(x) ]</span>
+
+<span class="sd">    The function `v` is vector-valued.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The |Grid| for which to assemble the operator.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| for the treatment of Dirichlet boundary conditions.</span>
+<span class="sd">    advection_function</span>
+<span class="sd">        The |Function| `v(x)` with `shape_range = (grid.dim, )`.</span>
+<span class="sd">        If `None`, constant one is assumed.</span>
+<span class="sd">    advection_constant</span>
+<span class="sd">        The constant `c`. If `None`, `c` is set to one.</span>
+<span class="sd">    dirichlet_clear_columns</span>
+<span class="sd">        If `True`, set columns of the system matrix corresponding to Dirichlet boundary</span>
+<span class="sd">        DOFs to zero to obtain a symmetric system matrix. Otherwise, only the rows will</span>
+<span class="sd">        be set to zero.</span>
+<span class="sd">    dirichlet_clear_diag</span>
+<span class="sd">        If `True`, also set diagonal entries corresponding to Dirichlet boundary DOFs to</span>
+<span class="sd">        zero. Otherwise they are set to one.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">advection_function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">advection_constant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">dirichlet_clear_columns</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dirichlet_clear_diag</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="ow">in</span> <span class="p">{</span><span class="n">triangle</span><span class="p">,</span> <span class="n">line</span><span class="p">},</span> <span class="s1">&#39;A simplicial grid is expected!&#39;</span>
+        <span class="k">assert</span> <span class="n">advection_function</span> <span class="ow">is</span> <span class="kc">None</span> \
+            <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">advection_function</span><span class="p">,</span> <span class="n">FunctionInterface</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">advection_function</span><span class="o">.</span><span class="n">dim_domain</span> <span class="o">==</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span>
+                <span class="ow">and</span> <span class="n">advection_function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dim</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">advection_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">advection_function</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+
+        <span class="c1"># gradients of shape functions</span>
+        <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">SF_GRAD</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.</span><span class="p">],</span>
+                                <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+                                <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]))</span>
+            <span class="n">SF</span> <span class="o">=</span> <span class="p">[</span><span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+                  <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                  <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+            <span class="c1"># SF_GRAD(function, component)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="n">q</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">reference_element</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calulate gradients of shape functions transformed by reference map ...&#39;</span><span class="p">)</span>
+        <span class="n">SF_GRADS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;eij,pj-&gt;epi&#39;</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">jacobian_inverse_transposed</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">SF_GRAD</span><span class="p">)</span>
+        <span class="c1"># SF_GRADS(element, function, component)</span>
+
+        <span class="n">SFQ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">SF</span><span class="p">))</span>
+        <span class="c1"># SFQ(function, quadraturepoint)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculate all local scalar products beween gradients ...&#39;</span><span class="p">)</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">advection_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">SF_INTS</span> <span class="o">=</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pc,eqi,c,e,ec-&gt;eqp&#39;</span><span class="p">,</span> <span class="n">SFQ</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">D</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">del</span> <span class="n">D</span>
+        <span class="k">del</span> <span class="n">SF_GRADS</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">advection_constant</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">SF_INTS</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">advection_constant</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Determine global dofs ...&#39;</span><span class="p">)</span>
+        <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Boundary treatment ...&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">SF_I0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SF_INTS</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_columns</span><span class="p">:</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">SF_I1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SF_INTS</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_diag</span><span class="p">:</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size</span><span class="p">)))</span>
+                <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+                <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_I1</span><span class="p">,</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Assemble system matrix ...&#39;</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="p">(</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+        <span class="k">del</span> <span class="n">SF_INTS</span><span class="p">,</span> <span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">csc_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># The call to copy() is necessary to resize the data arrays of the sparse matrix:</span>
+        <span class="c1"># During the conversion to crs_matrix, entries corresponding with the same</span>
+        <span class="c1"># coordinates are summed up, resulting in shorter data arrays. The shortening</span>
+        <span class="c1"># is implemented by calling self.prune() which creates the view self.data[:self.nnz].</span>
+        <span class="c1"># Thus, the original data array is not deleted and all memory stays allocated.</span>
+
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="AdvectionOperatorQ1"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.AdvectionOperatorQ1">[docs]</a><span class="k">class</span> <span class="nc">AdvectionOperatorQ1</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Linear advection |Operator| for bilinear finite elements.</span>
+
+<span class="sd">    The operator is of the form ::</span>
+
+<span class="sd">        (Lu)(x) = c ∇ ⋅ [ v(x) u(x) ]</span>
+
+<span class="sd">    The function `v` has to be vector-valued.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The |Grid| for which to assemble the operator.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| for the treatment of Dirichlet boundary conditions.</span>
+<span class="sd">    advection_function</span>
+<span class="sd">        The |Function| `v(x)` with `shape_range = (grid.dim, )`.</span>
+<span class="sd">        If `None`, constant one is assumed.</span>
+<span class="sd">    advection_constant</span>
+<span class="sd">        The constant `c`. If `None`, `c` is set to one.</span>
+<span class="sd">    dirichlet_clear_columns</span>
+<span class="sd">        If `True`, set columns of the system matrix corresponding to Dirichlet boundary</span>
+<span class="sd">        DOFs to zero to obtain a symmetric system matrix. Otherwise, only the rows will</span>
+<span class="sd">        be set to zero.</span>
+<span class="sd">    dirichlet_clear_diag</span>
+<span class="sd">        If `True`, also set diagonal entries corresponding to Dirichlet boundary DOFs to</span>
+<span class="sd">        zero. Otherwise they are set to one.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">advection_function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">advection_constant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">dirichlet_clear_columns</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dirichlet_clear_diag</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="ow">in</span> <span class="p">{</span><span class="n">square</span><span class="p">},</span> <span class="s1">&#39;A square grid is expected!&#39;</span>
+        <span class="k">assert</span> <span class="n">advection_function</span> <span class="ow">is</span> <span class="kc">None</span> \
+            <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">advection_function</span><span class="p">,</span> <span class="n">FunctionInterface</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">advection_function</span><span class="o">.</span><span class="n">dim_domain</span> <span class="o">==</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span>
+                <span class="ow">and</span> <span class="n">advection_function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dim</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">advection_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">advection_function</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+
+        <span class="c1"># gradients of shape functions</span>
+        <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">q</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">reference_element</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">SF_GRAD</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.</span><span class="p">,</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.</span><span class="p">],</span>
+                                <span class="p">[</span><span class="mf">1.</span> <span class="o">-</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span>
+                                <span class="p">[</span><span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span>
+                                <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="mf">1.</span> <span class="o">-</span> <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]))</span>
+            <span class="c1"># SF_GRAD(function, component, quadraturepoint)</span>
+            <span class="n">SF</span> <span class="o">=</span> <span class="p">[</span><span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span>
+                  <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+                  <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span>
+                  <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">])]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calulate gradients of shape functions transformed by reference map ...&#39;</span><span class="p">)</span>
+        <span class="n">SF_GRADS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;eij,pjc-&gt;epic&#39;</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">jacobian_inverse_transposed</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">SF_GRAD</span><span class="p">)</span>
+        <span class="c1"># SF_GRADS(element,function,component,quadraturepoint)</span>
+
+        <span class="n">SFQ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">SF</span><span class="p">))</span>
+        <span class="c1"># SFQ(function, quadraturepoint)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculate all local scalar products beween gradients ...&#39;</span><span class="p">)</span>
+
+        <span class="n">D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">advection_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">SF_INTS</span> <span class="o">=</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pc,eqic,c,e,ei-&gt;eqp&#39;</span><span class="p">,</span> <span class="n">SFQ</span><span class="p">,</span> <span class="n">SF_GRADS</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">D</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">del</span> <span class="n">D</span>
+        <span class="k">del</span> <span class="n">SF_GRADS</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">advection_constant</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">SF_INTS</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">advection_constant</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Determine global dofs ...&#39;</span><span class="p">)</span>
+
+        <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="mi">4</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">])</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Boundary treatment ...&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">SF_I0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SF_INTS</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_columns</span><span class="p">:</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">SF_I1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SF_INTS</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_clear_diag</span><span class="p">:</span>
+                <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size</span><span class="p">)))</span>
+                <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+                <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">SF_I1</span><span class="p">,</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Assemble system matrix ...&#39;</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="p">(</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+        <span class="k">del</span> <span class="n">SF_INTS</span><span class="p">,</span> <span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">csc_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># The call to copy() is necessary to resize the data arrays of the sparse matrix:</span>
+        <span class="c1"># During the conversion to crs_matrix, entries corresponding with the same</span>
+        <span class="c1"># coordinates are summed up, resulting in shorter data arrays. The shortening</span>
+        <span class="c1"># is implemented by calling self.prune() which creates the view self.data[:self.nnz].</span>
+        <span class="c1"># Thus, the original data array is not deleted and all memory stays allocated.</span>
+
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="RobinBoundaryOperator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.RobinBoundaryOperator">[docs]</a><span class="k">class</span> <span class="nc">RobinBoundaryOperator</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Robin boundary |Operator| for linear finite elements.</span>
+
+<span class="sd">    The operator represents the contribution of Robin boundary conditions to the</span>
+<span class="sd">    stiffness matrix, where the boundary condition is supposed to be given in the</span>
+<span class="sd">    form ::</span>
+
+<span class="sd">        -[ d(x) ∇u(x) ] ⋅ n(x) = c(x) (u(x) - g(x))</span>
+
+<span class="sd">    `d` and `n` are the diffusion function (see :class:`DiffusionOperatorP1`) and</span>
+<span class="sd">    the unit outer normal in `x`, while `c` is the (scalar) Robin parameter</span>
+<span class="sd">    function and `g` is the (also scalar) Robin boundary value function.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The |Grid| over which to assemble the operator.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| for the treatment of Dirichlet boundary conditions.</span>
+<span class="sd">    robin_data</span>
+<span class="sd">        Tuple providing two |Functions| that represent the Robin parameter and boundary</span>
+<span class="sd">        value function. If `None`, the resulting operator is zero.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">robin_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">robin_data</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">robin_data</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">robin_data</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">robin_data</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">all</span><span class="p">([</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">FunctionInterface</span><span class="p">)</span>
+                                          <span class="ow">and</span> <span class="n">f</span><span class="o">.</span><span class="n">dim_domain</span> <span class="o">==</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span>
+                                          <span class="ow">and</span> <span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">()</span>
+                                               <span class="ow">or</span> <span class="n">f</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dim</span><span class="p">,))</span>
+                                          <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">robin_data</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">robin_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+
+        <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="k">if</span> <span class="n">bi</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_robin</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">robin_data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+
+        <span class="n">RI</span> <span class="o">=</span> <span class="n">bi</span><span class="o">.</span><span class="n">robin_boundaries</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">robin_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">0</span><span class="p">](</span><span class="n">g</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="n">RI</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="n">I</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">robin_c</span><span class="p">,</span> <span class="p">(</span><span class="n">RI</span><span class="p">,</span> <span class="n">RI</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+            <span class="k">return</span> <span class="n">csc_matrix</span><span class="p">(</span><span class="n">I</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">xref</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="n">RI</span><span class="p">]</span>
+            <span class="c1"># xref(robin-index, quadraturepoint-index)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">():</span>
+                <span class="n">robin_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">0</span><span class="p">](</span><span class="n">xref</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">robin_elements</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">superentities</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)[</span><span class="n">RI</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+                <span class="n">robin_indices</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">superentity_indices</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)[</span><span class="n">RI</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+                <span class="n">normals</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">unit_outer_normals</span><span class="p">()[</span><span class="n">robin_elements</span><span class="p">,</span> <span class="n">robin_indices</span><span class="p">]</span>
+                <span class="n">robin_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">0</span><span class="p">](</span><span class="n">xref</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+                <span class="n">robin_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ei,eqi-&gt;eq&#39;</span><span class="p">,</span> <span class="n">normals</span><span class="p">,</span> <span class="n">robin_values</span><span class="p">)</span>
+
+            <span class="c1"># robin_c(robin-index, quadraturepoint-index)</span>
+            <span class="n">q</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="c1"># remove last dimension of q, as line coordinates are one dimensional</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">SF</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">,</span> <span class="n">q</span><span class="p">])</span>
+            <span class="n">SF_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;e,pi,pj,e,p-&gt;eij&#39;</span><span class="p">,</span> <span class="n">robin_c</span><span class="p">,</span> <span class="n">SF</span><span class="p">,</span> <span class="n">SF</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="n">RI</span><span class="p">],</span> <span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">SF_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">RI</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">SF_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)[</span><span class="n">RI</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">I</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">SF_INTS</span><span class="p">,</span> <span class="p">(</span><span class="n">SF_I0</span><span class="p">,</span> <span class="n">SF_I1</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)))</span>
+            <span class="k">return</span> <span class="n">csc_matrix</span><span class="p">(</span><span class="n">I</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="InterpolationOperator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.cg.InterpolationOperator">[docs]</a><span class="k">class</span> <span class="nc">InterpolationOperator</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Vector-like Lagrange interpolation |Operator| for continuous finite element spaces.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The |Grid| on which to interpolate.</span>
+<span class="sd">    function</span>
+<span class="sd">        The |Function| to interpolate.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">source</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">linear</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">function</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">function</span><span class="o">.</span><span class="n">dim_domain</span> <span class="o">==</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span>
+        <span class="k">assert</span> <span class="n">function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">CGVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">function</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

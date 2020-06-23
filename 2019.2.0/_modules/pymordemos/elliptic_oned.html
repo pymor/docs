@@ -1,0 +1,150 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymordemos.elliptic_oned &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymordemos.elliptic_oned</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;Proof of concept for solving the Poisson equation in 1D using linear finite elements and our grid interface</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">    elliptic_oned.py [--fv] PROBLEM-NUMBER N</span>
+
+<span class="sd">Arguments:</span>
+<span class="sd">    PROBLEM-NUMBER    {0,1}, selects the problem to solve</span>
+<span class="sd">    N                 Grid interval count</span>
+
+<span class="sd">Options:</span>
+<span class="sd">    -h, --help   Show this message.</span>
+<span class="sd">    --fv         Use finite volume discretization instead of finite elements.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">docopt</span> <span class="kn">import</span> <span class="n">docopt</span>
+
+<span class="kn">from</span> <span class="nn">pymor.analyticalproblems.elliptic</span> <span class="kn">import</span> <span class="n">StationaryProblem</span>
+<span class="kn">from</span> <span class="nn">pymor.discretizers.cg</span> <span class="kn">import</span> <span class="n">discretize_stationary_cg</span>
+<span class="kn">from</span> <span class="nn">pymor.discretizers.fv</span> <span class="kn">import</span> <span class="n">discretize_stationary_fv</span>
+<span class="kn">from</span> <span class="nn">pymor.domaindescriptions.basic</span> <span class="kn">import</span> <span class="n">LineDomain</span>
+<span class="kn">from</span> <span class="nn">pymor.functions.basic</span> <span class="kn">import</span> <span class="n">ExpressionFunction</span><span class="p">,</span> <span class="n">ConstantFunction</span><span class="p">,</span> <span class="n">LincombFunction</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.functionals</span> <span class="kn">import</span> <span class="n">ProjectionParameterFunctional</span><span class="p">,</span> <span class="n">ExpressionParameterFunctional</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.spaces</span> <span class="kn">import</span> <span class="n">CubicParameterSpace</span>
+
+
+<div class="viewcode-block" id="elliptic_oned_demo"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.elliptic_oned.elliptic_oned_demo">[docs]</a><span class="k">def</span> <span class="nf">elliptic_oned_demo</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;PROBLEM-NUMBER&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;PROBLEM-NUMBER&#39;</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;PROBLEM-NUMBER&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid problem number.&#39;</span><span class="p">)</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;N&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;N&#39;</span><span class="p">])</span>
+
+    <span class="n">rhss</span> <span class="o">=</span> <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;ones(x.shape[:-1]) * 10&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">()),</span>
+            <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x - 0.5)**2 * 1000&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">())]</span>
+    <span class="n">rhs</span> <span class="o">=</span> <span class="n">rhss</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;PROBLEM-NUMBER&#39;</span><span class="p">]]</span>
+
+    <span class="n">d0</span> <span class="o">=</span> <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;1 - x&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">())</span>
+    <span class="n">d1</span> <span class="o">=</span> <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">())</span>
+
+    <span class="n">parameter_space</span> <span class="o">=</span> <span class="n">CubicParameterSpace</span><span class="p">({</span><span class="s1">&#39;diffusionl&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">f0</span> <span class="o">=</span> <span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;diffusionl&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">f1</span> <span class="o">=</span> <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;1&#39;</span><span class="p">,</span> <span class="p">{})</span>
+
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">StationaryProblem</span><span class="p">(</span>
+        <span class="n">domain</span><span class="o">=</span><span class="n">LineDomain</span><span class="p">(),</span>
+        <span class="n">rhs</span><span class="o">=</span><span class="n">rhs</span><span class="p">,</span>
+        <span class="n">diffusion</span><span class="o">=</span><span class="n">LincombFunction</span><span class="p">([</span><span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">],</span> <span class="p">[</span><span class="n">f0</span><span class="p">,</span> <span class="n">f1</span><span class="p">]),</span>
+        <span class="n">dirichlet_data</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+        <span class="n">name</span><span class="o">=</span><span class="s1">&#39;1DProblem&#39;</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Discretize ...&#39;</span><span class="p">)</span>
+    <span class="n">discretizer</span> <span class="o">=</span> <span class="n">discretize_stationary_fv</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--fv&#39;</span><span class="p">]</span> <span class="k">else</span> <span class="n">discretize_stationary_cg</span>
+    <span class="n">m</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">discretizer</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="mi">1</span> <span class="o">/</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;N&#39;</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Solve ...&#39;</span><span class="p">)</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_uniformly</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+        <span class="n">U</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">))</span>
+    <span class="n">m</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Solution for diffusionl in [0.1, 1]&#39;</span><span class="p">)</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">docopt</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">)</span>
+    <span class="n">elliptic_oned_demo</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

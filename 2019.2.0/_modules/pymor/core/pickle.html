@@ -1,0 +1,260 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.core.pickle &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.core.pickle</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;This module contains methods for object serialization.</span>
+
+<span class="sd">Instead of importing serialization functions from Python&#39;s</span>
+<span class="sd">:mod:`pickle` module directly, you should use the `dump`, `dumps`,</span>
+<span class="sd">`load`, `loads` functions defined here. In particular, these</span>
+<span class="sd">methods will use :func:`dumps_function` to serialize</span>
+<span class="sd">function objects which cannot be pickled by Python&#39;s standard</span>
+<span class="sd">methods. Note, however, pickling such methods should be avoided</span>
+<span class="sd">since the implementation of :func:`dumps_function` uses non-portable</span>
+<span class="sd">implementation details of CPython to achieve its goals.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">marshal</span>
+<span class="kn">import</span> <span class="nn">opcode</span>
+<span class="kn">from</span> <span class="nn">types</span> <span class="kn">import</span> <span class="n">CodeType</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">,</span> <span class="n">ModuleType</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">cPickle</span> <span class="k">as</span> <span class="nn">pickle</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pickle</span> <span class="k">as</span> <span class="nn">pickle</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">BytesIO</span> <span class="k">as</span> <span class="n">IOtype</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">platform</span>
+
+
+<span class="n">PicklingError</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">PicklingError</span>
+<span class="n">UnpicklingError</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">UnpicklingError</span>
+<span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">HIGHEST_PROTOCOL</span>
+
+
+<span class="c1"># on CPython provide pickling methods which use</span>
+<span class="c1"># dumps_function in case pickling of a function fails</span>
+<span class="k">if</span> <span class="n">platform</span><span class="o">.</span><span class="n">python_implementation</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;CPython&#39;</span><span class="p">:</span>
+
+<div class="viewcode-block" id="dump"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.pickle.dump">[docs]</a>    <span class="k">def</span> <span class="nf">dump</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">pickler</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">Pickler</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">PROTOCOL</span><span class="p">)</span>
+        <span class="n">pickler</span><span class="o">.</span><span class="n">persistent_id</span> <span class="o">=</span> <span class="n">_function_pickling_handler</span>
+        <span class="n">pickler</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="dumps"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.pickle.dumps">[docs]</a>    <span class="k">def</span> <span class="nf">dumps</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">file</span> <span class="o">=</span> <span class="n">IOtype</span><span class="p">()</span>
+        <span class="n">pickler</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">Pickler</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">PROTOCOL</span><span class="p">)</span>
+        <span class="n">pickler</span><span class="o">.</span><span class="n">persistent_id</span> <span class="o">=</span> <span class="n">_function_pickling_handler</span>
+        <span class="n">pickler</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">file</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="load"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.pickle.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="n">file</span><span class="p">):</span>
+        <span class="n">unpickler</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">Unpickler</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        <span class="n">unpickler</span><span class="o">.</span><span class="n">persistent_load</span> <span class="o">=</span> <span class="n">_function_unpickling_handler</span>
+        <span class="k">return</span> <span class="n">unpickler</span><span class="o">.</span><span class="n">load</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="loads"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.pickle.loads">[docs]</a>    <span class="k">def</span> <span class="nf">loads</span><span class="p">(</span><span class="nb">str</span><span class="p">):</span>
+        <span class="n">file</span> <span class="o">=</span> <span class="n">IOtype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="n">unpickler</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">Unpickler</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        <span class="n">unpickler</span><span class="o">.</span><span class="n">persistent_load</span> <span class="o">=</span> <span class="n">_function_unpickling_handler</span>
+        <span class="k">return</span> <span class="n">unpickler</span><span class="o">.</span><span class="n">load</span><span class="p">()</span></div>
+
+<span class="k">else</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+    <span class="n">dump</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">PROTOCOL</span><span class="p">)</span>
+    <span class="n">dumps</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">PROTOCOL</span><span class="p">)</span>
+    <span class="n">load</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span>
+    <span class="n">loads</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span>
+
+
+<span class="k">def</span> <span class="nf">_generate_opcode</span><span class="p">(</span><span class="n">code_object</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">dis</span>
+    <span class="k">for</span> <span class="n">ins</span> <span class="ow">in</span> <span class="n">dis</span><span class="o">.</span><span class="n">get_instructions</span><span class="p">(</span><span class="n">code_object</span><span class="p">):</span>
+        <span class="k">yield</span> <span class="p">(</span><span class="n">ins</span><span class="o">.</span><span class="n">opcode</span><span class="p">,</span> <span class="n">ins</span><span class="o">.</span><span class="n">arg</span><span class="p">)</span>
+
+
+
+
+<div class="viewcode-block" id="_global_names"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.pickle._global_names">[docs]</a><span class="k">def</span> <span class="nf">_global_names</span><span class="p">(</span><span class="n">code_object</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;Return all names in code_object.co_names which are used in a LOAD_GLOBAL statement.&#39;&#39;&#39;</span>
+    <span class="n">LOAD_GLOBAL</span> <span class="o">=</span> <span class="n">opcode</span><span class="o">.</span><span class="n">opmap</span><span class="p">[</span><span class="s1">&#39;LOAD_GLOBAL&#39;</span><span class="p">]</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span> <span class="k">for</span> <span class="n">o</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">_generate_opcode</span><span class="p">(</span><span class="n">code_object</span><span class="p">)</span> <span class="k">if</span> <span class="n">o</span> <span class="o">==</span> <span class="n">LOAD_GLOBAL</span><span class="p">}</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="n">code_object</span><span class="o">.</span><span class="n">co_names</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">{</span><span class="n">names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">}</span>
+
+    <span class="c1"># On Python 3, comprehensions have their own scope. This is implemented</span>
+    <span class="c1"># by generating a new code object for the comprehension which is stored</span>
+    <span class="c1"># as a constant of the enclosing function&#39;s code object. If the comprehension</span>
+    <span class="c1"># refers to global names, these names are listed in co_names of the code</span>
+    <span class="c1"># object for the comprehension, so we have to look at these code objects as</span>
+    <span class="c1"># well:</span>
+    <span class="k">for</span> <span class="n">const</span> <span class="ow">in</span> <span class="n">code_object</span><span class="o">.</span><span class="n">co_consts</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">const</span><span class="p">)</span> <span class="ow">is</span> <span class="n">CodeType</span><span class="p">:</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_global_names</span><span class="p">(</span><span class="n">const</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="Module"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.pickle.Module">[docs]</a><span class="k">class</span> <span class="nc">Module</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mod</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mod</span> <span class="o">=</span> <span class="n">mod</span>
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="s1">&#39;__package__&#39;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">PicklingError</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">__package__</span>
+
+    <span class="k">def</span> <span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mod</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="dumps_function"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.pickle.dumps_function">[docs]</a><span class="k">def</span> <span class="nf">dumps_function</span><span class="p">(</span><span class="n">function</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;Tries hard to pickle a function object:</span>
+
+<span class="sd">        1. The function&#39;s code object is serialized using the :mod:`marshal` module.</span>
+<span class="sd">        2. For all global names used in the function&#39;s code object the corresponding</span>
+<span class="sd">           object in the function&#39;s global namespace is pickled. In case this object</span>
+<span class="sd">           is a module, the modules __package__ name is pickled.</span>
+<span class="sd">        3. All default arguments are pickled.</span>
+<span class="sd">        4. All objects in the function&#39;s closure are pickled.</span>
+
+<span class="sd">    Note that also this is heavily implementation specific and will probably only</span>
+<span class="sd">    work with CPython. If possible, avoid using this method.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">closure</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">function</span><span class="o">.</span><span class="vm">__closure__</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">cell_contents</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">function</span><span class="o">.</span><span class="vm">__closure__</span><span class="p">]</span>
+    <span class="n">code</span> <span class="o">=</span> <span class="n">marshal</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">function</span><span class="o">.</span><span class="vm">__code__</span><span class="p">)</span>
+    <span class="n">func_globals</span> <span class="o">=</span> <span class="n">function</span><span class="o">.</span><span class="vm">__globals__</span>
+
+    <span class="k">def</span> <span class="nf">wrap_modules</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Module</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ModuleType</span><span class="p">)</span> <span class="k">else</span> <span class="n">x</span>
+
+    <span class="c1"># note that global names in function.func_code can also refer to builtins ...</span>
+    <span class="n">globals_</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">wrap_modules</span><span class="p">(</span><span class="n">func_globals</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">_global_names</span><span class="p">(</span><span class="n">function</span><span class="o">.</span><span class="vm">__code__</span><span class="p">)</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">func_globals</span><span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">dumps</span><span class="p">((</span><span class="n">function</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">code</span><span class="p">,</span> <span class="n">globals_</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="vm">__defaults__</span><span class="p">,</span> <span class="n">closure</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">,</span>
+                  <span class="n">function</span><span class="o">.</span><span class="vm">__doc__</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="vm">__kwdefaults__</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="vm">__annotations__</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="loads_function"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.pickle.loads_function">[docs]</a><span class="k">def</span> <span class="nf">loads_function</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;Restores a function serialized with :func:`dumps_function`.&#39;&#39;&#39;</span>
+    <span class="n">name</span><span class="p">,</span> <span class="n">code</span><span class="p">,</span> <span class="n">globals_</span><span class="p">,</span> <span class="n">defaults</span><span class="p">,</span> <span class="n">closure</span><span class="p">,</span> <span class="n">func_dict</span><span class="p">,</span> <span class="n">doc</span><span class="p">,</span> <span class="n">qualname</span><span class="p">,</span> <span class="n">kwdefaults</span><span class="p">,</span> <span class="n">annotations</span> <span class="o">=</span> <span class="n">loads</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">code</span> <span class="o">=</span> <span class="n">marshal</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">globals_</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">Module</span><span class="p">):</span>
+            <span class="n">globals_</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">mod</span>
+    <span class="k">if</span> <span class="n">closure</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">ctypes</span>
+        <span class="n">ctypes</span><span class="o">.</span><span class="n">pythonapi</span><span class="o">.</span><span class="n">PyCell_New</span><span class="o">.</span><span class="n">restype</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">py_object</span>
+        <span class="n">ctypes</span><span class="o">.</span><span class="n">pythonapi</span><span class="o">.</span><span class="n">PyCell_New</span><span class="o">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="p">[</span><span class="n">ctypes</span><span class="o">.</span><span class="n">py_object</span><span class="p">]</span>
+        <span class="n">closure</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">pythonapi</span><span class="o">.</span><span class="n">PyCell_New</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">closure</span><span class="p">)</span>
+    <span class="n">globals_</span><span class="p">[</span><span class="s1">&#39;__builtins__&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">__builtins__</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">FunctionType</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">globals_</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">defaults</span><span class="p">,</span> <span class="n">closure</span><span class="p">)</span>
+    <span class="n">r</span><span class="o">.</span><span class="vm">__dict__</span> <span class="o">=</span> <span class="n">func_dict</span>
+    <span class="n">r</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="n">doc</span>
+    <span class="n">r</span><span class="o">.</span><span class="vm">__qualname__</span> <span class="o">=</span> <span class="n">qualname</span>
+    <span class="n">r</span><span class="o">.</span><span class="vm">__kwdefaults__</span> <span class="o">=</span> <span class="n">kwdefaults</span>
+    <span class="n">r</span><span class="o">.</span><span class="vm">__annotations__</span> <span class="o">=</span> <span class="n">annotations</span>
+    <span class="k">return</span> <span class="n">r</span></div>
+
+
+<span class="k">def</span> <span class="nf">_function_pickling_handler</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="vm">__class__</span> <span class="ow">is</span> <span class="n">FunctionType</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">!=</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="sa">b</span><span class="s1">&#39;A&#39;</span> <span class="o">+</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="n">PicklingError</span><span class="p">):</span>
+                <span class="k">return</span> <span class="sa">b</span><span class="s1">&#39;B&#39;</span> <span class="o">+</span> <span class="n">dumps_function</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">b</span><span class="s1">&#39;B&#39;</span> <span class="o">+</span> <span class="n">dumps_function</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span> <span class="nf">_function_unpickling_handler</span><span class="p">(</span><span class="n">persid</span><span class="p">):</span>
+    <span class="n">mode</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">persid</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">persid</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="sa">b</span><span class="s1">&#39;A&#39;</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="sa">b</span><span class="s1">&#39;B&#39;</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">loads_function</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">UnpicklingError</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

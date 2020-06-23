@@ -1,0 +1,235 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.grids.subgrid &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.grids.subgrid</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">weakref</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.grids.boundaryinfos</span> <span class="kn">import</span> <span class="n">GenericBoundaryInfo</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.interfaces</span> <span class="kn">import</span> <span class="n">AffineGridInterface</span>
+
+
+<div class="viewcode-block" id="SubGrid"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.subgrid.SubGrid">[docs]</a><span class="k">class</span> <span class="nc">SubGrid</span><span class="p">(</span><span class="n">AffineGridInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A subgrid of a |Grid|.</span>
+
+<span class="sd">    Given a |Grid| and a list of codim-0 entities we construct the minimal</span>
+<span class="sd">    subgrid of the grid, containing all the given entities.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    parent_grid</span>
+<span class="sd">        |Grid| of which a subgrid is to be created.</span>
+<span class="sd">    parent_entities</span>
+<span class="sd">        |NumPy array| of global indices of the codim-0 entities which</span>
+<span class="sd">        are to be contained in the subgrid.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    parent_grid</span>
+<span class="sd">        The |Grid| from which the subgrid was constructed. :class:`Subgrid`</span>
+<span class="sd">        only stores a :mod:`weakref` to the grid, so accessing this property</span>
+<span class="sd">        might return `None` if the original grid has been destroyed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">reference_element</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent_grid</span><span class="p">,</span> <span class="n">parent_entities</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">parent_grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> \
+            <span class="s1">&#39;parent_grid is None. Maybe you have called sub_grid.with(parent_entities=e)</span><span class="se">\n</span><span class="s1">&#39;</span> \
+            <span class="s1">&#39;on a SubGrid for which the parent grid has been destroyed?&#39;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parent_grid</span><span class="p">,</span> <span class="n">AffineGridInterface</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">parent_grid</span><span class="o">.</span><span class="n">dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reference_element</span> <span class="o">=</span> <span class="n">parent_grid</span><span class="o">.</span><span class="n">reference_element</span>
+
+        <span class="n">parent_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">parent_entities</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)]</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">parent_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">parent_entities</span><span class="p">))</span>
+
+        <span class="n">subentities</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">parent_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))]</span>
+
+        <span class="k">for</span> <span class="n">codim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">SUBE</span> <span class="o">=</span> <span class="n">parent_grid</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">codim</span><span class="p">)[</span><span class="n">parent_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">SUBE</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+            <span class="n">UI</span><span class="p">,</span> <span class="n">UI_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">SUBE</span><span class="p">,</span> <span class="n">return_inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">subentities</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">UI_inv</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">SUBE</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">))</span>
+            <span class="n">parent_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">UI</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">parent_entities</span> <span class="o">=</span> <span class="n">parent_entities</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__parent_grid</span> <span class="o">=</span> <span class="n">weakref</span><span class="o">.</span><span class="n">ref</span><span class="p">(</span><span class="n">parent_grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__parent_indices</span> <span class="o">=</span> <span class="n">parent_indices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__subentities</span> <span class="o">=</span> <span class="n">subentities</span>
+        <span class="n">embeddings</span> <span class="o">=</span> <span class="n">parent_grid</span><span class="o">.</span><span class="n">embeddings</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__embeddings</span> <span class="o">=</span> <span class="p">(</span><span class="n">embeddings</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">parent_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">embeddings</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">parent_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parent_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__parent_grid</span><span class="p">()</span>
+
+<div class="viewcode-block" id="SubGrid.parent_indices"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.subgrid.SubGrid.parent_indices">[docs]</a>    <span class="k">def</span> <span class="nf">parent_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;`retval[e]` is the index of the `e`-th codim-`codim` entity in the parent grid.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="s1">&#39;Invalid codimension&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__parent_indices</span><span class="p">[</span><span class="n">codim</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="SubGrid.indices_from_parent_indices"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.subgrid.SubGrid.indices_from_parent_indices">[docs]</a>    <span class="k">def</span> <span class="nf">indices_from_parent_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ind</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Maps a |NumPy array| of indicies of codim-`codim` entites of the parent grid to indicies of the subgrid.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            Not all provided indices correspond to entities contained in the subgrid.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="s1">&#39;Invalid codimension&#39;</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">ind</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="c1"># TODO Find better implementation of the following</span>
+        <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">ind</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">__parent_indices</span><span class="p">[</span><span class="n">codim</span><span class="p">][</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__parent_indices</span><span class="p">[</span><span class="n">codim</span><span class="p">][</span><span class="n">R</span><span class="p">]</span> <span class="o">==</span> <span class="n">ind</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Not all parent indices found&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SubGrid.size"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.subgrid.SubGrid.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="s1">&#39;Invalid codimension&#39;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__parent_indices</span><span class="p">[</span><span class="n">codim</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="SubGrid.subentities"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.subgrid.SubGrid.subentities">[docs]</a>    <span class="k">def</span> <span class="nf">subentities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">,</span> <span class="n">subentity_codim</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="n">subentity_codim</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="s1">&#39;Invalid subentity codimension&#39;</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__subentities</span><span class="p">[</span><span class="n">subentity_codim</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="n">codim</span><span class="p">,</span> <span class="n">subentity_codim</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SubGrid.embeddings"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.subgrid.SubGrid.embeddings">[docs]</a>    <span class="k">def</span> <span class="nf">embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__embeddings</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">embeddings</span><span class="p">(</span><span class="n">codim</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">del</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;_SubGrid__parent_grid&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">d</span></div>
+
+
+<div class="viewcode-block" id="make_sub_grid_boundary_info"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.subgrid.make_sub_grid_boundary_info">[docs]</a><span class="k">def</span> <span class="nf">make_sub_grid_boundary_info</span><span class="p">(</span><span class="n">sub_grid</span><span class="p">,</span> <span class="n">parent_grid</span><span class="p">,</span> <span class="n">parent_grid_boundary_info</span><span class="p">,</span> <span class="n">new_boundary_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Derives a |BoundaryInfo| for a :class:`~pymor.grids.subgrid.SubGrid`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sub_grid</span>
+<span class="sd">        The :class:`~pymor.grids.subgrid.SubGrid` for which a |BoundaryInfo| is created.</span>
+<span class="sd">    parent_grid</span>
+<span class="sd">        The parent |Grid|.</span>
+<span class="sd">    parent_grid_boundary_info</span>
+<span class="sd">        The |BoundaryInfo| of the parent |Grid| from which to derive the |BoundaryInfo|</span>
+<span class="sd">    new_boundary_type</span>
+<span class="sd">        The boundary type which is assigned to the new boundaries of `subgrid`. If</span>
+<span class="sd">        `None`, no boundary type is assigned.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    |BoundaryInfo| associated with sub_grid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">boundary_types</span> <span class="o">=</span> <span class="n">parent_grid_boundary_info</span><span class="o">.</span><span class="n">boundary_types</span>
+
+    <span class="n">masks</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">codim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">sub_grid</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">parent_indices</span> <span class="o">=</span> <span class="n">sub_grid</span><span class="o">.</span><span class="n">parent_indices</span><span class="p">(</span><span class="n">codim</span><span class="p">)[</span><span class="n">sub_grid</span><span class="o">.</span><span class="n">boundaries</span><span class="p">(</span><span class="n">codim</span><span class="p">)]</span>
+        <span class="n">new_boundaries</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">parent_grid</span><span class="o">.</span><span class="n">boundary_mask</span><span class="p">(</span><span class="n">codim</span><span class="p">)[</span><span class="n">parent_indices</span><span class="p">]))</span>
+        <span class="n">new_boundaries_sg_indices</span> <span class="o">=</span> <span class="n">sub_grid</span><span class="o">.</span><span class="n">boundaries</span><span class="p">(</span><span class="n">codim</span><span class="p">)[</span><span class="n">new_boundaries</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">boundary_types</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">parent_grid_boundary_info</span><span class="o">.</span><span class="n">mask</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">codim</span><span class="p">)[</span><span class="n">sub_grid</span><span class="o">.</span><span class="n">parent_indices</span><span class="p">(</span><span class="n">codim</span><span class="p">)]</span>
+            <span class="k">if</span> <span class="n">t</span> <span class="o">==</span> <span class="n">new_boundary_type</span><span class="p">:</span>
+                <span class="n">m</span><span class="p">[</span><span class="n">new_boundaries_sg_indices</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">masks</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">masks</span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_boundary_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">new_boundary_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">boundary_types</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sub_grid</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">codim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">bool</span><span class="p">)</span>
+            <span class="n">m</span><span class="p">[</span><span class="n">new_boundaries_sg_indices</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">masks</span><span class="p">[</span><span class="n">new_boundary_type</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">masks</span><span class="p">[</span><span class="n">new_boundary_type</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">GenericBoundaryInfo</span><span class="p">(</span><span class="n">sub_grid</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

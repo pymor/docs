@@ -1,0 +1,392 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.grids.referenceelements &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.grids.referenceelements</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.grids.interfaces</span> <span class="kn">import</span> <span class="n">ReferenceElementInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.quadratures</span> <span class="kn">import</span> <span class="n">GaussQuadratures</span>
+
+
+<div class="viewcode-block" id="Point"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Point">[docs]</a><span class="k">class</span> <span class="nc">Point</span><span class="p">(</span><span class="n">ReferenceElementInterface</span><span class="p">):</span>
+
+    <span class="n">dim</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">volume</span> <span class="o">=</span> <span class="mi">1</span>
+
+<div class="viewcode-block" id="Point.size"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Point.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be 0 but was </span><span class="si">{codim}</span><span class="s1">)&#39;</span>
+        <span class="k">return</span> <span class="mi">1</span></div>
+
+<div class="viewcode-block" id="Point.subentities"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Point.subentities">[docs]</a>    <span class="k">def</span> <span class="nf">subentities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">,</span> <span class="n">subentity_codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be 0 but was </span><span class="si">{codim}</span><span class="s1">)&#39;</span>
+        <span class="k">assert</span> <span class="n">subentity_codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid subentity codimension (must be 0 but was </span><span class="si">{subentity_codim}</span><span class="s1">)&#39;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Point.subentity_embedding"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Point.subentity_embedding">[docs]</a>    <span class="k">def</span> <span class="nf">subentity_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subentity_codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">subentity_codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be 0 but was </span><span class="si">{subentity_codim}</span><span class="s1">)&#39;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Point.sub_reference_element"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Point.sub_reference_element">[docs]</a>    <span class="k">def</span> <span class="nf">sub_reference_element</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be 0 but was </span><span class="si">{codim}</span><span class="s1">)&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="Point.unit_outer_normals"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Point.unit_outer_normals">[docs]</a>    <span class="k">def</span> <span class="nf">unit_outer_normals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Point.center"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Point.center">[docs]</a>    <span class="k">def</span> <span class="nf">center</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Point.mapped_diameter"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Point.mapped_diameter">[docs]</a>    <span class="k">def</span> <span class="nf">mapped_diameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="Point.quadrature_info"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Point.quadrature_info">[docs]</a>    <span class="k">def</span> <span class="nf">quadrature_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># of course, the quadrature is of arbitrary oder ...</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;gauss&#39;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">42</span><span class="p">))},</span> <span class="p">{</span><span class="s1">&#39;gauss&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)}</span></div>
+
+<div class="viewcode-block" id="Point.quadrature"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Point.quadrature">[docs]</a>    <span class="k">def</span> <span class="nf">quadrature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">quadrature_type</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">quadrature_type</span> <span class="o">==</span> <span class="s1">&#39;default&#39;</span> <span class="ow">or</span> <span class="n">quadrature_type</span> <span class="o">==</span> <span class="s1">&#39;gauss&#39;</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">npoints</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">npoints</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;there is only one point in dimension 0!&#39;</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;quadrature_type must be &quot;default&quot; or &quot;gauss&quot;&#39;</span><span class="p">)</span></div></div>
+
+
+<span class="n">point</span> <span class="o">=</span> <span class="n">Point</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="Line"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Line">[docs]</a><span class="k">class</span> <span class="nc">Line</span><span class="p">(</span><span class="n">ReferenceElementInterface</span><span class="p">):</span>
+
+    <span class="n">dim</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">volume</span> <span class="o">=</span> <span class="mi">1</span>
+
+<div class="viewcode-block" id="Line.size"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Line.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be 0 or 1 but was </span><span class="si">{codim}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">2</span></div>
+
+<div class="viewcode-block" id="Line.subentities"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Line.subentities">[docs]</a>    <span class="k">def</span> <span class="nf">subentities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">,</span> <span class="n">subentity_codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be 0 or 1 but was </span><span class="si">{codim}</span><span class="s1">)&#39;</span>
+        <span class="k">assert</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="n">subentity_codim</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">,</span>\
+            <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be between </span><span class="si">{codim}</span><span class="s1"> and 1 but was </span><span class="si">{subentity_codim}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">subentity_codim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Line.subentity_embedding"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Line.subentity_embedding">[docs]</a>    <span class="k">def</span> <span class="nf">subentity_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subentity_codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">subentity_codim</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">,</span>\
+            <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be 0 or 1 but was </span><span class="si">{subentity_codim}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">subentity_codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mf">0.</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.</span><span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Line.sub_reference_element"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Line.sub_reference_element">[docs]</a>    <span class="k">def</span> <span class="nf">sub_reference_element</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be 0 or 1 but was </span><span class="si">{codim}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">point</span></div>
+
+<div class="viewcode-block" id="Line.unit_outer_normals"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Line.unit_outer_normals">[docs]</a>    <span class="k">def</span> <span class="nf">unit_outer_normals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="o">-</span><span class="mf">1.</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.</span><span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Line.center"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Line.center">[docs]</a>    <span class="k">def</span> <span class="nf">center</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.5</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="Line.mapped_diameter"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Line.mapped_diameter">[docs]</a>    <span class="k">def</span> <span class="nf">mapped_diameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="n">A</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Line.quadrature_info"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Line.quadrature_info">[docs]</a>    <span class="k">def</span> <span class="nf">quadrature_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;gauss&#39;</span><span class="p">:</span> <span class="n">GaussQuadratures</span><span class="o">.</span><span class="n">orders</span><span class="p">},</span> <span class="p">{</span><span class="s1">&#39;gauss&#39;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">len</span><span class="p">,</span> <span class="n">GaussQuadratures</span><span class="o">.</span><span class="n">points</span><span class="p">))}</span></div>
+
+<div class="viewcode-block" id="Line.quadrature"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Line.quadrature">[docs]</a>    <span class="k">def</span> <span class="nf">quadrature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">quadrature_type</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">quadrature_type</span> <span class="o">==</span> <span class="s1">&#39;default&#39;</span> <span class="ow">or</span> <span class="n">quadrature_type</span> <span class="o">==</span> <span class="s1">&#39;gauss&#39;</span><span class="p">:</span>
+            <span class="n">P</span><span class="p">,</span> <span class="n">W</span> <span class="o">=</span> <span class="n">GaussQuadratures</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">npoints</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">P</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">W</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;quadrature_type must be &quot;default&quot; or &quot;gauss&quot;&#39;</span><span class="p">)</span></div></div>
+
+
+<span class="n">line</span> <span class="o">=</span> <span class="n">Line</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="Square"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Square">[docs]</a><span class="k">class</span> <span class="nc">Square</span><span class="p">(</span><span class="n">ReferenceElementInterface</span><span class="p">):</span>
+
+    <span class="n">dim</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">volume</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="k">def</span> <span class="nf">tensor_points</span><span class="p">(</span><span class="n">P</span><span class="p">):</span>
+            <span class="n">PP0</span><span class="p">,</span> <span class="n">PP1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">P</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">PP0</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">PP1</span><span class="o">.</span><span class="n">ravel</span><span class="p">()))</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="k">def</span> <span class="nf">tensor_weights</span><span class="p">(</span><span class="n">W</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">W</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">W</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:])</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_points</span> <span class="o">=</span> <span class="p">[</span><span class="n">tensor_points</span><span class="p">(</span><span class="n">GaussQuadratures</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">npoints</span><span class="o">=</span><span class="n">p</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+                                   <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">GaussQuadratures</span><span class="o">.</span><span class="n">maxpoints</span><span class="p">())]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_weights</span> <span class="o">=</span> <span class="p">[</span><span class="n">tensor_weights</span><span class="p">(</span><span class="n">GaussQuadratures</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">npoints</span><span class="o">=</span><span class="n">p</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+                                    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">GaussQuadratures</span><span class="o">.</span><span class="n">maxpoints</span><span class="p">())]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_npoints</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">GaussQuadratures</span><span class="o">.</span><span class="n">maxpoints</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_orders</span> <span class="o">=</span> <span class="n">GaussQuadratures</span><span class="o">.</span><span class="n">orders</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_order_map</span> <span class="o">=</span> <span class="n">GaussQuadratures</span><span class="o">.</span><span class="n">order_map</span>
+
+<div class="viewcode-block" id="Square.size"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Square.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be between 0 and 2 but was </span><span class="si">{codim}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">4</span>
+        <span class="k">elif</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">4</span></div>
+
+<div class="viewcode-block" id="Square.subentities"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Square.subentities">[docs]</a>    <span class="k">def</span> <span class="nf">subentities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">,</span> <span class="n">subentity_codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be between 0 and 2 but was </span><span class="si">{codim}</span><span class="s1">)&#39;</span>
+        <span class="k">assert</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="n">subentity_codim</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span>\
+            <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be between </span><span class="si">{codim}</span><span class="s1"> and 2 but was </span><span class="si">{subentity_codim}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">subentity_codim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">subentity_codim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Square.subentity_embedding"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Square.subentity_embedding">[docs]</a>    <span class="k">def</span> <span class="nf">subentity_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subentity_codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">subentity_codim</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span>\
+            <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must betwen 0 and 2 but was </span><span class="si">{subentity_codim}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">subentity_codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">subentity_codim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mf">1.</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.</span><span class="p">])),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mf">0.</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.</span><span class="p">])),</span>
+                          <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="o">-</span><span class="mf">1.</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.</span><span class="p">])),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mf">0.</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.</span><span class="p">]))))</span>
+            <span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]),</span>
+                          <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">])))</span>
+            <span class="k">return</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">subentity_embedding</span><span class="p">(</span><span class="n">subentity_codim</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Square.sub_reference_element"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Square.sub_reference_element">[docs]</a>    <span class="k">def</span> <span class="nf">sub_reference_element</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be between 0 and 2 but was </span><span class="si">{codim}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">elif</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">line</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">point</span></div>
+
+<div class="viewcode-block" id="Square.unit_outer_normals"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Square.unit_outer_normals">[docs]</a>    <span class="k">def</span> <span class="nf">unit_outer_normals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mf">0.</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Square.center"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Square.center">[docs]</a>    <span class="k">def</span> <span class="nf">center</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="Square.mapped_diameter"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Square.mapped_diameter">[docs]</a>    <span class="k">def</span> <span class="nf">mapped_diameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+        <span class="n">V0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]))</span>
+        <span class="n">V1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">VN0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">V0</span><span class="p">)</span>
+        <span class="n">VN1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">V1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">((</span><span class="n">VN0</span><span class="p">,</span> <span class="n">VN1</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Square.quadrature_info"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Square.quadrature_info">[docs]</a>    <span class="k">def</span> <span class="nf">quadrature_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;tensored_gauss&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_orders</span><span class="p">},</span> <span class="p">{</span><span class="s1">&#39;tensored_gauss&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_npoints</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="Square.quadrature"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Square.quadrature">[docs]</a>    <span class="k">def</span> <span class="nf">quadrature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">quadrature_type</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">quadrature_type</span> <span class="o">==</span> <span class="s1">&#39;default&#39;</span> <span class="ow">or</span> <span class="n">quadrature_type</span> <span class="o">==</span> <span class="s1">&#39;tensored_gauss&#39;</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">npoints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;must specify &quot;order&quot; or &quot;npoints&quot;&#39;</span>
+            <span class="k">assert</span> <span class="n">order</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">npoints</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;cannot specify &quot;order&quot; and &quot;npoints&quot;&#39;</span>
+            <span class="k">if</span> <span class="n">order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">order</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_order_map</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>\
+                    <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;order </span><span class="si">{order}</span><span class="s1"> not implmented&#39;</span><span class="p">)</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_order_map</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">npoints</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_npoints</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;not implemented with </span><span class="si">{npoints}</span><span class="s1"> points&#39;</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_npoints</span> <span class="o">==</span> <span class="n">npoints</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_points</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quadrature_weights</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;quadrature_type must be &quot;default&quot; or &quot;tensored_gauss&quot;&#39;</span><span class="p">)</span></div></div>
+
+
+<span class="n">square</span> <span class="o">=</span> <span class="n">Square</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="Triangle"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Triangle">[docs]</a><span class="k">class</span> <span class="nc">Triangle</span><span class="p">(</span><span class="n">ReferenceElementInterface</span><span class="p">):</span>
+
+    <span class="n">dim</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">volume</span> <span class="o">=</span> <span class="mf">0.5</span>
+
+<div class="viewcode-block" id="Triangle.size"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Triangle.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be between 0 and 2 but was </span><span class="si">{codim}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">3</span>
+        <span class="k">elif</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">3</span></div>
+
+<div class="viewcode-block" id="Triangle.subentities"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Triangle.subentities">[docs]</a>    <span class="k">def</span> <span class="nf">subentities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">,</span> <span class="n">subentity_codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be between 0 and 2 but was </span><span class="si">{codim}</span><span class="s1">)&#39;</span>
+        <span class="k">assert</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="n">subentity_codim</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span>\
+            <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be between </span><span class="si">{codim}</span><span class="s1"> and 2 but was </span><span class="si">{subentity_codim}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">subentity_codim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">subentity_codim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Triangle.subentity_embedding"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Triangle.subentity_embedding">[docs]</a>    <span class="k">def</span> <span class="nf">subentity_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subentity_codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">subentity_codim</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span>\
+            <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must betwen 0 and 2 but was </span><span class="si">{subentity_codim}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">subentity_codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">subentity_codim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="o">-</span><span class="mf">1.</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.</span><span class="p">])),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mf">0.</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.</span><span class="p">])),</span>
+                          <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mf">1.</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.</span><span class="p">]))))</span>
+            <span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]),</span>
+                          <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">])))</span>
+            <span class="k">return</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">subentity_embedding</span><span class="p">(</span><span class="n">subentity_codim</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Triangle.sub_reference_element"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Triangle.sub_reference_element">[docs]</a>    <span class="k">def</span> <span class="nf">sub_reference_element</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Invalid codimension (must be between 0 and 2 but was </span><span class="si">{codim}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">elif</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">line</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">point</span></div>
+
+<div class="viewcode-block" id="Triangle.unit_outer_normals"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Triangle.unit_outer_normals">[docs]</a>    <span class="k">def</span> <span class="nf">unit_outer_normals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.</span><span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Triangle.center"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Triangle.center">[docs]</a>    <span class="k">def</span> <span class="nf">center</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.</span> <span class="o">/</span> <span class="mf">3.</span><span class="p">,</span> <span class="mf">1.</span> <span class="o">/</span> <span class="mf">3.</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="Triangle.mapped_diameter"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Triangle.mapped_diameter">[docs]</a>    <span class="k">def</span> <span class="nf">mapped_diameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+        <span class="n">V0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]))</span>
+        <span class="n">V1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.</span><span class="p">]))</span>
+        <span class="n">V2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]))</span>
+        <span class="n">VN0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">V0</span><span class="p">)</span>
+        <span class="n">VN1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">V1</span><span class="p">)</span>
+        <span class="n">VN2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">V2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">((</span><span class="n">VN0</span><span class="p">,</span> <span class="n">VN1</span><span class="p">,</span> <span class="n">VN2</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Triangle.quadrature_info"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Triangle.quadrature_info">[docs]</a>    <span class="k">def</span> <span class="nf">quadrature_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">({</span><span class="s1">&#39;center&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="s1">&#39;edge_centers&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">2</span><span class="p">,)},</span>
+                <span class="p">{</span><span class="s1">&#39;center&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="s1">&#39;edge_centers&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">3</span><span class="p">,)})</span></div>
+
+<div class="viewcode-block" id="Triangle.quadrature"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.referenceelements.Triangle.quadrature">[docs]</a>    <span class="k">def</span> <span class="nf">quadrature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">quadrature_type</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">npoints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;must specify &quot;order&quot; or &quot;npoints&quot;&#39;</span>
+        <span class="k">assert</span> <span class="n">order</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">npoints</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;cannot specify &quot;order&quot; and &quot;npoints&quot;&#39;</span>
+        <span class="k">if</span> <span class="n">quadrature_type</span> <span class="o">==</span> <span class="s1">&#39;default&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">order</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">npoints</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">quadrature_type</span> <span class="o">=</span> <span class="s1">&#39;center&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">quadrature_type</span> <span class="o">=</span> <span class="s1">&#39;edge_centers&#39;</span>
+
+        <span class="k">if</span> <span class="n">quadrature_type</span> <span class="o">==</span> <span class="s1">&#39;center&#39;</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">order</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">order</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="k">assert</span> <span class="n">npoints</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">npoints</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">center</span><span class="p">()]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">volume</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="n">quadrature_type</span> <span class="o">==</span> <span class="s1">&#39;edge_centers&#39;</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">order</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">order</span> <span class="o">&lt;=</span> <span class="mi">2</span>
+            <span class="k">assert</span> <span class="n">npoints</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">npoints</span> <span class="o">==</span> <span class="mi">3</span>
+            <span class="c1"># this would work for arbitrary reference elements</span>
+            <span class="c1"># L, A = self.subentity_embedding(1)</span>
+            <span class="c1"># return np.array(L.dot(self.sub_reference_element().center()) + A), np.ones(3) / len(A) * self.volume</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">])),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="mi">3</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">volume</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;quadrature_type must be &quot;center&quot; or &quot;edge_centers&quot;&#39;</span><span class="p">)</span></div></div>
+
+
+<span class="n">triangle</span> <span class="o">=</span> <span class="n">Triangle</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

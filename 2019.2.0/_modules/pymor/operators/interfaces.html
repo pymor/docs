@@ -1,0 +1,531 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.operators.interfaces &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.operators.interfaces</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">ImmutableInterface</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.base</span> <span class="kn">import</span> <span class="n">Parametric</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.numpy</span> <span class="kn">import</span> <span class="n">NumpyVectorSpace</span>
+
+
+<div class="viewcode-block" id="OperatorInterface"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface">[docs]</a><span class="k">class</span> <span class="nc">OperatorInterface</span><span class="p">(</span><span class="n">ImmutableInterface</span><span class="p">,</span> <span class="n">Parametric</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interface for |Parameter| dependent discrete operators.</span>
+
+<span class="sd">    An operator in pyMOR is simply a mapping which for any given</span>
+<span class="sd">    |Parameter| maps vectors from its `source` |VectorSpace|</span>
+<span class="sd">    to vectors in its `range` |VectorSpace|.</span>
+
+<span class="sd">    Note that there is no special distinction between functionals</span>
+<span class="sd">    and operators in pyMOR. A functional is simply an operator with</span>
+<span class="sd">    |NumpyVectorSpace| `(1)` as its `range` |VectorSpace|.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        If not `None`, a dict which can contain the following keys:</span>
+
+<span class="sd">        :&#39;inverse&#39;:           solver options used for</span>
+<span class="sd">                              :meth:`~OperatorInterface.apply_inverse`</span>
+<span class="sd">        :&#39;inverse_adjoint&#39;:   solver options used for</span>
+<span class="sd">                              :meth:`~OperatorInterface.apply_inverse_adjoint`</span>
+<span class="sd">        :&#39;jacobian&#39;:          solver options for the operators returned</span>
+<span class="sd">                              by :meth:`~OperatorInterface.jacobian`</span>
+<span class="sd">                              (has no effect for linear operators)</span>
+
+<span class="sd">        If `solver_options` is `None` or a dict entry is missing</span>
+<span class="sd">        or `None`, default options are used.</span>
+<span class="sd">        The interpretation of the given solver options is up to</span>
+<span class="sd">        the operator at hand. In general, values in `solver_options`</span>
+<span class="sd">        should either be strings (indicating a solver type) or</span>
+<span class="sd">        dicts of options, usually with an entry `&#39;type&#39;` which</span>
+<span class="sd">        specifies the solver type to use and further items which</span>
+<span class="sd">        configure this solver.</span>
+<span class="sd">    linear</span>
+<span class="sd">        `True` if the operator is linear.</span>
+<span class="sd">    source</span>
+<span class="sd">        The source |VectorSpace|.</span>
+<span class="sd">    range</span>
+<span class="sd">        The range |VectorSpace|.</span>
+<span class="sd">    H</span>
+<span class="sd">        The adjoint operator, i.e. ::</span>
+
+<span class="sd">            self.H.apply(V, mu) == self.apply_adjoint(V, mu)</span>
+
+<span class="sd">        for all V, mu.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">solver_options</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">H</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">AdjointOperator</span>
+        <span class="k">return</span> <span class="n">AdjointOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+<div class="viewcode-block" id="OperatorInterface.apply"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.apply">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Apply the operator to a |VectorArray|.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        U</span>
+<span class="sd">            |VectorArray| of vectors to which the operator is applied.</span>
+<span class="sd">        mu</span>
+<span class="sd">            The |Parameter| for which to evaluate the operator.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        |VectorArray| of the operator evaluations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="OperatorInterface.apply2"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.apply2">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">apply2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Treat the operator as a 2-form by computing ``V.dot(self.apply(U))``.</span>
+
+<span class="sd">        If the operator is a linear operator given by multiplication with a matrix</span>
+<span class="sd">        M, then `apply2` is given as::</span>
+
+<span class="sd">            op.apply2(V, U) = V^T*M*U.</span>
+
+<span class="sd">        In the case of complex numbers, note that `apply2` is anti-linear in the</span>
+<span class="sd">        first variable by definition of `dot`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        V</span>
+<span class="sd">            |VectorArray| of the left arguments V.</span>
+<span class="sd">        U</span>
+<span class="sd">            |VectorArray| of the right right arguments U.</span>
+<span class="sd">        mu</span>
+<span class="sd">            The |Parameter| for which to evaluate the operator.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A |NumPy array| with shape `(len(V), len(U))` containing the 2-form</span>
+<span class="sd">        evaluations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="OperatorInterface.pairwise_apply2"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.pairwise_apply2">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">pairwise_apply2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Treat the operator as a 2-form by computing ``V.dot(self.apply(U))``.</span>
+
+<span class="sd">        Same as :meth:`OperatorInterface.apply2`, except that vectors from `V`</span>
+<span class="sd">        and `U` are applied in pairs.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        V</span>
+<span class="sd">            |VectorArray| of the left arguments V.</span>
+<span class="sd">        U</span>
+<span class="sd">            |VectorArray| of the right right arguments U.</span>
+<span class="sd">        mu</span>
+<span class="sd">            The |Parameter| for which to evaluate the operator.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A |NumPy array| with shape `(len(V),) == (len(U),)` containing</span>
+<span class="sd">        the 2-form evaluations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="OperatorInterface.apply_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.apply_adjoint">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">apply_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Apply the adjoint operator.</span>
+
+<span class="sd">        For any given linear |Operator| `op`, |Parameter| `mu` and</span>
+<span class="sd">        |VectorArrays| `U`, `V` in the :attr:`~OperatorInterface.source`</span>
+<span class="sd">        resp. :attr:`~OperatorInterface.range` we have::</span>
+
+<span class="sd">            op.apply_adjoint(V, mu).dot(U) == V.dot(op.apply(U, mu))</span>
+
+<span class="sd">        Thus, when `op` is represented by a matrix `M`, `apply_adjoint` is</span>
+<span class="sd">        given by left-multplication of (the complex conjugate of) `M` with `V`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        V</span>
+<span class="sd">            |VectorArray| of vectors to which the adjoint operator is applied.</span>
+<span class="sd">        mu</span>
+<span class="sd">            The |Parameter| for which to apply the adjoint operator.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        |VectorArray| of the adjoint operator evaluations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="OperatorInterface.apply_inverse"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.apply_inverse">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Apply the inverse operator.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        V</span>
+<span class="sd">            |VectorArray| of vectors to which the inverse operator is applied.</span>
+<span class="sd">        mu</span>
+<span class="sd">            The |Parameter| for which to evaluate the inverse operator.</span>
+<span class="sd">        least_squares</span>
+<span class="sd">            If `True`, solve the least squares problem::</span>
+
+<span class="sd">                u = argmin ||op(u) - v||_2.</span>
+
+<span class="sd">            Since for an invertible operator the least squares solution agrees</span>
+<span class="sd">            with the result of the application of the inverse operator,</span>
+<span class="sd">            setting this option should, in general, have no effect on the result</span>
+<span class="sd">            for those operators. However, note that when no appropriate</span>
+<span class="sd">            |solver_options| are set for the operator, most implementations</span>
+<span class="sd">            will choose a least squares solver by default which may be</span>
+<span class="sd">            undesirable.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        |VectorArray| of the inverse operator evaluations.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        InversionError</span>
+<span class="sd">            The operator could not be inverted.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="OperatorInterface.apply_inverse_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.apply_inverse_adjoint">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">apply_inverse_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Apply the inverse adjoint operator.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        U</span>
+<span class="sd">            |VectorArray| of vectors to which the inverse adjoint operator is applied.</span>
+<span class="sd">        mu</span>
+<span class="sd">            The |Parameter| for which to evaluate the inverse adjoint operator.</span>
+<span class="sd">        least_squares</span>
+<span class="sd">            If `True`, solve the least squares problem::</span>
+
+<span class="sd">                v = argmin ||op^*(v) - u||_2.</span>
+
+<span class="sd">            Since for an invertible operator the least squares solution agrees</span>
+<span class="sd">            with the result of the application of the inverse operator,</span>
+<span class="sd">            setting this option should, in general, have no effect on the result</span>
+<span class="sd">            for those operators. However, note that when no appropriate</span>
+<span class="sd">            |solver_options| are set for the operator, most operator</span>
+<span class="sd">            implementations will choose a least squares solver by default which</span>
+<span class="sd">            may be undesirable.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        |VectorArray| of the inverse adjoint operator evaluations.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        InversionError</span>
+<span class="sd">            The operator could not be inverted.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="OperatorInterface.jacobian"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.jacobian">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the operator&#39;s Jacobian as a new |Operator|.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        U</span>
+<span class="sd">            Length 1 |VectorArray| containing the vector for which to compute</span>
+<span class="sd">            the Jacobian.</span>
+<span class="sd">        mu</span>
+<span class="sd">            The |Parameter| for which to compute the Jacobian.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Linear |Operator| representing the Jacobian.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="OperatorInterface.d_mu"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.d_mu">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">d_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="p">()):</span>
+        <span class="sd">&quot;&quot;&quot;Return the operator&#39;s derivative with respect to an index of a parameter component.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        component</span>
+<span class="sd">            Parameter component</span>
+<span class="sd">        index</span>
+<span class="sd">            index in the parameter component</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        New |Operator| representing the partial derivative.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="OperatorInterface.as_range_array"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.as_range_array">[docs]</a>    <span class="k">def</span> <span class="nf">as_range_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a |VectorArray| representation of the operator in its range space.</span>
+
+<span class="sd">        In the case of a linear operator with |NumpyVectorSpace| as</span>
+<span class="sd">        :attr:`~OperatorInterface.source`, this method returns for every |Parameter|</span>
+<span class="sd">        `mu` a |VectorArray| `V` in the operator&#39;s :attr:`~OperatorInterface.range`,</span>
+<span class="sd">        such that ::</span>
+
+<span class="sd">            V.lincomb(U.to_numpy()) == self.apply(U, mu)</span>
+
+<span class="sd">        for all |VectorArrays| `U`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mu</span>
+<span class="sd">            The |Parameter| for which to return the |VectorArray| representation.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        V</span>
+<span class="sd">            The |VectorArray| defined above.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="OperatorInterface.as_source_array"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.as_source_array">[docs]</a>    <span class="k">def</span> <span class="nf">as_source_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a |VectorArray| representation of the operator in its source space.</span>
+
+<span class="sd">        In the case of a linear operator with |NumpyVectorSpace| as</span>
+<span class="sd">        :attr:`~OperatorInterface.range`, this method returns for every |Parameter|</span>
+<span class="sd">        `mu` a |VectorArray| `V` in the operator&#39;s :attr:`~OperatorInterface.source`,</span>
+<span class="sd">        such that ::</span>
+
+<span class="sd">            self.range.make_array(V.dot(U).T) == self.apply(U, mu)</span>
+
+<span class="sd">        for all |VectorArrays| `U`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mu</span>
+<span class="sd">            The |Parameter| for which to return the |VectorArray| representation.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        V</span>
+<span class="sd">            The |VectorArray| defined above.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="OperatorInterface.as_vector"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.as_vector">[docs]</a>    <span class="k">def</span> <span class="nf">as_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a vector representation of a linear functional or vector operator.</span>
+
+<span class="sd">        Depending on the operator&#39;s :attr:`~OperatorInterface.source` and</span>
+<span class="sd">        :attr:`~OperatorInterface.range`, this method is equivalent to calling</span>
+<span class="sd">        :meth:`~OperatorInterface.as_range_array` or :meth:`~OperatorInterface.as_source_array`</span>
+<span class="sd">        respectively. The resulting |VectorArray| is required to have length 1.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mu</span>
+<span class="sd">            The |Parameter| for which to return the vector representation.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        V</span>
+<span class="sd">            |VectorArray| of length 1 containing the vector representation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;This nonlinear operator does not represent a vector or linear functional.&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">is_scalar</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_range_array</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">is_scalar</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_source_array</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;This operator does not represent a vector or linear functional.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OperatorInterface.assemble"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.assemble">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Assemble the operator for a given parameter.</span>
+
+<span class="sd">        The result of the method strongly depends on the given operator.</span>
+<span class="sd">        For instance, a matrix-based operator will assemble its matrix, a |LincombOperator|</span>
+<span class="sd">        will try to form the linear combination of its operators, whereas an arbitrary</span>
+<span class="sd">        operator might simply return a :class:`~pymor.operators.constructions.FixedParameterOperator`.</span>
+<span class="sd">        The only assured property of the assembled operator is that it no longer</span>
+<span class="sd">        depends on a |Parameter|.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mu</span>
+<span class="sd">            The |Parameter| for which to assemble the operator.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Parameter-independent, assembled |Operator|.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+    <span class="k">def</span> <span class="nf">_assemble_lincomb</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operators</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">identity_shift</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Try to assemble a linear combination of the given operators.</span>
+
+<span class="sd">        Returns a new |Operator| which represents the sum ::</span>
+
+<span class="sd">            c_1*O_1 + ... + c_N*O_N + s*I</span>
+
+<span class="sd">        where `O_i` are |Operators|, `c_i`, `s` scalar coefficients and `I` the identity.</span>
+
+<span class="sd">        This method is called in the :meth:`assemble` method of |LincombOperator| on</span>
+<span class="sd">        the first of its operators. If an assembly of the given linear combination</span>
+<span class="sd">        is possible, e.g. the linear combination of the system matrices of the</span>
+<span class="sd">        operators can be formed, then the assembled operator is returned.</span>
+<span class="sd">        Otherwise, the method returns `None` to indicate that assembly is not possible.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        operators</span>
+<span class="sd">            List of |Operators| `O_i` whose linear combination is formed.</span>
+<span class="sd">        coefficients</span>
+<span class="sd">            List of the corresponding linear coefficients `c_i`.</span>
+<span class="sd">        identity_shift</span>
+<span class="sd">            The coefficient `s`.</span>
+<span class="sd">        solver_options</span>
+<span class="sd">            |solver_options| for the assembled operator.</span>
+<span class="sd">        name</span>
+<span class="sd">            Name of the assembled operator.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        The assembled |Operator| if assembly is possible, otherwise `None`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="OperatorInterface.restricted"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.restricted">[docs]</a>    <span class="k">def</span> <span class="nf">restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dofs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Restrict the operator range to a given set of degrees of freedom.</span>
+
+<span class="sd">        This method returns a restricted version `restricted_op` of the</span>
+<span class="sd">        operator along with an array `source_dofs` such that for any</span>
+<span class="sd">        |VectorArray| `U` in `self.source` the following is true::</span>
+
+<span class="sd">            self.apply(U, mu).dofs(dofs)</span>
+<span class="sd">                == restricted_op.apply(NumpyVectorArray(U.dofs(source_dofs)), mu))</span>
+
+<span class="sd">        Such an operator is mainly useful for</span>
+<span class="sd">        :class:`empirical interpolation &lt;pymor.operators.ei.EmpiricalInterpolatedOperator&gt;`</span>
+<span class="sd">        where the evaluation of the original operator only needs to be known</span>
+<span class="sd">        for few selected degrees of freedom. If the operator has a small</span>
+<span class="sd">        stencil, only few `source_dofs` will be needed to evaluate the</span>
+<span class="sd">        restricted operator which can make its evaluation very fast</span>
+<span class="sd">        compared to evaluating the original operator.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        dofs</span>
+<span class="sd">            One-dimensional |NumPy array| of degrees of freedom in the operator</span>
+<span class="sd">            :attr:`~OperatorInterface.range` to which to restrict.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        restricted_op</span>
+<span class="sd">            The restricted operator as defined above. The operator will have</span>
+<span class="sd">            |NumpyVectorSpace| `(len(source_dofs))` as :attr:`~OperatorInterface.source`</span>
+<span class="sd">            and |NumpyVectorSpace| `(len(dofs))` as :attr:`~OperatorInterface.range`.</span>
+<span class="sd">        source_dofs</span>
+<span class="sd">            One-dimensional |NumPy array| of source degrees of freedom as</span>
+<span class="sd">            defined above.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="OperatorInterface.__add__"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.__add__">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sum of two operators.&quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span> <span class="n">other</span><span class="p">)</span>
+
+<div class="viewcode-block" id="OperatorInterface.__mul__"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.__mul__">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Product of operator by a scalar.&quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">*</span> <span class="n">other</span>
+
+<div class="viewcode-block" id="OperatorInterface.__matmul__"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.__matmul__">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="fm">__matmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Concatenation of two operators.&quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+    <span class="k">def</span> <span class="fm">__neg__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

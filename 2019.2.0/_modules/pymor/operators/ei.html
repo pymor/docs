@@ -1,0 +1,311 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.operators.ei &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.operators.ei</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">weakref</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.linalg</span> <span class="kn">import</span> <span class="n">solve</span><span class="p">,</span> <span class="n">solve_triangular</span>
+
+
+<span class="kn">from</span> <span class="nn">pymor.operators.basic</span> <span class="kn">import</span> <span class="n">OperatorBase</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">VectorArrayOperator</span><span class="p">,</span> <span class="n">Concatenation</span><span class="p">,</span> <span class="n">ComponentProjection</span><span class="p">,</span> <span class="n">ZeroOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.interfaces</span> <span class="kn">import</span> <span class="n">OperatorInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.interfaces</span> <span class="kn">import</span> <span class="n">VectorArrayInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.numpy</span> <span class="kn">import</span> <span class="n">NumpyVectorSpace</span>
+
+
+<div class="viewcode-block" id="EmpiricalInterpolatedOperator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.ei.EmpiricalInterpolatedOperator">[docs]</a><span class="k">class</span> <span class="nc">EmpiricalInterpolatedOperator</span><span class="p">(</span><span class="n">OperatorBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interpolate an |Operator| using Empirical Operator Interpolation.</span>
+
+<span class="sd">    Let `L` be an |Operator|, `0 &lt;= c_1, ..., c_M &lt; L.range.dim` indices</span>
+<span class="sd">    of interpolation DOFs and let `b_1, ..., b_M in R^(L.range.dim)` be collateral</span>
+<span class="sd">    basis vectors. If moreover `ψ_j(U)` denotes the j-th component of `U`, the</span>
+<span class="sd">    empirical interpolation `L_EI` of `L` w.r.t. the given data is given by ::</span>
+
+<span class="sd">      |                M</span>
+<span class="sd">      |   L_EI(U, μ) = ∑ b_i⋅λ_i     such that</span>
+<span class="sd">      |               i=1</span>
+<span class="sd">      |</span>
+<span class="sd">      |   ψ_(c_i)(L_EI(U, μ)) = ψ_(c_i)(L(U, μ))   for i=0,...,M</span>
+
+<span class="sd">    Since the original operator only has to be evaluated at the given interpolation</span>
+<span class="sd">    DOFs, |EmpiricalInterpolatedOperator| calls</span>
+<span class="sd">    :meth:`~pymor.operators.interfaces.OperatorInterface.restricted`</span>
+<span class="sd">    to obtain a restricted version of the operator which is used</span>
+<span class="sd">    to quickly obtain the required evaluations. If the `restricted` method, is not</span>
+<span class="sd">    implemented, the full operator will be evaluated (which will lead to</span>
+<span class="sd">    the same result, but without any speedup).</span>
+
+<span class="sd">    The interpolation DOFs and the collateral basis can be generated using</span>
+<span class="sd">    the algorithms provided in the :mod:`pymor.algorithms.ei` module.</span>
+
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    operator</span>
+<span class="sd">        The |Operator| to interpolate.</span>
+<span class="sd">    interpolation_dofs</span>
+<span class="sd">        List or 1D |NumPy array| of the interpolation DOFs `c_1, ..., c_M`.</span>
+<span class="sd">    collateral_basis</span>
+<span class="sd">        |VectorArray| containing the collateral basis `b_1, ..., b_M`.</span>
+<span class="sd">    triangular</span>
+<span class="sd">        If `True`, assume that ψ_(c_i)(b_j) = 0  for i &lt; j, which means</span>
+<span class="sd">        that the interpolation matrix is triangular.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">interpolation_dofs</span><span class="p">,</span> <span class="n">collateral_basis</span><span class="p">,</span> <span class="n">triangular</span><span class="p">,</span>
+                 <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">collateral_basis</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">collateral_basis</span> <span class="ow">in</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">collateral_basis</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">operator</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">linear</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span> <span class="o">=</span> <span class="n">solver_options</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{operator.name}</span><span class="s1">_interpolated&#39;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_operator</span> <span class="o">=</span> <span class="n">weakref</span><span class="o">.</span><span class="n">ref</span><span class="p">(</span><span class="n">operator</span><span class="p">)</span>
+        <span class="n">interpolation_dofs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interpolation_dofs</span> <span class="o">=</span> <span class="n">interpolation_dofs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">triangular</span> <span class="o">=</span> <span class="n">triangular</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">restricted_operator</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_dofs</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">restricted</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Operator has no &quot;restricted&quot; method. The full operator will be evaluated.&#39;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_operator</span> <span class="o">=</span> <span class="n">operator</span>
+            <span class="n">interpolation_matrix</span> <span class="o">=</span> <span class="n">collateral_basis</span><span class="o">.</span><span class="n">dofs</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interpolation_matrix</span> <span class="o">=</span> <span class="n">interpolation_matrix</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">collateral_basis</span> <span class="o">=</span> <span class="n">collateral_basis</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">operator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;restricted_operator&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_operator</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_operator</span>
+
+<div class="viewcode-block" id="EmpiricalInterpolatedOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.ei.EmpiricalInterpolatedOperator.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interpolation_dofs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;restricted_operator&#39;</span><span class="p">):</span>
+            <span class="n">U_dofs</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">dofs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_dofs</span><span class="p">))</span>
+            <span class="n">AU</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restricted_operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U_dofs</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">AU</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">dofs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interpolation_dofs</span><span class="p">))</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangular</span><span class="p">:</span>
+                <span class="n">interpolation_coefficients</span> <span class="o">=</span> <span class="n">solve_triangular</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interpolation_matrix</span><span class="p">,</span> <span class="n">AU</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+                                                              <span class="n">lower</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">unit_diagonal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">interpolation_coefficients</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interpolation_matrix</span><span class="p">,</span> <span class="n">AU</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>  <span class="c1"># this exception occurs when AU contains NaNs ...</span>
+            <span class="n">interpolation_coefficients</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">AU</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collateral_basis</span><span class="p">)))</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">collateral_basis</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">interpolation_coefficients</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="EmpiricalInterpolatedOperator.jacobian"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.ei.EmpiricalInterpolatedOperator.jacobian">[docs]</a>    <span class="k">def</span> <span class="nf">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;jacobian&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interpolation_dofs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">)),</span> <span class="n">solver_options</span><span class="o">=</span><span class="n">options</span><span class="p">,</span>
+                                           <span class="n">source_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                                           <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_jacobian&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">ZeroOperator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_jacobian&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;operator&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">EmpiricalInterpolatedOperator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">interpolation_dofs</span><span class="p">,</span>
+                                                 <span class="bp">self</span><span class="o">.</span><span class="n">collateral_basis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangular</span><span class="p">,</span>
+                                                 <span class="n">solver_options</span><span class="o">=</span><span class="n">options</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_jacobian&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">restricted_source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restricted_operator</span><span class="o">.</span><span class="n">source</span>
+            <span class="n">U_dofs</span> <span class="o">=</span> <span class="n">restricted_source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">dofs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_dofs</span><span class="p">))</span>
+            <span class="n">JU</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restricted_operator</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">U_dofs</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> \
+                                         <span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">restricted_source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_dofs</span><span class="p">))))</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangular</span><span class="p">:</span>
+                    <span class="n">interpolation_coefficients</span> <span class="o">=</span> <span class="n">solve_triangular</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interpolation_matrix</span><span class="p">,</span> <span class="n">JU</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+                                                                  <span class="n">lower</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">unit_diagonal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">interpolation_coefficients</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interpolation_matrix</span><span class="p">,</span> <span class="n">JU</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>  <span class="c1"># this exception occurs when AU contains NaNs ...</span>
+                <span class="n">interpolation_coefficients</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">JU</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collateral_basis</span><span class="p">)))</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+            <span class="n">J</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collateral_basis</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">interpolation_coefficients</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">J</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">):</span>
+                <span class="n">J</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">J</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">J</span> <span class="o">=</span> <span class="n">VectorArrayOperator</span><span class="p">(</span><span class="n">J</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Concatenation</span><span class="p">([</span><span class="n">J</span><span class="p">,</span> <span class="n">ComponentProjection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_dofs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">)],</span>
+                                 <span class="n">solver_options</span><span class="o">=</span><span class="n">options</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_jacobian&#39;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">del</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;_operator&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">d</span></div>
+
+
+<div class="viewcode-block" id="ProjectedEmpiciralInterpolatedOperator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.ei.ProjectedEmpiciralInterpolatedOperator">[docs]</a><span class="k">class</span> <span class="nc">ProjectedEmpiciralInterpolatedOperator</span><span class="p">(</span><span class="n">OperatorBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A projected |EmpiricalInterpolatedOperator|.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">restricted_operator</span><span class="p">,</span> <span class="n">interpolation_matrix</span><span class="p">,</span> <span class="n">source_basis_dofs</span><span class="p">,</span>
+                 <span class="n">projected_collateral_basis</span><span class="p">,</span> <span class="n">triangular</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="n">name</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{restricted_operator.name}</span><span class="s1">_projected&#39;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">source_basis_dofs</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">projected_collateral_basis</span><span class="o">.</span><span class="n">space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">restricted_operator</span><span class="o">.</span><span class="n">linear</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">restricted_operator</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ProjectedEmpiciralInterpolatedOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.ei.ProjectedEmpiciralInterpolatedOperator.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">U_dofs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis_dofs</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="n">AU</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restricted_operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U_dofs</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangular</span><span class="p">:</span>
+                <span class="n">interpolation_coefficients</span> <span class="o">=</span> <span class="n">solve_triangular</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interpolation_matrix</span><span class="p">,</span> <span class="n">AU</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+                                                              <span class="n">lower</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">unit_diagonal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">interpolation_coefficients</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interpolation_matrix</span><span class="p">,</span> <span class="n">AU</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>  <span class="c1"># this exception occurs when AU contains NaNs ...</span>
+            <span class="n">interpolation_coefficients</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">AU</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">projected_collateral_basis</span><span class="p">)))</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">projected_collateral_basis</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">interpolation_coefficients</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ProjectedEmpiciralInterpolatedOperator.jacobian"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.ei.ProjectedEmpiciralInterpolatedOperator.jacobian">[docs]</a>    <span class="k">def</span> <span class="nf">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;jacobian&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">interpolation_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">)),</span> <span class="n">solver_options</span><span class="o">=</span><span class="n">options</span><span class="p">,</span>
+                                       <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_jacobian&#39;</span><span class="p">)</span>
+
+        <span class="n">U_dofs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis_dofs</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">J</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restricted_operator</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">U_dofs</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_basis_dofs</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangular</span><span class="p">:</span>
+                <span class="n">interpolation_coefficients</span> <span class="o">=</span> <span class="n">solve_triangular</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interpolation_matrix</span><span class="p">,</span> <span class="n">J</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+                                                              <span class="n">lower</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">unit_diagonal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">interpolation_coefficients</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interpolation_matrix</span><span class="p">,</span> <span class="n">J</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>  <span class="c1"># this exception occurs when J contains NaNs ...</span>
+            <span class="n">interpolation_coefficients</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_basis_dofs</span><span class="p">),</span>
+                                                    <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">projected_collateral_basis</span><span class="p">)))</span>
+                                          <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+        <span class="n">M</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projected_collateral_basis</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">interpolation_coefficients</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">M</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">M</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="ow">not</span> <span class="n">options</span>
+            <span class="k">return</span> <span class="n">VectorArrayOperator</span><span class="p">(</span><span class="n">M</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">with_cb_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">dim</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restricted_operator</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span>
+
+        <span class="n">interpolation_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interpolation_matrix</span><span class="p">[:</span><span class="n">dim</span><span class="p">,</span> <span class="p">:</span><span class="n">dim</span><span class="p">]</span>
+
+        <span class="n">restricted_operator</span><span class="p">,</span> <span class="n">source_dofs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restricted_operator</span><span class="o">.</span><span class="n">restricted</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dim</span><span class="p">))</span>
+
+        <span class="n">old_pcb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projected_collateral_basis</span>
+        <span class="n">projected_collateral_basis</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">old_pcb</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[:</span><span class="n">dim</span><span class="p">,</span> <span class="p">:])</span>
+
+        <span class="n">old_sbd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis_dofs</span>
+        <span class="n">source_basis_dofs</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">old_sbd</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[:,</span> <span class="n">source_dofs</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">ProjectedEmpiciralInterpolatedOperator</span><span class="p">(</span><span class="n">restricted_operator</span><span class="p">,</span> <span class="n">interpolation_matrix</span><span class="p">,</span>
+                                                      <span class="n">source_basis_dofs</span><span class="p">,</span> <span class="n">projected_collateral_basis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangular</span><span class="p">,</span>
+                                                      <span class="n">solver_options</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

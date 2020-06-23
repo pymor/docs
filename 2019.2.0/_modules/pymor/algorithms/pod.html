@@ -1,0 +1,172 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.pod &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.pod</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.gram_schmidt</span> <span class="kn">import</span> <span class="n">gram_schmidt</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.svd_va</span> <span class="kn">import</span> <span class="n">method_of_snapshots</span><span class="p">,</span> <span class="n">qr_svd</span>
+<span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.interfaces</span> <span class="kn">import</span> <span class="n">OperatorInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.interfaces</span> <span class="kn">import</span> <span class="n">VectorArrayInterface</span>
+
+
+<div class="viewcode-block" id="pod"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.pod.pod">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;rtol&#39;</span><span class="p">,</span> <span class="s1">&#39;atol&#39;</span><span class="p">,</span> <span class="s1">&#39;l2_err&#39;</span><span class="p">,</span> <span class="s1">&#39;method&#39;</span><span class="p">,</span> <span class="s1">&#39;orth_tol&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">pod</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">modes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">4e-8</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">l2_err</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span>
+        <span class="n">method</span><span class="o">=</span><span class="s1">&#39;method_of_snapshots&#39;</span><span class="p">,</span> <span class="n">orth_tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Proper orthogonal decomposition of `A`.</span>
+
+<span class="sd">    Viewing the |VectorArray| `A` as a `A.dim` x `len(A)` matrix, the</span>
+<span class="sd">    return values of this method are the |VectorArray| of left singular</span>
+<span class="sd">    vectors and a |NumPy array| of singular values of the singular value</span>
+<span class="sd">    decomposition of `A`, where the inner product on R^(`dim(A)`) is</span>
+<span class="sd">    given by `product` and the inner product on R^(`len(A)`) is the</span>
+<span class="sd">    Euclidean inner product.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The |VectorArray| for which the POD is to be computed.</span>
+<span class="sd">    product</span>
+<span class="sd">        Inner product |Operator| w.r.t. which the POD is computed.</span>
+<span class="sd">    modes</span>
+<span class="sd">        If not `None`, at most the first `modes` POD modes (singular</span>
+<span class="sd">        vectors) are returned.</span>
+<span class="sd">    rtol</span>
+<span class="sd">        Singular values smaller than this value multiplied by the</span>
+<span class="sd">        largest singular value are ignored.</span>
+<span class="sd">    atol</span>
+<span class="sd">        Singular values smaller than this value are ignored.</span>
+<span class="sd">    l2_err</span>
+<span class="sd">        Do not return more modes than needed to bound the</span>
+<span class="sd">        l2-approximation error by this value. I.e. the number of</span>
+<span class="sd">        returned modes is at most ::</span>
+
+<span class="sd">            argmin_N { sum_{n=N+1}^{infty} s_n^2 &lt;= l2_err^2 }</span>
+
+<span class="sd">        where `s_n` denotes the n-th singular value.</span>
+<span class="sd">    method</span>
+<span class="sd">        Which SVD method from :mod:`~pymor.algorithms.svd_va` to use</span>
+<span class="sd">        (`&#39;method_of_snapshots&#39;` or `&#39;qr_svd&#39;`).</span>
+<span class="sd">    orth_tol</span>
+<span class="sd">        POD modes are reorthogonalized if the orthogonality error is</span>
+<span class="sd">        above this value.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    POD</span>
+<span class="sd">        |VectorArray| of POD modes.</span>
+<span class="sd">    SVALS</span>
+<span class="sd">        One-dimensional |NumPy array| of singular values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">product</span><span class="p">,</span> <span class="n">Number</span><span class="p">):</span>
+        <span class="c1"># old pod signature</span>
+        <span class="k">assert</span> <span class="n">modes</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="n">modes</span><span class="p">,</span> <span class="n">product</span> <span class="o">=</span> <span class="n">product</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="kn">import</span> <span class="nn">warnings</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;pod signature has changed. Provide &#39;modes&#39; as keyword argument.&quot;</span><span class="p">,</span>
+                      <span class="ne">DeprecationWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">product</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">product</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">modes</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">modes</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;method_of_snapshots&#39;</span><span class="p">,</span> <span class="s1">&#39;qr_svd&#39;</span><span class="p">)</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.pod.pod&#39;</span><span class="p">)</span>
+
+    <span class="n">svd_va</span> <span class="o">=</span> <span class="n">method_of_snapshots</span> <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;method_of_snapshots&#39;</span> <span class="k">else</span> <span class="n">qr_svd</span>
+    <span class="k">with</span> <span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Computing SVD ...&#39;</span><span class="p">):</span>
+        <span class="n">POD</span><span class="p">,</span> <span class="n">SVALS</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">svd_va</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span> <span class="n">modes</span><span class="o">=</span><span class="n">modes</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">,</span> <span class="n">l2_err</span><span class="o">=</span><span class="n">l2_err</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">POD</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">POD</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">orth_tol</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Checking orthonormality ...&#39;</span><span class="p">)</span>
+        <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">POD</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">POD</span><span class="p">,</span> <span class="n">product</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">POD</span><span class="p">))))</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">&gt;=</span> <span class="n">orth_tol</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Reorthogonalizing POD modes ...&#39;</span><span class="p">)</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">POD</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">POD</span><span class="p">,</span> <span class="n">SVALS</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,252 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.core.config &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.core.config</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">importlib</span> <span class="kn">import</span> <span class="n">import_module</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+
+<span class="k">def</span> <span class="nf">_can_import</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">import_module</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">return</span> <span class="kc">False</span>
+
+
+<span class="k">def</span> <span class="nf">_get_fenics_version</span><span class="p">():</span>
+    <span class="kn">import</span> <span class="nn">dolfin</span> <span class="k">as</span> <span class="nn">df</span>
+    <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">__version__</span> <span class="o">!=</span> <span class="s1">&#39;2019.1.0&#39;</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">warnings</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;FEniCS bindings have been tested for version 2019.1.0 (installed: </span><span class="si">{df.__version__}</span><span class="s1">).&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">__version__</span>
+
+
+<div class="viewcode-block" id="is_windows_platform"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.config.is_windows_platform">[docs]</a><span class="k">def</span> <span class="nf">is_windows_platform</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s1">&#39;win32&#39;</span> <span class="ow">or</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s1">&#39;cygwin&#39;</span></div>
+
+
+<span class="k">def</span> <span class="nf">_get_matplotib_version</span><span class="p">():</span>
+    <span class="kn">import</span> <span class="nn">matplotlib</span>
+    <span class="k">if</span> <span class="n">is_windows_platform</span><span class="p">():</span>
+        <span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s1">&#39;Qt4Agg&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">matplotlib</span><span class="o">.</span><span class="n">__version__</span>
+
+
+<span class="k">def</span> <span class="nf">_get_ipython_version</span><span class="p">():</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">ipyparallel</span>
+        <span class="k">return</span> <span class="n">ipyparallel</span><span class="o">.</span><span class="n">__version__</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">IPython.parallel</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">IPython</span><span class="o">.</span><span class="n">parallel</span><span class="p">,</span> <span class="s1">&#39;__version__&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_slycot_version</span><span class="p">():</span>
+    <span class="kn">from</span> <span class="nn">slycot.version</span> <span class="kn">import</span> <span class="n">version</span>
+    <span class="k">if</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)))</span> <span class="o">&lt;</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+        <span class="kn">import</span> <span class="nn">warnings</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Slycot support disabled (version 0.3.1 or higher required).&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">version</span>
+
+
+<span class="k">def</span> <span class="nf">_get_qt_version</span><span class="p">():</span>
+    <span class="kn">import</span> <span class="nn">Qt</span>
+    <span class="k">return</span> <span class="n">Qt</span><span class="o">.</span><span class="n">__binding__</span> <span class="o">+</span> <span class="s1">&#39; &#39;</span> <span class="o">+</span> <span class="n">Qt</span><span class="o">.</span><span class="n">__binding_version__</span>
+
+
+<div class="viewcode-block" id="is_jupyter"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.config.is_jupyter">[docs]</a><span class="k">def</span> <span class="nf">is_jupyter</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;This Method is not foolprof and might fail with any given jupyter release</span>
+<span class="sd">    :return: True if we believe to be running in a Jupyter Notebook or Lab</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">IPython</span> <span class="kn">import</span> <span class="n">get_ipython</span>
+    <span class="kn">from</span> <span class="nn">os</span> <span class="kn">import</span> <span class="n">environ</span>
+    <span class="n">force</span> <span class="o">=</span> <span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;PYMOR_FORCE_JUPYTER&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">force</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">force</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">get_ipython</span><span class="p">())</span><span class="o">.</span><span class="vm">__module__</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;ipykernel.&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="is_nbconvert"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.config.is_nbconvert">[docs]</a><span class="k">def</span> <span class="nf">is_nbconvert</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;In some visualization cases we need to be able to detect if a notebook</span>
+<span class="sd">    is executed with nbconvert to disable async loading</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">os</span> <span class="kn">import</span> <span class="n">environ</span>
+    <span class="k">return</span> <span class="n">is_jupyter</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;PYMOR_NBCONVERT&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span></div>
+
+
+<span class="n">_PACKAGES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;CYTHON&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;cython&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+    <span class="s1">&#39;DEALII&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;pydealii&#39;</span><span class="p">),</span>
+    <span class="s1">&#39;DOCOPT&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;docopt&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+    <span class="s1">&#39;FENICS&#39;</span><span class="p">:</span> <span class="n">_get_fenics_version</span><span class="p">,</span>
+    <span class="s1">&#39;GL&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;OpenGL.GL&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;OpenGL&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+    <span class="s1">&#39;IPYTHON&#39;</span><span class="p">:</span> <span class="n">_get_ipython_version</span><span class="p">,</span>
+    <span class="s1">&#39;MATPLOTLIB&#39;</span><span class="p">:</span> <span class="n">_get_matplotib_version</span><span class="p">,</span>
+    <span class="s1">&#39;MESHIO&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;meshio&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+    <span class="s1">&#39;IPYWIDGETS&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;ipywidgets&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+    <span class="s1">&#39;MPI&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;mpi4py.MPI&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;mpi4py&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+    <span class="s1">&#39;NGSOLVE&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="nb">bool</span><span class="p">(</span><span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;ngsolve&#39;</span><span class="p">)),</span>
+    <span class="s1">&#39;NUMPY&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;numpy&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+    <span class="s1">&#39;PYAMG&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;pyamg.version&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">full_version</span><span class="p">,</span>
+    <span class="s1">&#39;PYMESS&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="nb">bool</span><span class="p">(</span><span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;pymess&#39;</span><span class="p">)),</span>
+    <span class="s1">&#39;PYTEST&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;pytest&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+    <span class="s1">&#39;PYTHREEJS&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;pythreejs._version&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+    <span class="s1">&#39;PYEVTK&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">_can_import</span><span class="p">(</span><span class="s1">&#39;pyevtk&#39;</span><span class="p">),</span>
+    <span class="s1">&#39;QT&#39;</span><span class="p">:</span> <span class="n">_get_qt_version</span><span class="p">,</span>
+    <span class="s1">&#39;QTOPENGL&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="nb">bool</span><span class="p">(</span><span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;Qt.QtOpenGL&#39;</span><span class="p">)),</span>
+    <span class="s1">&#39;SCIPY&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;scipy&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+    <span class="s1">&#39;SCIPY_LSMR&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;scipy.sparse.linalg&#39;</span><span class="p">),</span> <span class="s1">&#39;lsmr&#39;</span><span class="p">),</span>
+    <span class="s1">&#39;SLYCOT&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">_get_slycot_version</span><span class="p">(),</span>
+    <span class="s1">&#39;SPHINX&#39;</span><span class="p">:</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">import_module</span><span class="p">(</span><span class="s1">&#39;sphinx&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="Config"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.config.Config">[docs]</a><span class="k">class</span> <span class="nc">Config</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">PYTHON_VERSION</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{sys.version_info.major}</span><span class="s1">.</span><span class="si">{sys.version_info.minor}</span><span class="s1">.</span><span class="si">{sys.version_info.micro}</span><span class="s1">&#39;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">version</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">pymor</span> <span class="kn">import</span> <span class="n">__version__</span>
+        <span class="k">return</span> <span class="n">__version__</span>
+
+    <span class="k">def</span> <span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;HAVE_&#39;</span><span class="p">):</span>
+            <span class="n">package</span> <span class="o">=</span> <span class="n">name</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s1">&#39;HAVE_&#39;</span><span class="p">):]</span>
+        <span class="k">elif</span> <span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;_VERSION&#39;</span><span class="p">):</span>
+            <span class="n">package</span> <span class="o">=</span> <span class="n">name</span><span class="p">[:</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="s1">&#39;_VERSION&#39;</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span>
+
+        <span class="k">if</span> <span class="n">package</span> <span class="ow">in</span> <span class="n">_PACKAGES</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">version</span> <span class="o">=</span> <span class="n">_PACKAGES</span><span class="p">[</span><span class="n">package</span><span class="p">]()</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="n">version</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="k">if</span> <span class="n">version</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">version</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span><span class="p">:</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;HAVE_&#39;</span> <span class="o">+</span> <span class="n">package</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">package</span> <span class="o">+</span> <span class="s1">&#39;_VERSION&#39;</span><span class="p">,</span> <span class="n">version</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;HAVE_&#39;</span> <span class="o">+</span> <span class="n">package</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">package</span> <span class="o">+</span> <span class="s1">&#39;_VERSION&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span>
+
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Config.__dir__"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.config.Config.__dir__">[docs]</a>    <span class="k">def</span> <span class="fm">__dir__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">old</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__dir__</span><span class="p">())</span>
+        <span class="n">keys</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s1">&#39;HAVE_&#39;</span> <span class="o">+</span> <span class="n">package</span> <span class="k">for</span> <span class="n">package</span> <span class="ow">in</span> <span class="n">_PACKAGES</span><span class="p">)</span>
+        <span class="n">keys</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">package</span> <span class="o">+</span> <span class="s1">&#39;_VERSION&#39;</span> <span class="k">for</span> <span class="n">package</span> <span class="ow">in</span> <span class="n">_PACKAGES</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Config.__repr__"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.config.Config.__repr__">[docs]</a>    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="s1">&#39;missing&#39;</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">v</span> <span class="k">else</span> <span class="s1">&#39;present&#39;</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="kc">True</span> <span class="k">else</span> <span class="n">v</span><span class="p">)(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span> <span class="o">+</span> <span class="s1">&#39;_VERSION&#39;</span><span class="p">))</span>
+                  <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">_PACKAGES</span><span class="p">}</span>
+        <span class="n">key_width</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">_PACKAGES</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span>
+        <span class="n">package_info</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;{p+&#39;:&#39;:</span><span class="si">{key_width}</span><span class="s2">} </span><span class="si">{v}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">items</span><span class="p">())]</span>
+        <span class="n">separator</span> <span class="o">=</span> <span class="s1">&#39;-&#39;</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">len</span><span class="p">,</span> <span class="n">package_info</span><span class="p">))</span>
+        <span class="n">package_info</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">package_info</span><span class="p">)</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">pyMOR Version </span><span class="si">{self.version}</span><span class="s1"></span>
+
+<span class="s1">Python: </span><span class="si">{self.PYTHON_VERSION}</span><span class="s1"></span>
+
+<span class="s1">External Packages</span>
+<span class="si">{separator}</span><span class="s1"></span>
+<span class="si">{package_info}</span><span class="s1"></span>
+
+<span class="s1">Defaults</span>
+<span class="s1">--------</span>
+<span class="s1">See pymor.core.defaults.print_defaults.</span>
+<span class="s1">&#39;&#39;&#39;</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">return</span> <span class="n">info</span></div></div>
+
+
+<span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

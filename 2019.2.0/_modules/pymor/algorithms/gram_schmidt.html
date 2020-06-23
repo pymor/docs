@@ -1,0 +1,313 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.gram_schmidt &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.gram_schmidt</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
+<span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">AccuracyError</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+
+
+<div class="viewcode-block" id="gram_schmidt"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.gram_schmidt.gram_schmidt">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;atol&#39;</span><span class="p">,</span> <span class="s1">&#39;rtol&#39;</span><span class="p">,</span> <span class="s1">&#39;reiterate&#39;</span><span class="p">,</span> <span class="s1">&#39;reiteration_threshold&#39;</span><span class="p">,</span> <span class="s1">&#39;check&#39;</span><span class="p">,</span> <span class="s1">&#39;check_tol&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">gram_schmidt</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_R</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-13</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-13</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                 <span class="n">reiterate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">reiteration_threshold</span><span class="o">=</span><span class="mf">1e-1</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">check_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>
+                 <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Orthonormalize a |VectorArray| using the modified Gram-Schmidt algorithm.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The |VectorArray| which is to be orthonormalized.</span>
+<span class="sd">    product</span>
+<span class="sd">        The inner product |Operator| w.r.t. which to orthonormalize.</span>
+<span class="sd">        If `None`, the Euclidean product is used.</span>
+<span class="sd">    return_R</span>
+<span class="sd">        If `True`, the R matrix from QR decomposition is returned.</span>
+<span class="sd">    atol</span>
+<span class="sd">        Vectors of norm smaller than `atol` are removed from the array.</span>
+<span class="sd">    rtol</span>
+<span class="sd">        Relative tolerance used to detect linear dependent vectors</span>
+<span class="sd">        (which are then removed from the array).</span>
+<span class="sd">    offset</span>
+<span class="sd">        Assume that the first `offset` vectors are already orthonormal and start the</span>
+<span class="sd">        algorithm at the `offset + 1`-th vector.</span>
+<span class="sd">    reiterate</span>
+<span class="sd">        If `True`, orthonormalize again if the norm of the orthogonalized vector is</span>
+<span class="sd">        much smaller than the norm of the original vector.</span>
+<span class="sd">    reiteration_threshold</span>
+<span class="sd">        If `reiterate` is `True`, re-orthonormalize if the ratio between the norms of</span>
+<span class="sd">        the orthogonalized vector and the original vector is smaller than this value.</span>
+<span class="sd">    check</span>
+<span class="sd">        If `True`, check if the resulting |VectorArray| is really orthonormal.</span>
+<span class="sd">    check_tol</span>
+<span class="sd">        Tolerance for the check.</span>
+<span class="sd">    copy</span>
+<span class="sd">        If `True`, create a copy of `A` instead of modifying `A` in-place.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Q</span>
+<span class="sd">        The orthonormalized |VectorArray|.</span>
+<span class="sd">    R</span>
+<span class="sd">        The upper-triangular/trapezoidal matrix (if `compute_R` is `True`).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.gram_schmidt.gram_schmidt&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">copy</span><span class="p">:</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># main loop</span>
+    <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">A</span><span class="p">))</span>
+    <span class="n">remove</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># indices of to be removed vectors</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">A</span><span class="p">)):</span>
+        <span class="c1"># first calculate norm</span>
+        <span class="n">initial_norm</span> <span class="o">=</span> <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">initial_norm</span> <span class="o">&lt;</span> <span class="n">atol</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Removing vector </span><span class="si">{i}</span><span class="s2"> of norm </span><span class="si">{initial_norm}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">remove</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">A</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">initial_norm</span><span class="p">)</span>
+            <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">initial_norm</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">norm</span> <span class="o">=</span> <span class="n">initial_norm</span>
+            <span class="c1"># If reiterate is True, reiterate as long as the norm of the vector changes</span>
+            <span class="c1"># strongly during orthogonalization (due to Andreas Buhr).</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="c1"># orthogonalize to all vectors left</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">remove</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">p</span> <span class="o">=</span> <span class="n">A</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">pairwise_inner</span><span class="p">(</span><span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="o">-</span><span class="n">p</span><span class="p">,</span> <span class="n">A</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                    <span class="n">common_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">promote_types</span><span class="p">(</span><span class="n">R</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+                    <span class="n">R</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">common_dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="n">R</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">p</span>
+
+                <span class="c1"># calculate new norm</span>
+                <span class="n">old_norm</span><span class="p">,</span> <span class="n">norm</span> <span class="o">=</span> <span class="n">norm</span><span class="p">,</span> <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+                <span class="c1"># remove vector if it got too small</span>
+                <span class="k">if</span> <span class="n">norm</span> <span class="o">&lt;</span> <span class="n">rtol</span> <span class="o">*</span> <span class="n">initial_norm</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Removing linearly dependent vector </span><span class="si">{i}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">remove</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                    <span class="k">break</span>
+
+                <span class="c1"># check if reorthogonalization should be done</span>
+                <span class="k">if</span> <span class="n">reiterate</span> <span class="ow">and</span> <span class="n">norm</span> <span class="o">&lt;</span> <span class="n">reiteration_threshold</span> <span class="o">*</span> <span class="n">old_norm</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Orthonormalizing vector </span><span class="si">{i}</span><span class="s2"> again&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">norm</span><span class="p">)</span>
+                    <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">norm</span>
+                    <span class="k">break</span>
+
+    <span class="k">if</span> <span class="n">remove</span><span class="p">:</span>
+        <span class="k">del</span> <span class="n">A</span><span class="p">[</span><span class="n">remove</span><span class="p">]</span>
+        <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">remove</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">check</span><span class="p">:</span>
+        <span class="n">error_matrix</span> <span class="o">=</span> <span class="n">A</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">A</span><span class="p">)]</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">product</span><span class="p">)</span>
+        <span class="n">error_matrix</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">A</span><span class="p">)</span> <span class="o">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">A</span><span class="p">)]</span> <span class="o">-=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">A</span><span class="p">)</span> <span class="o">-</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">error_matrix</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">error_matrix</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">err</span> <span class="o">&gt;=</span> <span class="n">check_tol</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">AccuracyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;result not orthogonal (max err=</span><span class="si">{err}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">return_R</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">A</span><span class="p">,</span> <span class="n">R</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="gram_schmidt_biorth"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.gram_schmidt.gram_schmidt_biorth">[docs]</a><span class="k">def</span> <span class="nf">gram_schmidt_biorth</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">reiterate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">reiteration_threshold</span><span class="o">=</span><span class="mf">1e-1</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">check_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>
+                        <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Biorthonormalize a pair of |VectorArrays| using the biorthonormal Gram-Schmidt process.</span>
+
+<span class="sd">    See Algorithm 1 in [BKS11]_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    V, W</span>
+<span class="sd">        The |VectorArrays| which are to be biorthonormalized.</span>
+<span class="sd">    product</span>
+<span class="sd">        The inner product |Operator| w.r.t. which to biorthonormalize.</span>
+<span class="sd">        If `None`, the Euclidean product is used.</span>
+<span class="sd">    reiterate</span>
+<span class="sd">        If `True`, orthonormalize again if the norm of the orthogonalized vector is</span>
+<span class="sd">        much smaller than the norm of the original vector.</span>
+<span class="sd">    reiteration_threshold</span>
+<span class="sd">        If `reiterate` is `True`, re-orthonormalize if the ratio between the norms of</span>
+<span class="sd">        the orthogonalized vector and the original vector is smaller than this value.</span>
+<span class="sd">    check</span>
+<span class="sd">        If `True`, check if the resulting |VectorArray| is really orthonormal.</span>
+<span class="sd">    check_tol</span>
+<span class="sd">        Tolerance for the check.</span>
+<span class="sd">    copy</span>
+<span class="sd">        If `True`, create a copy of `V` and `W` instead of modifying `V` and `W` in-place.</span>
+
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    The biorthonormalized |VectorArrays|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">V</span><span class="o">.</span><span class="n">space</span> <span class="o">==</span> <span class="n">W</span><span class="o">.</span><span class="n">space</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">W</span><span class="p">)</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.gram_schmidt.gram_schmidt_biorth&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">copy</span><span class="p">:</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">W</span> <span class="o">=</span> <span class="n">W</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># main loop</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)):</span>
+        <span class="c1"># calculate norm of V[i]</span>
+        <span class="n">initial_norm</span> <span class="o">=</span> <span class="n">V</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># project V[i]</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">V</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">initial_norm</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">norm</span> <span class="o">=</span> <span class="n">initial_norm</span>
+            <span class="c1"># If reiterate is True, reiterate as long as the norm of the vector changes</span>
+            <span class="c1"># strongly during projection.</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+                    <span class="c1"># project by (I - V[j] * W[j]^T * E)</span>
+                    <span class="n">p</span> <span class="o">=</span> <span class="n">W</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">pairwise_inner</span><span class="p">(</span><span class="n">V</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">V</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="o">-</span><span class="n">p</span><span class="p">,</span> <span class="n">V</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+
+                <span class="c1"># calculate new norm</span>
+                <span class="n">old_norm</span><span class="p">,</span> <span class="n">norm</span> <span class="o">=</span> <span class="n">norm</span><span class="p">,</span> <span class="n">V</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+                <span class="c1"># check if reorthogonalization should be done</span>
+                <span class="k">if</span> <span class="n">reiterate</span> <span class="ow">and</span> <span class="n">norm</span> <span class="o">&lt;</span> <span class="n">reiteration_threshold</span> <span class="o">*</span> <span class="n">old_norm</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Projecting vector V[</span><span class="si">{i}</span><span class="s2">] again&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">V</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">norm</span><span class="p">)</span>
+                    <span class="k">break</span>
+
+        <span class="c1"># calculate norm of W[i]</span>
+        <span class="n">initial_norm</span> <span class="o">=</span> <span class="n">W</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># project W[i]</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">W</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">initial_norm</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">norm</span> <span class="o">=</span> <span class="n">initial_norm</span>
+            <span class="c1"># If reiterate is True, reiterate as long as the norm of the vector changes</span>
+            <span class="c1"># strongly during projection.</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+                    <span class="c1"># project by (I - W[j] * V[j]^T * E)</span>
+                    <span class="n">p</span> <span class="o">=</span> <span class="n">V</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">pairwise_inner</span><span class="p">(</span><span class="n">W</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">W</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="o">-</span><span class="n">p</span><span class="p">,</span> <span class="n">W</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+
+                <span class="c1"># calculate new norm</span>
+                <span class="n">old_norm</span><span class="p">,</span> <span class="n">norm</span> <span class="o">=</span> <span class="n">norm</span><span class="p">,</span> <span class="n">W</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+                <span class="c1"># check if reorthogonalization should be done</span>
+                <span class="k">if</span> <span class="n">reiterate</span> <span class="ow">and</span> <span class="n">norm</span> <span class="o">&lt;</span> <span class="n">reiteration_threshold</span> <span class="o">*</span> <span class="n">old_norm</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Projecting vector W[</span><span class="si">{i}</span><span class="s2">] again&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">W</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">norm</span><span class="p">)</span>
+                    <span class="k">break</span>
+
+        <span class="c1"># rescale V[i]</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">W</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">pairwise_inner</span><span class="p">(</span><span class="n">V</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">V</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">p</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">check</span><span class="p">:</span>
+        <span class="n">error_matrix</span> <span class="o">=</span> <span class="n">W</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">product</span><span class="p">)</span>
+        <span class="n">error_matrix</span> <span class="o">-=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">error_matrix</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">error_matrix</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">err</span> <span class="o">&gt;=</span> <span class="n">check_tol</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">AccuracyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;result not biorthogonal (max err=</span><span class="si">{err}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">V</span><span class="p">,</span> <span class="n">W</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>
