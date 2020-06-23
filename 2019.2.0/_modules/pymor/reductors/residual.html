@@ -1,0 +1,398 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.reductors.residual &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.reductors.residual</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.image</span> <span class="kn">import</span> <span class="n">estimate_image_hierarchical</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.projection</span> <span class="kn">import</span> <span class="n">project</span><span class="p">,</span> <span class="n">project_to_subbasis</span>
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">BasicInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">ImageCollectionError</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.basic</span> <span class="kn">import</span> <span class="n">OperatorBase</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">induced_norm</span>
+
+
+<div class="viewcode-block" id="ResidualReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.residual.ResidualReductor">[docs]</a><span class="k">class</span> <span class="nc">ResidualReductor</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generic reduced basis residual reductor.</span>
+
+<span class="sd">    Given an operator and a right-hand side, the residual is given by::</span>
+
+<span class="sd">        residual.apply(U, mu) == operator.apply(U, mu) - rhs.as_range_array(mu)</span>
+
+<span class="sd">    When operator maps to functionals instead of vectors, we are interested in the Riesz</span>
+<span class="sd">    representative of the residual::</span>
+
+<span class="sd">        residual.apply(U, mu)</span>
+<span class="sd">            == product.apply_inverse(operator.apply(U, mu) - rhs.as_range_array(mu))</span>
+
+<span class="sd">    Given a basis `RB` of a subspace of the source space of `operator`, this reductor</span>
+<span class="sd">    uses :func:`~pymor.algorithms.image.estimate_image_hierarchical` to determine</span>
+<span class="sd">    a low-dimensional subspace containing the image of the subspace under</span>
+<span class="sd">    `residual` (resp. `riesz_residual`), computes an orthonormal basis</span>
+<span class="sd">    `residual_range` for this range space and then returns the Petrov-Galerkin projection ::</span>
+
+<span class="sd">        projected_residual</span>
+<span class="sd">            == project(residual, range_basis=residual_range, source_basis=RB)</span>
+
+<span class="sd">    of the residual operator. Given a reduced basis coefficient vector `u`, w.r.t.</span>
+<span class="sd">    `RB`, the (dual) norm of the residual can then be computed as ::</span>
+
+<span class="sd">        projected_residual.apply(u, mu).l2_norm()</span>
+
+<span class="sd">    Moreover, a `reconstruct` method is provided such that ::</span>
+
+<span class="sd">        residual_reductor.reconstruct(projected_residual.apply(u, mu))</span>
+<span class="sd">            == residual.apply(RB.lincomb(u), mu)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    RB</span>
+<span class="sd">        |VectorArray| containing a basis of the reduced space onto which to project.</span>
+<span class="sd">    operator</span>
+<span class="sd">        See definition of `residual`.</span>
+<span class="sd">    rhs</span>
+<span class="sd">        See definition of `residual`. If `None`, zero right-hand side is assumed.</span>
+<span class="sd">    product</span>
+<span class="sd">        Inner product |Operator| w.r.t. which to orthonormalize and w.r.t. which to</span>
+<span class="sd">        compute the Riesz representatives in case `operator` maps to functionals.</span>
+<span class="sd">    riesz_representatives</span>
+<span class="sd">        If `True` compute the Riesz representative of the residual.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">riesz_representatives</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">RB</span> <span class="ow">in</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+        <span class="k">assert</span> <span class="n">rhs</span> <span class="ow">is</span> <span class="kc">None</span> \
+            <span class="ow">or</span> <span class="p">(</span><span class="n">rhs</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">is_scalar</span> <span class="ow">and</span> <span class="n">rhs</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span> <span class="ow">and</span> <span class="n">rhs</span><span class="o">.</span><span class="n">linear</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">product</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">product</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">product</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">residual_range_dims</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Estimating residual range ...&#39;</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range_dims</span> <span class="o">=</span> \
+                        <span class="n">estimate_image_hierarchical</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">],</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">],</span>
+                                                    <span class="bp">self</span><span class="o">.</span><span class="n">RB</span><span class="p">,</span>
+                                                    <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range_dims</span><span class="p">),</span>
+                                                    <span class="n">orthonormalize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">,</span>
+                                                    <span class="n">riesz_representatives</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">riesz_representatives</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">ImageCollectionError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Cannot compute range of </span><span class="si">{e.op}</span><span class="s1">. Evaluation will be slow.&#39;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">operator</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">RB</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">NonProjectedResidualOperator</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">riesz_representatives</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Projecting residual operator ...&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">riesz_representatives</span><span class="p">:</span>
+                <span class="n">operator</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">RB</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># the product cancels out.</span>
+                <span class="n">rhs</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">operator</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">RB</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">)</span>
+                <span class="n">rhs</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ResidualOperator</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ResidualReductor.reconstruct"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.residual.ResidualReductor.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reconstruct high-dimensional residual vector from reduced vector `u`.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">:</span>
+                <span class="n">norm</span> <span class="o">=</span> <span class="n">induced_norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">u</span> <span class="o">*</span> <span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">norm</span><span class="p">(</span><span class="n">u</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">u</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">[:</span><span class="n">u</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span></div></div>
+
+
+<div class="viewcode-block" id="ResidualOperator"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.residual.ResidualOperator">[docs]</a><span class="k">class</span> <span class="nc">ResidualOperator</span><span class="p">(</span><span class="n">OperatorBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Instantiated by :class:`ResidualReductor`.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">linear</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rhs_vector</span> <span class="o">=</span> <span class="n">rhs</span><span class="o">.</span><span class="n">as_range_array</span><span class="p">()</span> <span class="k">if</span> <span class="n">rhs</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">rhs</span><span class="o">.</span><span class="n">parametric</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ResidualOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.residual.ResidualOperator.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">:</span>
+            <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs_vector</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">as_range_array</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">V</span> <span class="o">-=</span> <span class="n">F</span><span class="p">[[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">V</span> <span class="o">-=</span> <span class="n">F</span>
+        <span class="k">return</span> <span class="n">V</span></div>
+
+    <span class="k">def</span> <span class="nf">projected_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dim_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ResidualOperator</span><span class="p">(</span><span class="n">project_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">dim_range</span><span class="p">,</span> <span class="n">dim_source</span><span class="p">),</span>
+                                <span class="n">project_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">dim_range</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NonProjectedResidualOperator"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.residual.NonProjectedResidualOperator">[docs]</a><span class="k">class</span> <span class="nc">NonProjectedResidualOperator</span><span class="p">(</span><span class="n">ResidualOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Instantiated by :class:`ResidualReductor`.</span>
+
+<span class="sd">    Not to be used directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">riesz_representatives</span><span class="p">,</span> <span class="n">product</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+<div class="viewcode-block" id="NonProjectedResidualOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.residual.NonProjectedResidualOperator.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">R</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">riesz_representatives</span><span class="p">:</span>
+                <span class="n">R_riesz</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>
+                <span class="c1"># divide by norm, except when norm is zero:</span>
+                <span class="n">inversel2</span> <span class="o">=</span> <span class="mf">1.</span><span class="o">/</span><span class="n">R_riesz</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span>
+                <span class="n">inversel2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">inversel2</span><span class="p">)</span>
+                <span class="n">R_riesz</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">R_riesz</span><span class="o">.</span><span class="n">pairwise_dot</span><span class="p">(</span><span class="n">R</span><span class="p">))</span> <span class="o">*</span> <span class="n">inversel2</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">R_riesz</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># divide by norm, except when norm is zero:</span>
+                <span class="n">inversel2</span> <span class="o">=</span> <span class="mf">1.</span><span class="o">/</span><span class="n">R</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span>
+                <span class="n">inversel2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">inversel2</span><span class="p">)</span>
+                <span class="n">R</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="o">.</span><span class="n">pairwise_apply2</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">R</span><span class="p">))</span> <span class="o">*</span> <span class="n">inversel2</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">R</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">R</span></div>
+
+    <span class="k">def</span> <span class="nf">projected_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dim_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">operator</span><span class="o">=</span><span class="n">project_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dim_source</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="ImplicitEulerResidualReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.residual.ImplicitEulerResidualReductor">[docs]</a><span class="k">class</span> <span class="nc">ImplicitEulerResidualReductor</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Reduced basis residual reductor with mass operator for implicit Euler timestepping.</span>
+
+<span class="sd">    Given an operator, mass and a functional, the concatenation of residual operator</span>
+<span class="sd">    with the Riesz isomorphism is given by::</span>
+
+<span class="sd">        riesz_residual.apply(U, U_old, mu)</span>
+<span class="sd">            == product.apply_inverse(operator.apply(U, mu) + 1/dt*mass.apply(U, mu) - 1/dt*mass.apply(U_old, mu)</span>
+<span class="sd">               - rhs.as_vector(mu))</span>
+
+<span class="sd">    This reductor determines a low-dimensional subspace of the image of a reduced</span>
+<span class="sd">    basis space under `riesz_residual` using :func:`~pymor.algorithms.image.estimate_image_hierarchical`,</span>
+<span class="sd">    computes an orthonormal basis `residual_range` of this range space and then</span>
+<span class="sd">    returns the Petrov-Galerkin projection ::</span>
+
+<span class="sd">        projected_riesz_residual</span>
+<span class="sd">            == riesz_residual.projected(range_basis=residual_range, source_basis=RB)</span>
+
+<span class="sd">    of the `riesz_residual` operator. Given reduced basis coefficient vectors `u` and `u_old`,</span>
+<span class="sd">    the dual norm of the residual can then be computed as ::</span>
+
+<span class="sd">        projected_riesz_residual.apply(u, u_old, mu).l2_norm()</span>
+
+<span class="sd">    Moreover, a `reconstruct` method is provided such that ::</span>
+
+<span class="sd">        residual_reductor.reconstruct(projected_riesz_residual.apply(u, u_old, mu))</span>
+<span class="sd">            == riesz_residual.apply(RB.lincomb(u), RB.lincomb(u_old), mu)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    operator</span>
+<span class="sd">        See definition of `riesz_residual`.</span>
+<span class="sd">    mass</span>
+<span class="sd">        The mass operator. See definition of `riesz_residual`.</span>
+<span class="sd">    dt</span>
+<span class="sd">        The time step size. See definition of `riesz_residual`.</span>
+<span class="sd">    rhs</span>
+<span class="sd">        See definition of `riesz_residual`. If `None`, zero right-hand side is assumed.</span>
+<span class="sd">    RB</span>
+<span class="sd">        |VectorArray| containing a basis of the reduced space onto which to project.</span>
+<span class="sd">    product</span>
+<span class="sd">        Inner product |Operator| w.r.t. which to compute the Riesz representatives.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">rhs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">RB</span> <span class="ow">in</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+        <span class="k">assert</span> <span class="n">rhs</span> <span class="ow">is</span> <span class="kc">None</span> \
+            <span class="ow">or</span> <span class="n">rhs</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">is_scalar</span> <span class="ow">and</span> <span class="n">rhs</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span> <span class="ow">and</span> <span class="n">rhs</span><span class="o">.</span><span class="n">linear</span>
+        <span class="k">assert</span> <span class="n">product</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">product</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">product</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">residual_range_dims</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Estimating residual range ...&#39;</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range_dims</span> <span class="o">=</span> \
+                        <span class="n">estimate_image_hierarchical</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mass</span><span class="p">],</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">],</span>
+                                                    <span class="bp">self</span><span class="o">.</span><span class="n">RB</span><span class="p">,</span>
+                                                    <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range_dims</span><span class="p">),</span>
+                                                    <span class="n">orthonormalize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">,</span>
+                                                    <span class="n">riesz_representatives</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">ImageCollectionError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Cannot compute range of </span><span class="si">{e.op}</span><span class="s1">. Evaluation will be slow.&#39;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">operator</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">RB</span><span class="p">)</span>
+            <span class="n">mass</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">RB</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">NonProjectedImplicitEulerResidualOperator</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Projecting residual operator ...&#39;</span><span class="p">):</span>
+            <span class="n">operator</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">RB</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># the product always cancels out.</span>
+            <span class="n">mass</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">RB</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">rhs</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ImplicitEulerResidualOperator</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ImplicitEulerResidualReductor.reconstruct"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.residual.ImplicitEulerResidualReductor.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reconstruct high-dimensional residual vector from reduced vector `u`.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">:</span>
+                <span class="n">norm</span> <span class="o">=</span> <span class="n">induced_norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">u</span> <span class="o">*</span> <span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">norm</span><span class="p">(</span><span class="n">u</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">u</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range</span><span class="p">[:</span><span class="n">u</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span></div></div>
+
+
+<div class="viewcode-block" id="ImplicitEulerResidualOperator"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.residual.ImplicitEulerResidualOperator">[docs]</a><span class="k">class</span> <span class="nc">ImplicitEulerResidualOperator</span><span class="p">(</span><span class="n">OperatorBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Instantiated by :class:`ImplicitEulerResidualReductor`.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">linear</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rhs_vector</span> <span class="o">=</span> <span class="n">rhs</span><span class="o">.</span><span class="n">as_range_array</span><span class="p">()</span> <span class="k">if</span> <span class="n">rhs</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">rhs</span><span class="o">.</span><span class="n">parametric</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ImplicitEulerResidualOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.residual.ImplicitEulerResidualOperator.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">U_old</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">V</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="mf">1.</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mass</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">))</span>
+        <span class="n">V</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="o">-</span><span class="mf">1.</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mass</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U_old</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">:</span>
+            <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs_vector</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">as_range_array</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">V</span> <span class="o">-=</span> <span class="n">F</span><span class="p">[[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">V</span> <span class="o">-=</span> <span class="n">F</span>
+        <span class="k">return</span> <span class="n">V</span></div>
+
+    <span class="k">def</span> <span class="nf">projected_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dim_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ImplicitEulerResidualOperator</span><span class="p">(</span><span class="n">project_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">dim_range</span><span class="p">,</span> <span class="n">dim_source</span><span class="p">),</span>
+                                             <span class="n">project_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span> <span class="n">dim_range</span><span class="p">,</span> <span class="n">dim_source</span><span class="p">),</span>
+                                             <span class="n">project_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">dim_range</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                                             <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">,</span>
+                                             <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NonProjectedImplicitEulerResidualOperator"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.residual.NonProjectedImplicitEulerResidualOperator">[docs]</a><span class="k">class</span> <span class="nc">NonProjectedImplicitEulerResidualOperator</span><span class="p">(</span><span class="n">ImplicitEulerResidualOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Instantiated by :class:`ImplicitEulerResidualReductor`.</span>
+
+<span class="sd">    Not to be used directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">product</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">product</span> <span class="o">=</span> <span class="n">product</span>
+
+<div class="viewcode-block" id="NonProjectedImplicitEulerResidualOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.residual.NonProjectedImplicitEulerResidualOperator.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">U_old</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">R</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">U_old</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">:</span>
+            <span class="n">R_riesz</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>
+            <span class="c1"># divide by norm, except when norm is zero:</span>
+            <span class="n">inversel2</span> <span class="o">=</span> <span class="mf">1.</span><span class="o">/</span><span class="n">R_riesz</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span>
+            <span class="n">inversel2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">inversel2</span><span class="p">)</span>
+            <span class="n">R_riesz</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">R_riesz</span><span class="o">.</span><span class="n">pairwise_dot</span><span class="p">(</span><span class="n">R</span><span class="p">))</span> <span class="o">*</span> <span class="n">inversel2</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">R_riesz</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">R</span></div>
+
+    <span class="k">def</span> <span class="nf">projected_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dim_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">operator</span><span class="o">=</span><span class="n">project_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dim_source</span><span class="p">),</span>
+                          <span class="n">mass</span><span class="o">=</span><span class="n">project_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dim_source</span><span class="p">))</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

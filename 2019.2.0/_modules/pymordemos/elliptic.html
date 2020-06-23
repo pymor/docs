@@ -1,0 +1,175 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymordemos.elliptic &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymordemos.elliptic</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;Simple demonstration of solving the Poisson equation in 2D using pyMOR&#39;s builtin discretizations.</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">    elliptic.py [--fv] [--rect] PROBLEM-NUMBER DIRICHLET-NUMBER NEUMANN-NUMBER NEUMANN-COUNT</span>
+
+<span class="sd">Arguments:</span>
+<span class="sd">    PROBLEM-NUMBER    {0,1}, selects the problem to solve</span>
+<span class="sd">    DIRICHLET-NUMBER  {0,1,2}, selects the Dirichlet data function</span>
+<span class="sd">    NEUMANN-NUMBER    {0,1}, selects the Neumann data function</span>
+<span class="sd">    NEUMANN-COUNT     0: no neumann boundary</span>
+<span class="sd">                      1: right edge is neumann boundary</span>
+<span class="sd">                      2: right+top edges are neumann boundary</span>
+<span class="sd">                      3: right+top+bottom edges are neumann boundary</span>
+
+<span class="sd">Options:</span>
+<span class="sd">    -h, --help   Show this message.</span>
+<span class="sd">    --fv         Use finite volume discretization instead of finite elements.</span>
+<span class="sd">    --rect       Use RectGrid instead of TriaGrid.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">docopt</span> <span class="kn">import</span> <span class="n">docopt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.analyticalproblems.elliptic</span> <span class="kn">import</span> <span class="n">StationaryProblem</span>
+<span class="kn">from</span> <span class="nn">pymor.discretizers.cg</span> <span class="kn">import</span> <span class="n">discretize_stationary_cg</span>
+<span class="kn">from</span> <span class="nn">pymor.discretizers.fv</span> <span class="kn">import</span> <span class="n">discretize_stationary_fv</span>
+<span class="kn">from</span> <span class="nn">pymor.domaindescriptions.basic</span> <span class="kn">import</span> <span class="n">RectDomain</span>
+<span class="kn">from</span> <span class="nn">pymor.functions.basic</span> <span class="kn">import</span> <span class="n">ExpressionFunction</span><span class="p">,</span> <span class="n">ConstantFunction</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.rect</span> <span class="kn">import</span> <span class="n">RectGrid</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.tria</span> <span class="kn">import</span> <span class="n">TriaGrid</span>
+
+
+<div class="viewcode-block" id="elliptic_demo"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.elliptic.elliptic_demo">[docs]</a><span class="k">def</span> <span class="nf">elliptic_demo</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;PROBLEM-NUMBER&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;PROBLEM-NUMBER&#39;</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;PROBLEM-NUMBER&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid problem number&#39;</span><span class="p">)</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;DIRICHLET-NUMBER&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;DIRICHLET-NUMBER&#39;</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;DIRICHLET-NUMBER&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid Dirichlet boundary number.&#39;</span><span class="p">)</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;NEUMANN-NUMBER&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;NEUMANN-NUMBER&#39;</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;NEUMANN-NUMBER&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid Neumann boundary number.&#39;</span><span class="p">)</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;NEUMANN-COUNT&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;NEUMANN-COUNT&#39;</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;NEUMANN-COUNT&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid Neumann boundary count.&#39;</span><span class="p">)</span>
+
+    <span class="n">rhss</span> <span class="o">=</span> <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;ones(x.shape[:-1]) * 10&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span>
+            <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x[..., 0] - 0.5) ** 2 * 1000&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">())]</span>
+    <span class="n">dirichlets</span> <span class="o">=</span> <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;zeros(x.shape[:-1])&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span>
+                  <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;ones(x.shape[:-1])&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span>
+                  <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;x[..., 0]&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">())]</span>
+    <span class="n">neumanns</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">3.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+                <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;50*(0.1 &lt;= x[..., 1]) * (x[..., 1] &lt;= 0.2)&#39;</span>
+                                   <span class="s1">&#39;+50*(0.8 &lt;= x[..., 1]) * (x[..., 1] &lt;= 0.9)&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">())]</span>
+    <span class="n">domains</span> <span class="o">=</span> <span class="p">[</span><span class="n">RectDomain</span><span class="p">(),</span>
+               <span class="n">RectDomain</span><span class="p">(</span><span class="n">right</span><span class="o">=</span><span class="s1">&#39;neumann&#39;</span><span class="p">),</span>
+               <span class="n">RectDomain</span><span class="p">(</span><span class="n">right</span><span class="o">=</span><span class="s1">&#39;neumann&#39;</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="s1">&#39;neumann&#39;</span><span class="p">),</span>
+               <span class="n">RectDomain</span><span class="p">(</span><span class="n">right</span><span class="o">=</span><span class="s1">&#39;neumann&#39;</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="s1">&#39;neumann&#39;</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="s1">&#39;neumann&#39;</span><span class="p">)]</span>
+
+    <span class="n">rhs</span> <span class="o">=</span> <span class="n">rhss</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;PROBLEM-NUMBER&#39;</span><span class="p">]]</span>
+    <span class="n">dirichlet</span> <span class="o">=</span> <span class="n">dirichlets</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;DIRICHLET-NUMBER&#39;</span><span class="p">]]</span>
+    <span class="n">neumann</span> <span class="o">=</span> <span class="n">neumanns</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;NEUMANN-NUMBER&#39;</span><span class="p">]]</span>
+    <span class="n">domain</span> <span class="o">=</span> <span class="n">domains</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;NEUMANN-COUNT&#39;</span><span class="p">]]</span>
+
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">StationaryProblem</span><span class="p">(</span>
+        <span class="n">domain</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
+        <span class="n">diffusion</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+        <span class="n">rhs</span><span class="o">=</span><span class="n">rhs</span><span class="p">,</span>
+        <span class="n">dirichlet_data</span><span class="o">=</span><span class="n">dirichlet</span><span class="p">,</span>
+        <span class="n">neumann_data</span><span class="o">=</span><span class="n">neumann</span>
+    <span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">32</span><span class="p">,</span> <span class="mi">128</span><span class="p">]:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Discretize ...&#39;</span><span class="p">)</span>
+        <span class="n">discretizer</span> <span class="o">=</span> <span class="n">discretize_stationary_fv</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--fv&#39;</span><span class="p">]</span> <span class="k">else</span> <span class="n">discretize_stationary_cg</span>
+        <span class="n">m</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">discretizer</span><span class="p">(</span>
+            <span class="n">analytical_problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>
+            <span class="n">grid_type</span><span class="o">=</span><span class="n">RectGrid</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--rect&#39;</span><span class="p">]</span> <span class="k">else</span> <span class="n">TriaGrid</span><span class="p">,</span>
+            <span class="n">diameter</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--rect&#39;</span><span class="p">]</span> <span class="k">else</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">n</span>
+        <span class="p">)</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">()</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Solve ...&#39;</span><span class="p">)</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="n">grid</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">()</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">docopt</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">)</span>
+    <span class="n">elliptic_demo</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

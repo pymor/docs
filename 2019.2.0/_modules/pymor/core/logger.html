@@ -1,0 +1,411 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.core.logger &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.core.logger</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;This module contains pyMOR&#39;s logging facilities.</span>
+
+<span class="sd">pyMOR&#39;s logging facilities are based on the :mod:`logging` module of the</span>
+<span class="sd">Python standard library. To obtain a new logger object use :func:`getLogger`.</span>
+<span class="sd">Logging can be configured via the :func:`set_log_format` and</span>
+<span class="sd">:func:`set_log_levels` methods.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">types</span> <span class="kn">import</span> <span class="n">MethodType</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
+<span class="kn">from</span> <span class="nn">pymor.tools</span> <span class="kn">import</span> <span class="n">mpi</span>
+
+<span class="n">BLOCK</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span> <span class="o">+</span> <span class="mi">5</span>
+<span class="n">BLOCK_TIME</span> <span class="o">=</span> <span class="n">BLOCK</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="n">INFO2</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="n">INFO3</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span> <span class="o">+</span> <span class="mi">2</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">addLevelName</span><span class="p">(</span><span class="n">BLOCK</span><span class="p">,</span> <span class="s1">&#39;BLOCK&#39;</span><span class="p">)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">addLevelName</span><span class="p">(</span><span class="n">BLOCK_TIME</span><span class="p">,</span> <span class="s1">&#39;BLOCK_TIME&#39;</span><span class="p">)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">addLevelName</span><span class="p">(</span><span class="n">INFO2</span><span class="p">,</span> <span class="s1">&#39;INFO2&#39;</span><span class="p">)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">addLevelName</span><span class="p">(</span><span class="n">INFO3</span><span class="p">,</span> <span class="s1">&#39;INFO3&#39;</span><span class="p">)</span>
+
+<span class="n">BLACK</span><span class="p">,</span> <span class="n">RED</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">,</span> <span class="n">YELLOW</span><span class="p">,</span> <span class="n">BLUE</span><span class="p">,</span> <span class="n">MAGENTA</span><span class="p">,</span> <span class="n">CYAN</span><span class="p">,</span> <span class="n">WHITE</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="c1"># The background is set with 40 plus the number of the color, and the foreground with 30</span>
+<span class="c1"># These are the sequences needed to get colored output</span>
+<span class="n">RESET_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0m&quot;</span>
+<span class="n">COLOR_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[1;</span><span class="si">%d</span><span class="s2">m&quot;</span>
+<span class="n">BOLD_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[1m&quot;</span>
+<span class="n">COLORS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;WARNING&#39;</span><span class="p">:</span>  <span class="n">YELLOW</span><span class="p">,</span>
+    <span class="s1">&#39;INFO2&#39;</span><span class="p">:</span>    <span class="n">YELLOW</span><span class="p">,</span>
+    <span class="s1">&#39;INFO3&#39;</span><span class="p">:</span>    <span class="n">RED</span><span class="p">,</span>
+    <span class="s1">&#39;DEBUG&#39;</span><span class="p">:</span>    <span class="n">BLUE</span><span class="p">,</span>
+    <span class="s1">&#39;CRITICAL&#39;</span><span class="p">:</span> <span class="n">MAGENTA</span><span class="p">,</span>
+    <span class="s1">&#39;ERROR&#39;</span><span class="p">:</span>    <span class="n">RED</span>
+<span class="p">}</span>
+<span class="n">CSSCOLORS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;WARNING&#39;</span><span class="p">:</span>  <span class="s1">&#39;yellow&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;INFO2&#39;</span><span class="p">:</span>    <span class="s1">&#39;yellow&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;INFO3&#39;</span><span class="p">:</span>    <span class="s1">&#39;red&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;DEBUG&#39;</span><span class="p">:</span>    <span class="s1">&#39;blue&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;CRITICAL&#39;</span><span class="p">:</span> <span class="s1">&#39;magenta&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ERROR&#39;</span><span class="p">:</span>    <span class="s1">&#39;red&#39;</span>
+<span class="p">}</span>
+
+<span class="n">MAX_HIERARCHY_LEVEL</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">BLOCK_TIMINGS</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">INDENT_BLOCKS</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">INDENT</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">LAST_TIMESTAMP_LENGTH</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="ColoredFormatter"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.logger.ColoredFormatter">[docs]</a><span class="k">class</span> <span class="nc">ColoredFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A logging.Formatter that inserts tty control characters to color</span>
+<span class="sd">    loglevel keyword output. Coloring can be disabled by setting the</span>
+<span class="sd">    `PYMOR_COLORS_DISABLE` environment variable to `1`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">disable_colors</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;PYMOR_COLORS_DISABLE&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">disable_colors</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">use_color</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">import</span> <span class="nn">curses</span>
+                <span class="n">curses</span><span class="o">.</span><span class="n">setupterm</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">use_color</span> <span class="o">=</span> <span class="n">curses</span><span class="o">.</span><span class="n">tigetnum</span><span class="p">(</span><span class="s2">&quot;colors&quot;</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">use_color</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_format_common</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+        <span class="k">global</span> <span class="n">LAST_TIMESTAMP_LENGTH</span>
+
+        <span class="n">msg</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>  <span class="c1"># call base class to support exception formatting</span>
+
+        <span class="c1"># format time</span>
+        <span class="n">elapsed</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span>
+        <span class="n">days</span><span class="p">,</span> <span class="n">remainder</span> <span class="o">=</span> <span class="nb">divmod</span><span class="p">(</span><span class="n">elapsed</span><span class="p">,</span> <span class="mi">86400</span><span class="p">)</span>
+        <span class="n">hours</span><span class="p">,</span> <span class="n">remainder</span> <span class="o">=</span> <span class="nb">divmod</span><span class="p">(</span><span class="n">remainder</span><span class="p">,</span> <span class="mi">3600</span><span class="p">)</span>
+        <span class="n">minutes</span><span class="p">,</span> <span class="n">seconds</span> <span class="o">=</span> <span class="nb">divmod</span><span class="p">(</span><span class="n">remainder</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{days}</span><span class="s1">d </span><span class="si">{hours:02}</span><span class="s1">:</span><span class="si">{minutes:02}</span><span class="s1">:</span><span class="si">{seconds:02}</span><span class="s1">&#39;</span> <span class="k">if</span> <span class="n">days</span> \
+            <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{hours:02}</span><span class="s1">:</span><span class="si">{minutes:02}</span><span class="s1">:</span><span class="si">{seconds:02}</span><span class="s1">&#39;</span> <span class="k">if</span> <span class="n">hours</span> \
+            <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{minutes:02}</span><span class="s1">:</span><span class="si">{seconds:02}</span><span class="s1">&#39;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+            <span class="n">timestamp</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;RANK</span><span class="si">{mpi.rank}</span><span class="s1">|</span><span class="si">{timestamp}</span><span class="s1">&#39;</span>
+        <span class="k">if</span> <span class="n">LAST_TIMESTAMP_LENGTH</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">LAST_TIMESTAMP_LENGTH</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">timestamp</span><span class="p">)</span>
+
+        <span class="c1"># handle special cases</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">record</span><span class="o">.</span><span class="n">msg</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s1">&#39; &#39;</span> <span class="o">*</span> <span class="p">(</span><span class="n">LAST_TIMESTAMP_LENGTH</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;|   &#39;</span> <span class="o">*</span> <span class="n">INDENT</span>
+        <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">levelname</span> <span class="o">==</span> <span class="s1">&#39;BLOCK_TIME&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s1">&#39; &#39;</span> <span class="o">*</span> <span class="p">(</span><span class="n">LAST_TIMESTAMP_LENGTH</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;|   &#39;</span> <span class="o">*</span> <span class="p">(</span><span class="n">INDENT</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="sa">r</span><span class="s1">&#39;\----------------- &#39;</span> <span class="o">+</span> <span class="n">record</span><span class="o">.</span><span class="n">msg</span>
+
+        <span class="c1"># handle length change of timestamp</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">timestamp</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">LAST_TIMESTAMP_LENGTH</span><span class="p">:</span>
+            <span class="n">timestep_length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">timestamp</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">INDENT</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">LAST_TIMESTAMP_LENGTH</span><span class="p">,</span> <span class="n">timestep_length</span><span class="p">)):</span>
+                    <span class="n">timestamp</span> <span class="o">=</span> <span class="s1">&#39; &#39;</span> <span class="o">*</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="sa">r</span><span class="s1">&#39;\   &#39;</span> <span class="o">*</span> <span class="n">INDENT</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">timestamp</span>
+            <span class="n">LAST_TIMESTAMP_LENGTH</span> <span class="o">=</span> <span class="n">timestep_length</span>
+
+        <span class="n">indent</span> <span class="o">=</span> <span class="s1">&#39;|   &#39;</span> <span class="o">*</span> <span class="n">INDENT</span>
+
+        <span class="n">tokens</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">MAX_HIERARCHY_LEVEL</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="n">MAX_HIERARCHY_LEVEL</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">tokens</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="n">MAX_HIERARCHY_LEVEL</span><span class="p">])</span>
+
+        <span class="n">levelname</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">levelname</span>
+        <span class="k">return</span> <span class="n">levelname</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">indent</span>
+
+<div class="viewcode-block" id="ColoredFormatter.format"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.logger.ColoredFormatter.format">[docs]</a>    <span class="k">def</span> <span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_common</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+            <span class="n">levelname</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">indent</span> <span class="o">=</span> <span class="n">ret</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ret</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_color</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">levelname</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;INFO&#39;</span><span class="p">,</span> <span class="s1">&#39;BLOCK&#39;</span><span class="p">):</span>
+                <span class="n">path</span> <span class="o">=</span> <span class="n">BOLD_SEQ</span> <span class="o">+</span> <span class="n">path</span> <span class="o">+</span> <span class="n">RESET_SEQ</span>
+                <span class="n">levelname</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+            <span class="k">elif</span> <span class="n">levelname</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;INFO&#39;</span><span class="p">):</span>
+                <span class="n">path</span> <span class="o">=</span> <span class="p">(</span><span class="n">COLOR_SEQ</span> <span class="o">%</span> <span class="p">(</span><span class="mi">30</span> <span class="o">+</span> <span class="n">COLORS</span><span class="p">[</span><span class="n">levelname</span><span class="p">]))</span> <span class="o">+</span> <span class="n">path</span> <span class="o">+</span> <span class="n">RESET_SEQ</span>
+                <span class="n">levelname</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">path</span> <span class="o">=</span> <span class="n">BOLD_SEQ</span> <span class="o">+</span> <span class="n">path</span> <span class="o">+</span> <span class="n">RESET_SEQ</span>
+                <span class="n">levelname</span> <span class="o">=</span> <span class="p">(</span><span class="n">COLOR_SEQ</span> <span class="o">%</span> <span class="p">(</span><span class="mi">30</span> <span class="o">+</span> <span class="n">COLORS</span><span class="p">[</span><span class="n">levelname</span><span class="p">]))</span> <span class="o">+</span> <span class="s1">&#39;|&#39;</span> <span class="o">+</span> <span class="n">levelname</span> <span class="o">+</span> <span class="s1">&#39;|&#39;</span> <span class="o">+</span> <span class="n">RESET_SEQ</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">levelname</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;INFO&#39;</span><span class="p">,</span> <span class="s1">&#39;BLOCK&#39;</span><span class="p">):</span>
+                <span class="n">levelname</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">levelname</span> <span class="o">=</span> <span class="s1">&#39;|&#39;</span> <span class="o">+</span> <span class="n">levelname</span> <span class="o">+</span> <span class="s1">&#39;|&#39;</span>
+
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{timestamp}</span><span class="s1"> </span><span class="si">{indent}{levelname}{path}</span><span class="s1">: </span><span class="si">{msg}</span><span class="s1">&#39;</span></div>
+
+    <span class="k">def</span> <span class="nf">format_html</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_common</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+            <span class="n">levelname</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">indent</span> <span class="o">=</span> <span class="n">ret</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ret</span>
+
+        <span class="n">levelname</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">indent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_common</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">levelname</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;INFO&#39;</span><span class="p">,</span> <span class="s1">&#39;BLOCK&#39;</span><span class="p">):</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;&lt;bold&gt;</span><span class="si">{path}</span><span class="s1">&lt;/bold&gt;&#39;</span>
+            <span class="n">levelname</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">elif</span> <span class="n">levelname</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;INFO&#39;</span><span class="p">):</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;&lt;span style=&quot;color:</span><span class="si">{CSSCOLORS[levelname]}</span><span class="s1">;&quot;&gt;</span><span class="si">{path}</span><span class="s1">&lt;/span&gt;&#39;</span>
+            <span class="n">levelname</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;&lt;bold&gt;</span><span class="si">{path}</span><span class="s1">&lt;/bold&gt;&#39;</span>
+            <span class="n">levelname</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;&lt;span style=&quot;color:</span><span class="si">{CSSCOLORS[levelname]}</span><span class="s1">;&quot;&gt;|</span><span class="si">{levelname}</span><span class="s1">|&lt;/span&gt;&#39;</span>
+
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{timestamp}</span><span class="s1"> </span><span class="si">{indent}{levelname}{path}</span><span class="s1">: </span><span class="si">{msg}</span><span class="s1">&#39;</span></div>
+
+
+
+<div class="viewcode-block" id="default_handler"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.logger.default_handler">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;filename&#39;</span><span class="p">,</span> <span class="n">sid_ignore</span><span class="o">=</span><span class="s1">&#39;filename&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">default_handler</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
+    <span class="n">streamhandler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">()</span>
+    <span class="n">streamformatter</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="p">()</span>
+    <span class="n">streamhandler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">streamformatter</span><span class="p">)</span>
+    <span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">streamhandler</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">filename</span><span class="p">:</span>
+        <span class="n">filehandler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="n">fileformatter</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="p">()</span>
+        <span class="n">filehandler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">fileformatter</span><span class="p">)</span>
+        <span class="n">handlers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">filehandler</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">handlers</span></div>
+
+
+<div class="viewcode-block" id="getLogger"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.logger.getLogger">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;filename&#39;</span><span class="p">,</span> <span class="n">sid_ignore</span><span class="o">=</span><span class="s1">&#39;filename&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">getLogger</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get the logger of the respective module for pyMOR&#39;s logging facility.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    module</span>
+<span class="sd">        Name of the module.</span>
+<span class="sd">    level</span>
+<span class="sd">        If set, `logger.setLevel(level)` is called (see</span>
+<span class="sd">        :meth:`~logging.Logger.setLevel`).</span>
+<span class="sd">    filename</span>
+<span class="sd">        If not empty, path of an existing file where everything logged will be</span>
+<span class="sd">        written to.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="s1">&#39;pymor&#39;</span> <span class="k">if</span> <span class="n">module</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span> <span class="k">else</span> <span class="n">module</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">block</span> <span class="o">=</span> <span class="n">MethodType</span><span class="p">(</span><span class="n">_block</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info2</span> <span class="o">=</span> <span class="n">MethodType</span><span class="p">(</span><span class="n">_info2</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info3</span> <span class="o">=</span> <span class="n">MethodType</span><span class="p">(</span><span class="n">_info3</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">handlers</span> <span class="o">=</span> <span class="n">default_handler</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">level</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">logger</span></div>
+
+
+<div class="viewcode-block" id="DummyLogger"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.logger.DummyLogger">[docs]</a><span class="k">class</span> <span class="nc">DummyLogger</span><span class="p">:</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">nop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">propagate</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">debug</span> <span class="o">=</span> <span class="n">nop</span>
+    <span class="n">info</span> <span class="o">=</span> <span class="n">nop</span>
+    <span class="n">warn</span> <span class="o">=</span> <span class="n">nop</span>
+    <span class="n">warning</span> <span class="o">=</span> <span class="n">nop</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="n">nop</span>
+    <span class="n">critical</span> <span class="o">=</span> <span class="n">nop</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">nop</span>
+    <span class="n">exception</span> <span class="o">=</span> <span class="n">nop</span>
+
+    <span class="k">def</span> <span class="nf">isEnabledFor</span><span class="p">(</span><span class="n">sefl</span><span class="p">,</span> <span class="n">lvl</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">getEffectiveLevel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">getChild</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">block</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">LogIndenter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">info2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">INFO2</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">info3</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">INFO3</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<span class="n">dummy_logger</span> <span class="o">=</span> <span class="n">DummyLogger</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="set_log_levels"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.logger.set_log_levels">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;levels&#39;</span><span class="p">,</span> <span class="n">sid_ignore</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;levels&#39;</span><span class="p">,))</span>
+<span class="k">def</span> <span class="nf">set_log_levels</span><span class="p">(</span><span class="n">levels</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Set log levels for pyMOR&#39;s logging facility.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    levels</span>
+<span class="sd">        Dict of log levels. Keys are names of loggers (see :func:`logging.getLogger`),</span>
+<span class="sd">        values are the log levels to set for the loggers of the given names</span>
+<span class="sd">        (see :meth:`~logging.Logger.setLevel`).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">levels</span> <span class="o">=</span> <span class="n">levels</span> <span class="ow">or</span> <span class="p">{</span><span class="s1">&#39;pymor&#39;</span><span class="p">:</span> <span class="s1">&#39;INFO&#39;</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">levels</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">getLogger</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">v</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="set_log_format"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.logger.set_log_format">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;max_hierarchy_level&#39;</span><span class="p">,</span> <span class="s1">&#39;indent_blocks&#39;</span><span class="p">,</span> <span class="s1">&#39;block_timings&#39;</span><span class="p">,</span>
+          <span class="n">sid_ignore</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;max_hierarchy_level&#39;</span><span class="p">,</span> <span class="s1">&#39;indent_blocks&#39;</span><span class="p">,</span> <span class="s1">&#39;block_timings&#39;</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">set_log_format</span><span class="p">(</span><span class="n">max_hierarchy_level</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">indent_blocks</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">block_timings</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Set log levels for pyMOR&#39;s logging facility.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    max_hierarchy_level</span>
+<span class="sd">        The number of components of the loggers name which are printed.</span>
+<span class="sd">        (The first component is always stripped, the last component always</span>
+<span class="sd">        preserved.)</span>
+<span class="sd">    indent_blocks</span>
+<span class="sd">        If `True`, indent log messages inside a code block started with</span>
+<span class="sd">        `with logger.block(...)`.</span>
+<span class="sd">    block_timings</span>
+<span class="sd">        If `True`, measure the duration of a code block started with</span>
+<span class="sd">        `with logger.block(...)`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">MAX_HIERARCHY_LEVEL</span>
+    <span class="k">global</span> <span class="n">INDENT_BLOCKS</span>
+    <span class="k">global</span> <span class="n">BLOCK_TIMINGS</span>
+    <span class="n">MAX_HIERARCHY_LEVEL</span> <span class="o">=</span> <span class="n">max_hierarchy_level</span>
+    <span class="n">INDENT_BLOCKS</span> <span class="o">=</span> <span class="n">indent_blocks</span>
+    <span class="n">BLOCK_TIMINGS</span> <span class="o">=</span> <span class="n">block_timings</span></div>
+
+
+<div class="viewcode-block" id="LogIndenter"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.logger.LogIndenter">[docs]</a><span class="k">class</span> <span class="nc">LogIndenter</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">doit</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">doit</span> <span class="o">=</span> <span class="n">doit</span>
+
+    <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">global</span> <span class="n">INDENT</span>
+        <span class="k">global</span> <span class="n">BLOCK_TIMINGS</span>
+        <span class="k">if</span> <span class="n">BLOCK_TIMINGS</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">doit</span><span class="p">:</span>
+            <span class="n">INDENT</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_val</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+        <span class="k">global</span> <span class="n">INDENT</span>
+        <span class="k">global</span> <span class="n">BLOCK_TIMINGS</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">doit</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">BLOCK_TIMINGS</span><span class="p">:</span>
+                <span class="n">duration</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">tic</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">BLOCK_TIME</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;duration: </span><span class="si">{duration}</span><span class="s1">s&#39;</span><span class="p">)</span>
+            <span class="n">INDENT</span> <span class="o">-=</span> <span class="mi">1</span></div>
+
+
+<span class="k">def</span> <span class="nf">_block</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">INDENT_BLOCKS</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">BLOCK</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">LogIndenter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">BLOCK</span><span class="p">)</span> <span class="ow">and</span> <span class="n">INDENT_BLOCKS</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_info2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">INFO2</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_info3</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">INFO3</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

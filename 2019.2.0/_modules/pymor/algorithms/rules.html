@@ -1,0 +1,443 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.rules &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.rules</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">OrderedDict</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">NoMatchingRuleError</span><span class="p">,</span> <span class="n">RuleNotMatchingError</span>
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">BasicInterface</span><span class="p">,</span> <span class="n">UberMeta</span><span class="p">,</span> <span class="n">abstractmethod</span><span class="p">,</span> <span class="n">classinstancemethod</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.interfaces</span> <span class="kn">import</span> <span class="n">OperatorInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.table</span> <span class="kn">import</span> <span class="n">format_table</span>
+
+
+<div class="viewcode-block" id="rule"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.rule">[docs]</a><span class="k">class</span> <span class="nc">rule</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Decorator to make a method a rule in a given |RuleTable|.</span>
+
+<span class="sd">    The decorated function will become the :attr:`action` to</span>
+<span class="sd">    perform in case the rule :meth:`matches`.</span>
+<span class="sd">    Matching conditions are specified by subclassing and</span>
+<span class="sd">    overriding the :meth:`matches` method.</span>
+
+<span class="sd">    If an action is decorated by multiple rules, all these rules</span>
+<span class="sd">    must match for the action to apply.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    action</span>
+<span class="sd">        Method to call in case the rule matches.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="rule.__call__"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.rule.__call__">[docs]</a>    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="n">rule</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">action</span> <span class="o">=</span> <span class="n">action</span><span class="o">.</span><span class="n">action</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">next_rule</span> <span class="o">=</span> <span class="n">action</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_rules</span> <span class="o">=</span> <span class="n">action</span><span class="o">.</span><span class="n">num_rules</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">action</span> <span class="o">=</span> <span class="n">action</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">next_rule</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_rules</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns True if given object matches the condition.&quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+<div class="viewcode-block" id="rule.matches"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.rule.matches">[docs]</a>    <span class="k">def</span> <span class="nf">matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns True if given object matches the condition.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_matches</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">next_rule</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">next_rule</span><span class="o">.</span><span class="n">matches</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span></div>
+
+    <span class="n">condition_description</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">condition_type</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="rule.__repr__"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.rule.__repr__">[docs]</a>    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">pygments</span> <span class="kn">import</span> <span class="n">highlight</span>
+            <span class="kn">from</span> <span class="nn">pygments.lexers</span> <span class="kn">import</span> <span class="n">PythonLexer</span>
+            <span class="kn">from</span> <span class="nn">pygments.formatters</span> <span class="kn">import</span> <span class="n">Terminal256Formatter</span>
+            <span class="k">return</span> <span class="n">highlight</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">PythonLexer</span><span class="p">(),</span> <span class="n">Terminal256Formatter</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">action_description</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">action</span><span class="o">.</span><span class="vm">__doc__</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">action</span><span class="o">.</span><span class="vm">__name__</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s1">&#39;action_&#39;</span><span class="p">):]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">source</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">inspect</span> <span class="kn">import</span> <span class="n">getsourcelines</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">getsourcelines</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">action</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="match_class_base"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.match_class_base">[docs]</a><span class="k">class</span> <span class="nc">match_class_base</span><span class="p">(</span><span class="n">rule</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">classes</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">classes</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;At least one class is required&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">classes</span> <span class="o">=</span> <span class="n">classes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">condition_description</span> <span class="o">=</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">classes</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="match_class"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.match_class">[docs]</a><span class="k">class</span> <span class="nc">match_class</span><span class="p">(</span><span class="n">match_class_base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|rule| that matches when obj is instance of one of the given classes.&quot;&quot;&quot;</span>
+
+    <span class="n">condition_type</span> <span class="o">=</span> <span class="s1">&#39;CLASS&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="match_class_all"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.match_class_all">[docs]</a><span class="k">class</span> <span class="nc">match_class_all</span><span class="p">(</span><span class="n">match_class_base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|rule| that matches when each item of obj is instance of one of the given classes.&quot;&quot;&quot;</span>
+
+    <span class="n">condition_type</span> <span class="o">=</span> <span class="s1">&#39;ALLCLASSES&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">obj</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="match_class_any"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.match_class_any">[docs]</a><span class="k">class</span> <span class="nc">match_class_any</span><span class="p">(</span><span class="n">match_class_base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|rule| that matches when any item of obj is instance of one of the given classes.&quot;&quot;&quot;</span>
+
+    <span class="n">condition_type</span> <span class="o">=</span> <span class="s1">&#39;ANYCLASS&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">obj</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="match_always"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.match_always">[docs]</a><span class="k">class</span> <span class="nc">match_always</span><span class="p">(</span><span class="n">rule</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|rule| that always matches.&quot;&quot;&quot;</span>
+
+    <span class="n">condition_type</span> <span class="o">=</span> <span class="s1">&#39;ALWAYS&#39;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">):</span>
+        <span class="bp">self</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="match_generic"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.match_generic">[docs]</a><span class="k">class</span> <span class="nc">match_generic</span><span class="p">(</span><span class="n">rule</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|rule| with matching condition given by an arbitrary function.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    condition</span>
+<span class="sd">        Function of one argument which checks if given object</span>
+<span class="sd">        matches condition.</span>
+<span class="sd">    condition_description</span>
+<span class="sd">        Optional string describing the condition implemented by</span>
+<span class="sd">        `condition`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">condition_type</span> <span class="o">=</span> <span class="s1">&#39;GENERIC&#39;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">condition</span><span class="p">,</span> <span class="n">condition_description</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">condition</span> <span class="o">=</span> <span class="n">condition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">condition_description</span> <span class="o">=</span> <span class="n">condition_description</span> <span class="ow">or</span> <span class="s1">&#39;n.a.&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">condition</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RuleTableMeta"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.RuleTableMeta">[docs]</a><span class="k">class</span> <span class="nc">RuleTableMeta</span><span class="p">(</span><span class="n">UberMeta</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Meta class for |RuleTable|.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="RuleTableMeta.__new__"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.RuleTableMeta.__new__">[docs]</a>    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">parents</span><span class="p">,</span> <span class="n">dct</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="s1">&#39;rules&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dct</span>
+        <span class="n">rules</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">{</span><span class="n">p</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parents</span><span class="p">}</span> <span class="o">&lt;=</span> <span class="p">{</span><span class="s1">&#39;RuleTable&#39;</span><span class="p">,</span> <span class="s1">&#39;BasicInterface&#39;</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Inheritance for RuleTables not implemented yet.&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">dct</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">rule</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;action_&#39;</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Rule definition names have to start with &quot;action_&quot;&#39;</span><span class="p">)</span>
+                <span class="n">v</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">k</span>
+                <span class="n">rules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="c1"># note: since Python 3.6, the definition order is preserved in dct, so rules has the right order</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s1">&#39;rules&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rules</span>
+
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">parents</span><span class="p">,</span> <span class="n">dct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RuleTableMeta.__repr__"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.RuleTableMeta.__repr__">[docs]</a>    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="p">[[</span><span class="s1">&#39;Pos&#39;</span><span class="p">,</span> <span class="s1">&#39;Match Type&#39;</span><span class="p">,</span> <span class="s1">&#39;Condition&#39;</span><span class="p">,</span> <span class="s1">&#39;Action Name / Action Description&#39;</span><span class="p">,</span> <span class="s1">&#39;Stop&#39;</span><span class="p">]]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">rules</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">num_rules</span><span class="p">):</span>
+                <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="s1">&#39;&#39;</span> <span class="k">if</span> <span class="n">ii</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">),</span>
+                             <span class="n">r</span><span class="o">.</span><span class="n">condition_type</span><span class="p">,</span>
+                             <span class="n">r</span><span class="o">.</span><span class="n">condition_description</span><span class="p">,</span>
+                             <span class="s1">&#39;&#39;</span> <span class="k">if</span> <span class="n">ii</span> <span class="k">else</span> <span class="n">r</span><span class="o">.</span><span class="n">action_description</span><span class="p">])</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">next_rule</span>
+        <span class="k">return</span> <span class="n">format_table</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">rules</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+    <span class="fm">__str__</span> <span class="o">=</span> <span class="fm">__repr__</span></div>
+
+
+<div class="viewcode-block" id="RuleTable"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.RuleTable">[docs]</a><span class="k">class</span> <span class="nc">RuleTable</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">RuleTableMeta</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Define algorithm by a table of match conditions and corresponding actions.</span>
+
+<span class="sd">    |RuleTable| manages a table of |rules|, stored in the `rules`</span>
+<span class="sd">    attributes, which can be :meth:`applied &lt;apply&gt;` to given</span>
+<span class="sd">    objects.</span>
+
+<span class="sd">    A new table is created by subclassing |RuleTable| and defining</span>
+<span class="sd">    new methods which are decorated with :class:`match_class`,</span>
+<span class="sd">    :class:`match_generic` or another :class:`rule` subclass.</span>
+<span class="sd">    The order of the method definitions determines the order in</span>
+<span class="sd">    which the defined |rules| are applied.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    use_caching</span>
+<span class="sd">        If `True`, cache results of :meth:`apply`.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    rules</span>
+<span class="sd">        `list` of all defined |rules|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_caching</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_caching</span> <span class="o">=</span> <span class="n">use_caching</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rules</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rules</span><span class="p">)</span>  <span class="c1"># make a copy of the list of rules</span>
+
+    <span class="nd">@classinstancemethod</span>
+    <span class="k">def</span> <span class="nf">insert_rule</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">rule_</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rule_</span><span class="p">,</span> <span class="n">rule</span><span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">rules</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">rule_</span><span class="p">)</span>
+
+    <span class="nd">@insert_rule</span><span class="o">.</span><span class="n">instancemethod</span>
+    <span class="k">def</span> <span class="nf">insert_rule</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">rule_</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rule_</span><span class="p">,</span> <span class="n">rule</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rules</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">rule_</span><span class="p">)</span>
+
+    <span class="nd">@classinstancemethod</span>
+    <span class="k">def</span> <span class="nf">append_rule</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">rule_</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rule_</span><span class="p">,</span> <span class="n">rule</span><span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">rules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rule_</span><span class="p">)</span>
+
+    <span class="nd">@append_rule</span><span class="o">.</span><span class="n">instancemethod</span>
+    <span class="k">def</span> <span class="nf">append_rule</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rule_</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rule_</span><span class="p">,</span> <span class="n">rule</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rule_</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RuleTable.apply"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.RuleTable.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sequentially apply rules to given object.</span>
+
+<span class="sd">        This method iterates over all rules of the given |RuleTable|.</span>
+<span class="sd">        For each |rule|, it is checked if it :meth:`~rule.matches` the given</span>
+<span class="sd">        object. If `False`, the next |rule| in the table is considered.</span>
+<span class="sd">        If `True` the corresponding :attr:`~rule.action` is executed with</span>
+<span class="sd">        `obj` as parameter. If execution of :attr:`~action` raises</span>
+<span class="sd">        :class:`~pymor.core.exceptions.RuleNotMatchingError`, the rule is</span>
+<span class="sd">        considered as not matching, and execution continues with evaluation</span>
+<span class="sd">        of the next rule. Otherwise, execution is stopped and the return value</span>
+<span class="sd">        of :attr:`rule.action` is returned to the caller.</span>
+
+<span class="sd">        If no |rule| matches, a :class:`~pymor.core.exceptions.NoMatchingRuleError`</span>
+<span class="sd">        is raised.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        obj</span>
+<span class="sd">            The object to apply the |RuleTable| to.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Return value of the action of the first matching |rule| in the table.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        NoMatchingRuleError</span>
+<span class="sd">            No |rule| could be applied to the given object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_caching</span> <span class="ow">and</span> <span class="n">obj</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="n">obj</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">rules</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">matches</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="n">obj</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span>
+                    <span class="k">return</span> <span class="n">result</span>
+                <span class="k">except</span> <span class="n">RuleNotMatchingError</span><span class="p">:</span>
+                    <span class="k">pass</span>
+
+        <span class="k">raise</span> <span class="n">NoMatchingRuleError</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RuleTable.apply_children"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.RuleTable.apply_children">[docs]</a>    <span class="k">def</span> <span class="nf">apply_children</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Apply rules to all children of the given object.</span>
+
+<span class="sd">        This method calls :meth:`apply` to each child of</span>
+<span class="sd">        the given object. The children of the object are either provided</span>
+<span class="sd">        by the `children` parameter or automatically inferred by the</span>
+<span class="sd">        :meth:`get_children` method.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        obj</span>
+<span class="sd">            The object to apply the |RuleTable| to.</span>
+<span class="sd">        children</span>
+<span class="sd">            `None` or a list of attribute names defining the children</span>
+<span class="sd">            to consider.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Result of :meth:`apply` for all given children.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">children</span> <span class="o">=</span> <span class="n">children</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_children</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">children</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">child</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+                <span class="n">result</span><span class="p">[</span><span class="n">child</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">):</span>
+                <span class="n">result</span><span class="p">[</span><span class="n">child</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">c</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">result</span><span class="p">[</span><span class="n">child</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">c</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="RuleTable.replace_children"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.RuleTable.replace_children">[docs]</a>    <span class="k">def</span> <span class="nf">replace_children</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Replace children of object according to rule table.</span>
+
+<span class="sd">        Same as :meth:`apply_children`, but additionally calls</span>
+<span class="sd">        `obj.with_` to replace the children of `obj` with the</span>
+<span class="sd">        result of the corresponding :meth:`apply` call.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_children</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="n">children</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="RuleTable.get_children"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.RuleTable.get_children">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_children</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Determine children of given object.</span>
+
+<span class="sd">        This method returns a list of the names of all</span>
+<span class="sd">        attributes `a`, for which one of the folling is true:</span>
+
+<span class="sd">            1. `a` is an |Operator|.</span>
+<span class="sd">            2. `a` is a `mapping` and each of its values is either an |Operator| or `None`.</span>
+<span class="sd">            3. `a` is an `iterable` and each of its elements is either an |Operator| or `None`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">children</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">_init_arguments</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+                <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+                    <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">vv</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+                                                      <span class="ow">or</span> <span class="n">vv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">vv</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+                    <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">str</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">vv</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+                                                                              <span class="ow">or</span> <span class="n">vv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">vv</span> <span class="ow">in</span> <span class="n">v</span><span class="p">)):</span>
+                    <span class="n">children</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="k">return</span> <span class="n">children</span></div></div>
+
+
+<div class="viewcode-block" id="print_children"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.rules.print_children">[docs]</a><span class="k">def</span> <span class="nf">print_children</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">build_tree</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+
+        <span class="k">def</span> <span class="nf">process_child</span><span class="p">(</span><span class="n">child</span><span class="p">):</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">child</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">child</span><span class="p">,</span> <span class="n">OrderedDict</span><span class="p">((</span><span class="n">k</span> <span class="o">+</span> <span class="s1">&#39;: &#39;</span> <span class="o">+</span> <span class="n">v</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">build_tree</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">child</span><span class="p">,</span> <span class="n">OrderedDict</span><span class="p">((</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;: &#39;</span> <span class="o">+</span> <span class="n">v</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">build_tree</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">child</span> <span class="o">+</span> <span class="s1">&#39;: &#39;</span> <span class="o">+</span> <span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">build_tree</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">process_child</span><span class="p">(</span><span class="n">child</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">RuleTable</span><span class="o">.</span><span class="n">get_children</span><span class="p">(</span><span class="n">obj</span><span class="p">)))</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">asciitree</span> <span class="kn">import</span> <span class="n">LeftAligned</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">LeftAligned</span><span class="p">()({</span><span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">build_tree</span><span class="p">(</span><span class="n">obj</span><span class="p">)}))</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">pprint</span> <span class="kn">import</span> <span class="n">pprint</span>
+        <span class="n">pprint</span><span class="p">({</span><span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">build_tree</span><span class="p">(</span><span class="n">obj</span><span class="p">)})</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

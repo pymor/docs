@@ -1,0 +1,222 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.gui.visualizers &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.gui.visualizers</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">BasicInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.oned</span> <span class="kn">import</span> <span class="n">OnedGrid</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.referenceelements</span> <span class="kn">import</span> <span class="n">triangle</span><span class="p">,</span> <span class="n">square</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.vtkio</span> <span class="kn">import</span> <span class="n">write_vtk</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.interfaces</span> <span class="kn">import</span> <span class="n">VectorArrayInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.core.config</span> <span class="kn">import</span> <span class="n">is_jupyter</span>
+
+
+<div class="viewcode-block" id="PatchVisualizer"><a class="viewcode-back" href="../../../generated/pymor.gui.html#pymor.gui.visualizers.PatchVisualizer">[docs]</a><span class="k">class</span> <span class="nc">PatchVisualizer</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Visualize scalar data associated to a two-dimensional |Grid| as a patch plot.</span>
+
+<span class="sd">    The grid&#39;s |ReferenceElement| must be the triangle or square. The data can either</span>
+<span class="sd">    be attached to the faces or vertices of the grid.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The underlying |Grid|.</span>
+<span class="sd">    bounding_box</span>
+<span class="sd">        A bounding box in which the grid is contained.</span>
+<span class="sd">    codim</span>
+<span class="sd">        The codimension of the entities the data in `U` is attached to (either 0 or 2).</span>
+<span class="sd">    backend</span>
+<span class="sd">        Plot backend to use (&#39;gl&#39;, &#39;matplotlib&#39;, &#39;jupyter&#39;).</span>
+<span class="sd">    block</span>
+<span class="sd">        If `True`, block execution until the plot window is closed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span> <span class="n">codim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span> <span class="ow">in</span> <span class="p">(</span><span class="n">triangle</span><span class="p">,</span> <span class="n">square</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="k">assert</span> <span class="n">codim</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">backend</span> <span class="o">=</span> <span class="n">backend</span> <span class="ow">or</span> <span class="p">(</span><span class="s1">&#39;jupyter&#39;</span> <span class="k">if</span> <span class="n">is_jupyter</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+<div class="viewcode-block" id="PatchVisualizer.visualize"><a class="viewcode-back" href="../../../generated/pymor.gui.html#pymor.gui.visualizers.PatchVisualizer.visualize">[docs]</a>    <span class="k">def</span> <span class="nf">visualize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">separate_colorbars</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                  <span class="n">rescale_colorbars</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Visualize the provided data.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        U</span>
+<span class="sd">            |VectorArray| of the data to visualize. If `len(U) &gt; 1`, the data is visualized</span>
+<span class="sd">            as a time series of plots. Alternatively, a tuple of |VectorArrays| can be</span>
+<span class="sd">            provided, in which case a subplot is created for each entry of the tuple. The</span>
+<span class="sd">            lengths of all arrays have to agree.</span>
+<span class="sd">        m</span>
+<span class="sd">            Filled in by :meth:`pymor.models.ModelBase.visualize` (ignored).</span>
+<span class="sd">        title</span>
+<span class="sd">            Title of the plot.</span>
+<span class="sd">        legend</span>
+<span class="sd">            Description of the data that is plotted. Most useful if `U` is a tuple in which</span>
+<span class="sd">            case `legend` has to be a tuple of strings of the same length.</span>
+<span class="sd">        separate_colorbars</span>
+<span class="sd">            If `True`, use separate colorbars for each subplot.</span>
+<span class="sd">        rescale_colorbars</span>
+<span class="sd">            If `True`, rescale colorbars to data in each frame.</span>
+<span class="sd">        block</span>
+<span class="sd">            If `True`, block execution until the plot window is closed. If `None`, use the</span>
+<span class="sd">            default provided during instantiation.</span>
+<span class="sd">        filename</span>
+<span class="sd">            If specified, write the data to a VTK-file using</span>
+<span class="sd">            :func:`pymor.tools.vtkio.write_vtk` instead of displaying it.</span>
+<span class="sd">        columns</span>
+<span class="sd">            The number of columns in the visualizer GUI in case multiple plots are displayed</span>
+<span class="sd">            at the same time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)</span> \
+            <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">U</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">U</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">filename</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="n">write_vtk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">codim</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">U</span><span class="p">):</span>
+                    <span class="n">write_vtk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{filename}</span><span class="s1">-</span><span class="si">{i}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">codim</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">==</span> <span class="s1">&#39;jupyter&#39;</span><span class="p">:</span>
+                <span class="kn">from</span> <span class="nn">pymor.gui.jupyter</span> <span class="kn">import</span> <span class="n">get_visualizer</span>
+                <span class="k">return</span> <span class="n">get_visualizer</span><span class="p">()(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bounding_box</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">codim</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+                                <span class="n">legend</span><span class="o">=</span><span class="n">legend</span><span class="p">,</span> <span class="n">separate_colorbars</span><span class="o">=</span><span class="n">separate_colorbars</span><span class="p">,</span>
+                                <span class="n">rescale_colorbars</span><span class="o">=</span><span class="n">rescale_colorbars</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">block</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block</span> <span class="k">if</span> <span class="n">block</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">block</span>
+                <span class="kn">from</span> <span class="nn">pymor.gui.qt</span> <span class="kn">import</span> <span class="n">visualize_patch</span>
+                <span class="k">return</span> <span class="n">visualize_patch</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bounding_box</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">codim</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+                                <span class="n">legend</span><span class="o">=</span><span class="n">legend</span><span class="p">,</span> <span class="n">separate_colorbars</span><span class="o">=</span><span class="n">separate_colorbars</span><span class="p">,</span>
+                                <span class="n">rescale_colorbars</span><span class="o">=</span><span class="n">rescale_colorbars</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">backend</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">,</span>
+                                <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="OnedVisualizer"><a class="viewcode-back" href="../../../generated/pymor.gui.html#pymor.gui.visualizers.OnedVisualizer">[docs]</a><span class="k">class</span> <span class="nc">OnedVisualizer</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Visualize scalar data associated to a one-dimensional |Grid| as a plot.</span>
+
+<span class="sd">    The grid&#39;s |ReferenceElement| must be the line. The data can either</span>
+<span class="sd">    be attached to the subintervals or vertices of the grid.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The underlying |Grid|.</span>
+<span class="sd">    codim</span>
+<span class="sd">        The codimension of the entities the data in `U` is attached to (either 0 or 1).</span>
+<span class="sd">    block</span>
+<span class="sd">        If `True`, block execution until the plot window is closed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">OnedGrid</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">codim</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+<div class="viewcode-block" id="OnedVisualizer.visualize"><a class="viewcode-back" href="../../../generated/pymor.gui.html#pymor.gui.visualizers.OnedVisualizer.visualize">[docs]</a>    <span class="k">def</span> <span class="nf">visualize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Visualize the provided data.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        U</span>
+<span class="sd">            |VectorArray| of the data to visualize. If `len(U) &gt; 1`, the data is visualized</span>
+<span class="sd">            as a time series of plots. Alternatively, a tuple of |VectorArrays| can be</span>
+<span class="sd">            provided, in which case several plots are made into the same axes. The</span>
+<span class="sd">            lengths of all arrays have to agree.</span>
+<span class="sd">        m</span>
+<span class="sd">            Filled in by :meth:`pymor.models.ModelBase.visualize` (ignored).</span>
+<span class="sd">        title</span>
+<span class="sd">            Title of the plot.</span>
+<span class="sd">        legend</span>
+<span class="sd">            Description of the data that is plotted. Most useful if `U` is a tuple in which</span>
+<span class="sd">            case `legend` has to be a tuple of strings of the same length.</span>
+<span class="sd">        block</span>
+<span class="sd">            If `True`, block execution until the plot window is closed. If `None`, use the</span>
+<span class="sd">            default provided during instantiation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">block</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block</span> <span class="k">if</span> <span class="n">block</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">block</span>
+        <span class="kn">from</span> <span class="nn">pymor.gui.qt</span> <span class="kn">import</span> <span class="n">visualize_matplotlib_1d</span>
+        <span class="n">visualize_matplotlib_1d</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">codim</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="n">legend</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

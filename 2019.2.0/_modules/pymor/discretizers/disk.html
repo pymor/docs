@@ -1,0 +1,407 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.discretizers.disk &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.discretizers.disk</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">os.path</span>
+<span class="kn">import</span> <span class="nn">configparser</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.timestepping</span> <span class="kn">import</span> <span class="n">ImplicitEulerTimeStepper</span>
+<span class="kn">from</span> <span class="nn">pymor.models.basic</span> <span class="kn">import</span> <span class="n">StationaryModel</span>
+<span class="kn">from</span> <span class="nn">pymor.models.basic</span> <span class="kn">import</span> <span class="n">InstationaryModel</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">LincombOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.spaces</span> <span class="kn">import</span> <span class="n">CubicParameterSpace</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.functionals</span> <span class="kn">import</span> <span class="n">ExpressionParameterFunctional</span>
+
+
+<div class="viewcode-block" id="discretize_stationary_from_disk"><a class="viewcode-back" href="../../../generated/pymor.discretizers.html#pymor.discretizers.disk.discretize_stationary_from_disk">[docs]</a><span class="k">def</span> <span class="nf">discretize_stationary_from_disk</span><span class="p">(</span><span class="n">parameter_file</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Load a linear affinely decomposed |StationaryModel| from file.</span>
+
+<span class="sd">    The model is defined via an `.ini`-style file as follows ::</span>
+
+<span class="sd">        [system-matrices]</span>
+<span class="sd">        L_1.mat: l_1(μ_1,...,μ_n)</span>
+<span class="sd">        L_2.mat: l_2(μ_1,...,μ_n)</span>
+<span class="sd">        ...</span>
+
+<span class="sd">        [rhs-vectors]</span>
+<span class="sd">        F_1.mat: f_1(μ_1,...,μ_n)</span>
+<span class="sd">        F_2.mat: f_2(μ_1,...,μ_n)</span>
+<span class="sd">        ...</span>
+
+<span class="sd">        [parameter]</span>
+<span class="sd">        μ_1: a_1,b_1</span>
+<span class="sd">        ...</span>
+<span class="sd">        μ_n: a_n,b_n</span>
+
+<span class="sd">        [products]</span>
+<span class="sd">        Prod1: P_1.mat</span>
+<span class="sd">        Prod2: P_2.mat</span>
+<span class="sd">        ...</span>
+
+<span class="sd">    Here, `L_1.mat`, `L_2.mat`, ..., `F_1.mat`, `F_2.mat`, ... are files</span>
+<span class="sd">    containing matrices `L_1`, `L_2`, ... and vectors `F_1.mat`, `F_2.mat`, ...</span>
+<span class="sd">    which correspond to the affine components of the operator and right-hand</span>
+<span class="sd">    side.  The respective coefficient functionals, are given via the</span>
+<span class="sd">    string expressions `l_1(...)`, `l_2(...)`, ..., `f_1(...)` in the</span>
+<span class="sd">    (scalar-valued) |Parameter| components `w_1`, ..., `w_n`. The allowed lower</span>
+<span class="sd">    and upper bounds `a_i, b_i` for the component `μ_i` are specified in the</span>
+<span class="sd">    `[parameters]` section. The resulting operator and right-hand side are</span>
+<span class="sd">    then of the form ::</span>
+
+<span class="sd">        L(μ) = l_1(μ)*L_1 + l_2(μ)*L_2+ ...</span>
+<span class="sd">        F(μ) = f_1(μ)*F_1 + f_2(μ)*L_2+ ...</span>
+
+<span class="sd">    In the `[products]` section, an optional list of inner products `Prod1`, `Prod2`, ..</span>
+<span class="sd">    with corresponding matrices `P_1.mat`, `P_2.mat` can be specified.</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        [system-matrices]</span>
+<span class="sd">        matrix1.mat: 1.</span>
+<span class="sd">        matrix2.mat: 1. - theta**2</span>
+
+<span class="sd">        [rhs-vectors]</span>
+<span class="sd">        rhs.mat: 1.</span>
+
+<span class="sd">        [parameter]</span>
+<span class="sd">        theta: 0, 0.5</span>
+
+<span class="sd">        [products]</span>
+<span class="sd">        h1: h1.mat</span>
+<span class="sd">        l2: mass.mat</span>
+
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    parameter_file</span>
+<span class="sd">        Path to the parameter file.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    m</span>
+<span class="sd">        The |StationaryModel| that has been generated.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="s2">&quot;.ini&quot;</span> <span class="o">==</span> <span class="n">parameter_file</span><span class="p">[</span><span class="o">-</span><span class="mi">4</span><span class="p">:],</span> <span class="sa">f</span><span class="s1">&#39;Given file is not an .ini file: </span><span class="si">{parameter_file}</span><span class="s1">&#39;</span>
+    <span class="k">assert</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">parameter_file</span><span class="p">)</span>
+    <span class="n">base_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">parameter_file</span><span class="p">)</span>
+
+    <span class="c1"># Get input from parameter file</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">configparser</span><span class="o">.</span><span class="n">ConfigParser</span><span class="p">()</span>
+    <span class="n">config</span><span class="o">.</span><span class="n">optionxform</span> <span class="o">=</span> <span class="nb">str</span>
+    <span class="n">config</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">parameter_file</span><span class="p">)</span>
+
+    <span class="c1"># Assert that all needed entries given</span>
+    <span class="k">assert</span> <span class="s1">&#39;system-matrices&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">sections</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="s1">&#39;rhs-vectors&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">sections</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="s1">&#39;parameter&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">sections</span><span class="p">()</span>
+
+    <span class="n">system_mat</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;system-matrices&#39;</span><span class="p">)</span>
+    <span class="n">rhs_vec</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;rhs-vectors&#39;</span><span class="p">)</span>
+    <span class="n">parameter</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;parameter&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Dict of parameters types and ranges</span>
+    <span class="n">parameter_type</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">parameter_range</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># get parameters</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">parameter</span><span class="p">)):</span>
+        <span class="n">parameter_name</span> <span class="o">=</span> <span class="n">parameter</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">parameter_list</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">j</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">parameter</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">))</span>
+        <span class="n">parameter_range</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter_list</span>
+        <span class="c1"># Assume scalar parameter dependence</span>
+        <span class="n">parameter_type</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># Create parameter space</span>
+    <span class="n">parameter_space</span> <span class="o">=</span> <span class="n">CubicParameterSpace</span><span class="p">(</span><span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_type</span><span class="p">,</span> <span class="n">ranges</span><span class="o">=</span><span class="n">parameter_range</span><span class="p">)</span>
+
+    <span class="c1"># Assemble operators</span>
+    <span class="n">system_operators</span><span class="p">,</span> <span class="n">system_functionals</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+
+    <span class="c1"># get parameter functionals and system matrices</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">system_mat</span><span class="p">)):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_path</span><span class="p">,</span> <span class="n">system_mat</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">expr</span> <span class="o">=</span> <span class="n">system_mat</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">parameter_functional</span> <span class="o">=</span> <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_type</span><span class="p">)</span>
+        <span class="n">system_operators</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">NumpyMatrixOperator</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">source_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">))</span>
+        <span class="n">system_functionals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parameter_functional</span><span class="p">)</span>
+
+    <span class="n">system_lincombOperator</span> <span class="o">=</span> <span class="n">LincombOperator</span><span class="p">(</span><span class="n">system_operators</span><span class="p">,</span> <span class="n">coefficients</span><span class="o">=</span><span class="n">system_functionals</span><span class="p">)</span>
+
+    <span class="c1"># get rhs vectors</span>
+    <span class="n">rhs_operators</span><span class="p">,</span> <span class="n">rhs_functionals</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rhs_vec</span><span class="p">)):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_path</span><span class="p">,</span> <span class="n">rhs_vec</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">expr</span> <span class="o">=</span> <span class="n">rhs_vec</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">parameter_functional</span> <span class="o">=</span> <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_type</span><span class="p">)</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+        <span class="n">rhs_operators</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+        <span class="n">rhs_functionals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parameter_functional</span><span class="p">)</span>
+
+    <span class="n">rhs_lincombOperator</span> <span class="o">=</span> <span class="n">LincombOperator</span><span class="p">(</span><span class="n">rhs_operators</span><span class="p">,</span> <span class="n">coefficients</span><span class="o">=</span><span class="n">rhs_functionals</span><span class="p">)</span>
+
+    <span class="c1"># get products if given</span>
+    <span class="k">if</span> <span class="s1">&#39;products&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">sections</span><span class="p">():</span>
+        <span class="n">product</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;products&#39;</span><span class="p">)</span>
+        <span class="n">products</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">product</span><span class="p">)):</span>
+            <span class="n">product_name</span> <span class="o">=</span> <span class="n">product</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">product_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_path</span><span class="p">,</span> <span class="n">product</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">products</span><span class="p">[</span><span class="n">product_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">product_path</span><span class="p">,</span> <span class="n">source_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">products</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Create and return stationary model</span>
+    <span class="k">return</span> <span class="n">StationaryModel</span><span class="p">(</span><span class="n">operator</span><span class="o">=</span><span class="n">system_lincombOperator</span><span class="p">,</span> <span class="n">rhs</span><span class="o">=</span><span class="n">rhs_lincombOperator</span><span class="p">,</span>
+                           <span class="n">parameter_space</span><span class="o">=</span><span class="n">parameter_space</span><span class="p">,</span> <span class="n">products</span><span class="o">=</span><span class="n">products</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="discretize_instationary_from_disk"><a class="viewcode-back" href="../../../generated/pymor.discretizers.html#pymor.discretizers.disk.discretize_instationary_from_disk">[docs]</a><span class="k">def</span> <span class="nf">discretize_instationary_from_disk</span><span class="p">(</span><span class="n">parameter_file</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">u0</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">time_stepper</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Load a linear affinely decomposed |InstationaryModel| from file.</span>
+
+<span class="sd">    Similarly to :func:`discretize_stationary_from_disk`, the model is</span>
+<span class="sd">    specified via an `ini.`-file of the following form ::</span>
+
+<span class="sd">        [system-matrices]</span>
+<span class="sd">        L_1.mat: l_1(μ_1,...,μ_n)</span>
+<span class="sd">        L_2.mat: l_2(μ_1,...,μ_n)</span>
+<span class="sd">        ...</span>
+
+<span class="sd">        [rhs-vectors]</span>
+<span class="sd">        F_1.mat: f_1(μ_1,...,μ_n)</span>
+<span class="sd">        F_2.mat: f_2(μ_1,...,μ_n)</span>
+<span class="sd">        ...</span>
+
+<span class="sd">        [mass-matrix]</span>
+<span class="sd">        D.mat</span>
+
+<span class="sd">        [initial-solution]</span>
+<span class="sd">        u0: u0.mat</span>
+
+<span class="sd">        [parameter]</span>
+<span class="sd">        μ_1: a_1,b_1</span>
+<span class="sd">        ...</span>
+<span class="sd">        μ_n: a_n,b_n</span>
+
+<span class="sd">        [products]</span>
+<span class="sd">        Prod1: P_1.mat</span>
+<span class="sd">        Prod2: P_2.mat</span>
+<span class="sd">        ...</span>
+
+<span class="sd">        [time]</span>
+<span class="sd">        T: final time</span>
+<span class="sd">        steps: number of time steps</span>
+
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    parameter_file</span>
+<span class="sd">        Path to the &#39;.ini&#39; parameter file.</span>
+<span class="sd">    T</span>
+<span class="sd">        End-time of desired solution. If `None`, the value specified in the</span>
+<span class="sd">        parameter file is used.</span>
+<span class="sd">    steps</span>
+<span class="sd">        Number of time steps to. If `None`, the value specified in the</span>
+<span class="sd">        parameter file is used.</span>
+<span class="sd">    u0</span>
+<span class="sd">        Initial solution. If `None` the initial solution is obtained</span>
+<span class="sd">        from parameter file.</span>
+<span class="sd">    time_stepper</span>
+<span class="sd">        The desired :class:`time stepper &lt;pymor.algorithms.timestepping.TimeStepperInterface&gt;`</span>
+<span class="sd">        to use. If `None`, implicit Euler time stepping is used.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    m</span>
+<span class="sd">        The |InstationaryModel| that has been generated.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="s2">&quot;.ini&quot;</span> <span class="o">==</span> <span class="n">parameter_file</span><span class="p">[</span><span class="o">-</span><span class="mi">4</span><span class="p">:],</span> <span class="s2">&quot;Given file is not an .ini file&quot;</span>
+    <span class="k">assert</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">parameter_file</span><span class="p">)</span>
+    <span class="n">base_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">parameter_file</span><span class="p">)</span>
+
+    <span class="c1"># Get input from parameter file</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">configparser</span><span class="o">.</span><span class="n">ConfigParser</span><span class="p">()</span>
+    <span class="n">config</span><span class="o">.</span><span class="n">optionxform</span> <span class="o">=</span> <span class="nb">str</span>
+    <span class="n">config</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">parameter_file</span><span class="p">)</span>
+
+    <span class="c1"># Assert that all needed entries given</span>
+    <span class="k">assert</span> <span class="s1">&#39;system-matrices&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">sections</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="s1">&#39;mass-matrix&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">sections</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="s1">&#39;rhs-vectors&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">sections</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="s1">&#39;parameter&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">sections</span><span class="p">()</span>
+
+    <span class="n">system_mat</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;system-matrices&#39;</span><span class="p">)</span>
+    <span class="n">mass_mat</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;mass-matrix&#39;</span><span class="p">)</span>
+    <span class="n">rhs_vec</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;rhs-vectors&#39;</span><span class="p">)</span>
+    <span class="n">parameter</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;parameter&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Dict of parameters types and ranges</span>
+    <span class="n">parameter_type</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">parameter_range</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># get parameters</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">parameter</span><span class="p">)):</span>
+        <span class="n">parameter_name</span> <span class="o">=</span> <span class="n">parameter</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">parameter_list</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">j</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">parameter</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">))</span>
+        <span class="n">parameter_range</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter_list</span>
+        <span class="c1"># Assume scalar parameter dependence</span>
+        <span class="n">parameter_type</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># Create parameter space</span>
+    <span class="n">parameter_space</span> <span class="o">=</span> <span class="n">CubicParameterSpace</span><span class="p">(</span><span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_type</span><span class="p">,</span> <span class="n">ranges</span><span class="o">=</span><span class="n">parameter_range</span><span class="p">)</span>
+
+    <span class="c1"># Assemble operators</span>
+    <span class="n">system_operators</span><span class="p">,</span> <span class="n">system_functionals</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+
+    <span class="c1"># get parameter functionals and system matrices</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">system_mat</span><span class="p">)):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_path</span><span class="p">,</span> <span class="n">system_mat</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">expr</span> <span class="o">=</span> <span class="n">system_mat</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">parameter_functional</span> <span class="o">=</span> <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_type</span><span class="p">)</span>
+        <span class="n">system_operators</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">NumpyMatrixOperator</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">source_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">))</span>
+        <span class="n">system_functionals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parameter_functional</span><span class="p">)</span>
+
+    <span class="n">system_lincombOperator</span> <span class="o">=</span> <span class="n">LincombOperator</span><span class="p">(</span><span class="n">system_operators</span><span class="p">,</span> <span class="n">coefficients</span><span class="o">=</span><span class="n">system_functionals</span><span class="p">)</span>
+
+    <span class="c1"># get rhs vectors</span>
+    <span class="n">rhs_operators</span><span class="p">,</span> <span class="n">rhs_functionals</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rhs_vec</span><span class="p">)):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_path</span><span class="p">,</span> <span class="n">rhs_vec</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">expr</span> <span class="o">=</span> <span class="n">rhs_vec</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">parameter_functional</span> <span class="o">=</span> <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_type</span><span class="p">)</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+        <span class="n">rhs_operators</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+        <span class="n">rhs_functionals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parameter_functional</span><span class="p">)</span>
+
+    <span class="n">rhs_lincombOperator</span> <span class="o">=</span> <span class="n">LincombOperator</span><span class="p">(</span><span class="n">rhs_operators</span><span class="p">,</span> <span class="n">coefficients</span><span class="o">=</span><span class="n">rhs_functionals</span><span class="p">)</span>
+
+    <span class="c1"># get mass matrix</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_path</span><span class="p">,</span> <span class="n">mass_mat</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">mass_operator</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">source_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Obtain initial solution if not given</span>
+    <span class="k">if</span> <span class="n">u0</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">u_0</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;initial-solution&#39;</span><span class="p">)</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_path</span><span class="p">,</span> <span class="n">u_0</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+        <span class="n">u0</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+
+    <span class="c1"># get products if given</span>
+    <span class="k">if</span> <span class="s1">&#39;products&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">sections</span><span class="p">():</span>
+        <span class="n">product</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;products&#39;</span><span class="p">)</span>
+        <span class="n">products</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">product</span><span class="p">)):</span>
+            <span class="n">product_name</span> <span class="o">=</span> <span class="n">product</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">product_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_path</span><span class="p">,</span> <span class="n">product</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">products</span><span class="p">[</span><span class="n">product_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">product_path</span><span class="p">,</span> <span class="n">source_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">products</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Further specifications</span>
+    <span class="k">if</span> <span class="s1">&#39;time&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">sections</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">T</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="s1">&#39;T&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">)</span>
+            <span class="n">T</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="s1">&#39;T&#39;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">steps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="s1">&#39;steps&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">)</span>
+            <span class="n">steps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="s1">&#39;steps&#39;</span><span class="p">))</span>
+
+    <span class="c1"># Use implicit euler time stepper if no time-stepper given</span>
+    <span class="k">if</span> <span class="n">time_stepper</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">time_stepper</span> <span class="o">=</span> <span class="n">ImplicitEulerTimeStepper</span><span class="p">(</span><span class="n">steps</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">time_stepper</span> <span class="o">=</span> <span class="n">time_stepper</span><span class="p">(</span><span class="n">steps</span><span class="p">)</span>
+
+    <span class="c1"># Create and return instationary model</span>
+    <span class="k">return</span> <span class="n">InstationaryModel</span><span class="p">(</span><span class="n">operator</span><span class="o">=</span><span class="n">system_lincombOperator</span><span class="p">,</span> <span class="n">rhs</span><span class="o">=</span><span class="n">rhs_lincombOperator</span><span class="p">,</span>
+                             <span class="n">parameter_space</span><span class="o">=</span><span class="n">parameter_space</span><span class="p">,</span> <span class="n">initial_data</span><span class="o">=</span><span class="n">u0</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="n">T</span><span class="p">,</span>
+                             <span class="n">time_stepper</span><span class="o">=</span><span class="n">time_stepper</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="n">mass_operator</span><span class="p">,</span> <span class="n">products</span><span class="o">=</span><span class="n">products</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

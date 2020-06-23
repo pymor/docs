@@ -1,0 +1,832 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.bindings.pymess &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.bindings.pymess</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.config</span> <span class="kn">import</span> <span class="n">config</span>
+
+
+<span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_PYMESS</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+    <span class="kn">import</span> <span class="nn">scipy.linalg</span> <span class="k">as</span> <span class="nn">spla</span>
+    <span class="kn">import</span> <span class="nn">pymess</span>
+
+    <span class="kn">from</span> <span class="nn">pymor.algorithms.genericsolvers</span> <span class="kn">import</span> <span class="n">_parse_options</span>
+    <span class="kn">from</span> <span class="nn">pymor.algorithms.lyapunov</span> <span class="kn">import</span> <span class="p">(</span><span class="n">mat_eqn_sparse_min_size</span><span class="p">,</span> <span class="n">_solve_lyap_lrcf_check_args</span><span class="p">,</span>
+                                           <span class="n">_solve_lyap_dense_check_args</span><span class="p">,</span> <span class="n">_chol</span><span class="p">)</span>
+    <span class="kn">from</span> <span class="nn">pymor.algorithms.to_matrix</span> <span class="kn">import</span> <span class="n">to_matrix</span>
+    <span class="kn">from</span> <span class="nn">pymor.bindings.scipy</span> <span class="kn">import</span> <span class="n">_solve_ricc_check_args</span>
+    <span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
+    <span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+    <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">IdentityOperator</span>
+
+<div class="viewcode-block" id="lradi_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.lradi_solver_options">[docs]</a>    <span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;adi_maxit&#39;</span><span class="p">,</span> <span class="s1">&#39;adi_memory_usage&#39;</span><span class="p">,</span> <span class="s1">&#39;adi_output&#39;</span><span class="p">,</span> <span class="s1">&#39;adi_rel_change_tol&#39;</span><span class="p">,</span> <span class="s1">&#39;adi_res2_tol&#39;</span><span class="p">,</span> <span class="s1">&#39;adi_res2c_tol&#39;</span><span class="p">,</span>
+              <span class="s1">&#39;adi_shifts_arp_m&#39;</span><span class="p">,</span> <span class="s1">&#39;adi_shifts_arp_p&#39;</span><span class="p">,</span> <span class="s1">&#39;adi_shifts_b0&#39;</span><span class="p">,</span> <span class="s1">&#39;adi_shifts_l0&#39;</span><span class="p">,</span> <span class="s1">&#39;adi_shifts_p&#39;</span><span class="p">,</span>
+              <span class="s1">&#39;adi_shifts_paratype&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">lradi_solver_options</span><span class="p">(</span><span class="n">adi_maxit</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+                             <span class="n">adi_memory_usage</span><span class="o">=</span><span class="n">pymess</span><span class="o">.</span><span class="n">MESS_MEMORY_MID</span><span class="p">,</span>
+                             <span class="n">adi_output</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                             <span class="n">adi_rel_change_tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span>
+                             <span class="n">adi_res2_tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span>
+                             <span class="n">adi_res2c_tol</span><span class="o">=</span><span class="mf">1e-11</span><span class="p">,</span>
+                             <span class="n">adi_shifts_arp_m</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+                             <span class="n">adi_shifts_arp_p</span><span class="o">=</span><span class="mi">48</span><span class="p">,</span>
+                             <span class="n">adi_shifts_b0</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                             <span class="n">adi_shifts_l0</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+                             <span class="n">adi_shifts_p</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                             <span class="n">adi_shifts_paratype</span><span class="o">=</span><span class="n">pymess</span><span class="o">.</span><span class="n">MESS_LRCFADI_PARA_ADAPTIVE_V</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return available adi solver options with default values for the pymess backend.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        adi_maxit</span>
+<span class="sd">            See `pymess.OptionsAdi`.</span>
+<span class="sd">        adi_memory_usage</span>
+<span class="sd">            See `pymess.OptionsAdi`.</span>
+<span class="sd">        adi_output</span>
+<span class="sd">            See `pymess.OptionsAdi`.</span>
+<span class="sd">        adi_rel_change_tol</span>
+<span class="sd">            See `pymess.OptionsAdi`.</span>
+<span class="sd">        adi_res2_tol</span>
+<span class="sd">            See `pymess.OptionsAdi`.</span>
+<span class="sd">        adi_res2c_tol</span>
+<span class="sd">            See `pymess.OptionsAdi`.</span>
+<span class="sd">        adi_shifts_arp_m</span>
+<span class="sd">            See `pymess.OptionsAdiShifts`.</span>
+<span class="sd">        adi_shifts_arp_p</span>
+<span class="sd">            See `pymess.OptionsAdiShifts`.</span>
+<span class="sd">        adi_shifts_b0</span>
+<span class="sd">            See `pymess.OptionsAdiShifts`.</span>
+<span class="sd">        adi_shifts_l0</span>
+<span class="sd">            See `pymess.OptionsAdiShifts`.</span>
+<span class="sd">        adi_shifts_p</span>
+<span class="sd">            See `pymess.OptionsAdiShifts`.</span>
+<span class="sd">        adi_shifts_paratype</span>
+<span class="sd">            See `pymess.OptionsAdiShifts`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A dict of available solvers with default solver options.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">lradi_opts</span> <span class="o">=</span> <span class="n">pymess</span><span class="o">.</span><span class="n">Options</span><span class="p">()</span>
+        <span class="n">lradi_opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">maxit</span> <span class="o">=</span> <span class="n">adi_maxit</span>
+        <span class="n">lradi_opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">memory_usage</span> <span class="o">=</span> <span class="n">adi_memory_usage</span>
+        <span class="n">lradi_opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="n">adi_output</span>
+        <span class="n">lradi_opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">rel_change_tol</span> <span class="o">=</span> <span class="n">adi_rel_change_tol</span>
+        <span class="n">lradi_opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">res2_tol</span> <span class="o">=</span> <span class="n">adi_res2_tol</span>
+        <span class="n">lradi_opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">res2c_tol</span> <span class="o">=</span> <span class="n">adi_res2c_tol</span>
+        <span class="n">lradi_opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">shifts</span><span class="o">.</span><span class="n">arp_m</span> <span class="o">=</span> <span class="n">adi_shifts_arp_m</span>
+        <span class="n">lradi_opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">shifts</span><span class="o">.</span><span class="n">arp_p</span> <span class="o">=</span> <span class="n">adi_shifts_arp_p</span>
+        <span class="n">lradi_opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">shifts</span><span class="o">.</span><span class="n">b0</span> <span class="o">=</span> <span class="n">adi_shifts_b0</span>
+        <span class="n">lradi_opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">shifts</span><span class="o">.</span><span class="n">l0</span> <span class="o">=</span> <span class="n">adi_shifts_l0</span>
+        <span class="n">lradi_opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">shifts</span><span class="o">.</span><span class="n">p</span> <span class="o">=</span> <span class="n">adi_shifts_p</span>
+        <span class="n">lradi_opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">shifts</span><span class="o">.</span><span class="n">paratype</span> <span class="o">=</span> <span class="n">adi_shifts_paratype</span>
+
+        <span class="k">return</span> <span class="n">lradi_opts</span></div>
+
+<div class="viewcode-block" id="lyap_lrcf_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.lyap_lrcf_solver_options">[docs]</a>    <span class="k">def</span> <span class="nf">lyap_lrcf_solver_options</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;Return available Lyapunov solvers with default options for the pymess backend.</span>
+
+<span class="sd">        Also see :func:`lradi_solver_options`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A dict of available solvers with default solver options.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;pymess_glyap&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;pymess_glyap&#39;</span><span class="p">},</span>
+                <span class="s1">&#39;pymess_lradi&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;pymess_lradi&#39;</span><span class="p">,</span>
+                                 <span class="s1">&#39;opts&#39;</span><span class="p">:</span> <span class="n">lradi_solver_options</span><span class="p">()}}</span></div>
+
+<div class="viewcode-block" id="solve_lyap_lrcf"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.solve_lyap_lrcf">[docs]</a>    <span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;default_solver&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">solve_lyap_lrcf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">default_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute an approximate low-rank solution of a Lyapunov equation.</span>
+
+<span class="sd">        See :func:`pymor.algorithms.lyapunov.solve_lyap_lrcf` for a</span>
+<span class="sd">        general description.</span>
+
+<span class="sd">        This function uses `pymess.glyap` and `pymess.lradi`.</span>
+<span class="sd">        For both methods,</span>
+<span class="sd">        :meth:`~pymor.vectorarrays.interfaces.VectorArrayInterface.to_numpy`</span>
+<span class="sd">        and</span>
+<span class="sd">        :meth:`~pymor.vectorarrays.interfaces.VectorSpaceInterface.from_numpy`</span>
+<span class="sd">        need to be implemented for `A.source`.</span>
+<span class="sd">        Additionally, since `glyap` is a dense solver, it expects</span>
+<span class="sd">        :func:`~pymor.algorithms.to_matrix.to_matrix` to work for A and</span>
+<span class="sd">        E.</span>
+
+<span class="sd">        If the solver is not specified using the options or</span>
+<span class="sd">        default_solver arguments, `glyap` is used for small problems</span>
+<span class="sd">        (smaller than defined with</span>
+<span class="sd">        :func:`~pymor.algorithms.lyapunov.mat_eqn_sparse_min_size`) and</span>
+<span class="sd">        `lradi` for large problems.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        A</span>
+<span class="sd">            The non-parametric |Operator| A.</span>
+<span class="sd">        E</span>
+<span class="sd">            The non-parametric |Operator| E or `None`.</span>
+<span class="sd">        B</span>
+<span class="sd">            The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">        trans</span>
+<span class="sd">            Whether the first |Operator| in the Lyapunov equation is</span>
+<span class="sd">            transposed.</span>
+<span class="sd">        options</span>
+<span class="sd">            The solver options to use (see</span>
+<span class="sd">            :func:`lyap_lrcf_solver_options`).</span>
+<span class="sd">        default_solver</span>
+<span class="sd">            Default solver to use (pymess_lradi, pymess_glyap).</span>
+<span class="sd">            If `None`, choose solver depending on the dimension of A.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Z</span>
+<span class="sd">            Low-rank Cholesky factor of the Lyapunov equation solution,</span>
+<span class="sd">            |VectorArray| from `A.source`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">_solve_lyap_lrcf_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">default_solver</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">default_solver</span> <span class="o">=</span> <span class="s1">&#39;pymess_lradi&#39;</span> <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;=</span> <span class="n">mat_eqn_sparse_min_size</span><span class="p">()</span> <span class="k">else</span> <span class="s1">&#39;pymess_glyap&#39;</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">lyap_lrcf_solver_options</span><span class="p">(),</span> <span class="n">default_solver</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;pymess_glyap&#39;</span><span class="p">:</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">solve_lyap_dense</span><span class="p">(</span><span class="n">to_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">),</span>
+                                 <span class="n">to_matrix</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">E</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                                 <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+                                 <span class="n">trans</span><span class="o">=</span><span class="n">trans</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+            <span class="n">Z</span> <span class="o">=</span> <span class="n">_chol</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;pymess_lradi&#39;</span><span class="p">:</span>
+            <span class="n">opts</span> <span class="o">=</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;opts&#39;</span><span class="p">]</span>
+            <span class="n">opts</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_TRANSPOSE</span>
+            <span class="n">eqn</span> <span class="o">=</span> <span class="n">LyapunovEquation</span><span class="p">(</span><span class="n">opts</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span>
+            <span class="n">Z</span><span class="p">,</span> <span class="n">status</span> <span class="o">=</span> <span class="n">pymess</span><span class="o">.</span><span class="n">lradi</span><span class="p">(</span><span class="n">eqn</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
+            <span class="n">relres</span> <span class="o">=</span> <span class="n">status</span><span class="o">.</span><span class="n">res2_norm</span> <span class="o">/</span> <span class="n">status</span><span class="o">.</span><span class="n">res2_0</span>
+            <span class="k">if</span> <span class="n">relres</span> <span class="o">&gt;</span> <span class="n">opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">res2_tol</span><span class="p">:</span>
+                <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.bindings.pymess.solve_lyap_lrcf&#39;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Desired relative residual tolerance was not achieved &#39;</span>
+                               <span class="sa">f</span><span class="s1">&#39;(</span><span class="si">{relres:e}</span><span class="s1"> &gt; </span><span class="si">{opts.adi.res2_tol:e}</span><span class="s1">).&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unexpected Lyapunov equation solver (</span><span class="si">{options[&quot;type&quot;]}</span><span class="s1">).&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">Z</span><span class="o">.</span><span class="n">T</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="lyap_dense_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.lyap_dense_solver_options">[docs]</a>    <span class="k">def</span> <span class="nf">lyap_dense_solver_options</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;Return available Lyapunov solvers with default options for the pymess backend.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A dict of available solvers with default solver options.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;pymess_glyap&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;pymess_glyap&#39;</span><span class="p">}}</span></div>
+
+<div class="viewcode-block" id="solve_lyap_dense"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.solve_lyap_dense">[docs]</a>    <span class="k">def</span> <span class="nf">solve_lyap_dense</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the solution of a Lyapunov equation.</span>
+
+<span class="sd">        See :func:`pymor.algorithms.lyapunov.solve_lyap_dense` for a</span>
+<span class="sd">        general description.</span>
+
+<span class="sd">        This function uses `pymess.glyap`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        A</span>
+<span class="sd">            The operator A as a 2D |NumPy array|.</span>
+<span class="sd">        E</span>
+<span class="sd">            The operator E as a 2D |NumPy array| or `None`.</span>
+<span class="sd">        B</span>
+<span class="sd">            The operator B as a 2D |NumPy array|.</span>
+<span class="sd">        trans</span>
+<span class="sd">            Whether the first operator in the Lyapunov equation is</span>
+<span class="sd">            transposed.</span>
+<span class="sd">        options</span>
+<span class="sd">            The solver options to use (see</span>
+<span class="sd">            :func:`lyap_dense_solver_options`).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        X</span>
+<span class="sd">            Lyapunov equation solution as a |NumPy array|.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">_solve_lyap_dense_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">lyap_lrcf_solver_options</span><span class="p">(),</span> <span class="s1">&#39;pymess_glyap&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;pymess_glyap&#39;</span><span class="p">:</span>
+            <span class="n">Y</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">B</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+            <span class="n">op</span> <span class="o">=</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_TRANSPOSE</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">pymess</span><span class="o">.</span><span class="n">glyap</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">op</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unexpected Lyapunov equation solver (</span><span class="si">{options[&quot;type&quot;]}</span><span class="s1">).&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">X</span></div>
+
+<div class="viewcode-block" id="dense_nm_gmpcare_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.dense_nm_gmpcare_solver_options">[docs]</a>    <span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;linesearch&#39;</span><span class="p">,</span> <span class="s1">&#39;maxit&#39;</span><span class="p">,</span> <span class="s1">&#39;absres_tol&#39;</span><span class="p">,</span> <span class="s1">&#39;relres_tol&#39;</span><span class="p">,</span> <span class="s1">&#39;nrm&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">dense_nm_gmpcare_solver_options</span><span class="p">(</span><span class="n">linesearch</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                        <span class="n">maxit</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+                                        <span class="n">absres_tol</span><span class="o">=</span><span class="mf">1e-11</span><span class="p">,</span>
+                                        <span class="n">relres_tol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span>
+                                        <span class="n">nrm</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return available Riccati solvers with default options for the pymess backend.</span>
+
+<span class="sd">        Also see :func:`lradi_solver_options`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        linesearch</span>
+<span class="sd">            See `pymess.dense_nm_gmpcare`.</span>
+<span class="sd">        maxit</span>
+<span class="sd">            See `pymess.dense_nm_gmpcare`.</span>
+<span class="sd">        absres_tol</span>
+<span class="sd">            See `pymess.dense_nm_gmpcare`.</span>
+<span class="sd">        relres_tol</span>
+<span class="sd">            See `pymess.dense_nm_gmpcare`.</span>
+<span class="sd">        nrm</span>
+<span class="sd">            See `pymess.dense_nm_gmpcare`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A dict of available solvers with default solver options.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;linesearch&#39;</span><span class="p">:</span> <span class="n">linesearch</span><span class="p">,</span>
+                <span class="s1">&#39;maxit&#39;</span><span class="p">:</span>      <span class="n">maxit</span><span class="p">,</span>
+                <span class="s1">&#39;absres_tol&#39;</span><span class="p">:</span> <span class="n">absres_tol</span><span class="p">,</span>
+                <span class="s1">&#39;relres_tol&#39;</span><span class="p">:</span> <span class="n">relres_tol</span><span class="p">,</span>
+                <span class="s1">&#39;nrm&#39;</span><span class="p">:</span>        <span class="n">nrm</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="lrnm_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.lrnm_solver_options">[docs]</a>    <span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;newton_gstep&#39;</span><span class="p">,</span> <span class="s1">&#39;newton_k0&#39;</span><span class="p">,</span> <span class="s1">&#39;newton_linesearch&#39;</span><span class="p">,</span> <span class="s1">&#39;newton_maxit&#39;</span><span class="p">,</span> <span class="s1">&#39;newton_output&#39;</span><span class="p">,</span> <span class="s1">&#39;newton_res2_tol&#39;</span><span class="p">,</span>
+              <span class="s1">&#39;newton_singleshifts&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">lrnm_solver_options</span><span class="p">(</span><span class="n">newton_gstep</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                            <span class="n">newton_k0</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                            <span class="n">newton_linesearch</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                            <span class="n">newton_maxit</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
+                            <span class="n">newton_output</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                            <span class="n">newton_res2_tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span>
+                            <span class="n">newton_singleshifts</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return available adi solver options with default values for the pymess backend.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        newton_gstep</span>
+<span class="sd">          See `pymess.OptionsNewton`.</span>
+<span class="sd">        newton_k0</span>
+<span class="sd">          See `pymess.OptionsNewton`.</span>
+<span class="sd">        newton_linesearch</span>
+<span class="sd">          See `pymess.OptionsNewton`.</span>
+<span class="sd">        newton_maxit</span>
+<span class="sd">          See `pymess.OptionsNewton`.</span>
+<span class="sd">        newton_output</span>
+<span class="sd">          See `pymess.OptionsNewton`.</span>
+<span class="sd">        newton_res2_tol</span>
+<span class="sd">          See `pymess.OptionsNewton`.</span>
+<span class="sd">        newton_singleshifts</span>
+<span class="sd">          See `pymess.OptionsNewton`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A dict of available solvers with default solver options.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">lrnm_opts</span> <span class="o">=</span> <span class="n">lradi_solver_options</span><span class="p">()</span>
+        <span class="n">lrnm_opts</span><span class="o">.</span><span class="n">nm</span><span class="o">.</span><span class="n">gstep</span> <span class="o">=</span> <span class="n">newton_gstep</span>
+        <span class="n">lrnm_opts</span><span class="o">.</span><span class="n">nm</span><span class="o">.</span><span class="n">k0</span> <span class="o">=</span> <span class="n">newton_k0</span>
+        <span class="n">lrnm_opts</span><span class="o">.</span><span class="n">nm</span><span class="o">.</span><span class="n">linesearch</span> <span class="o">=</span> <span class="n">newton_linesearch</span>
+        <span class="n">lrnm_opts</span><span class="o">.</span><span class="n">nm</span><span class="o">.</span><span class="n">maxit</span> <span class="o">=</span> <span class="n">newton_maxit</span>
+        <span class="n">lrnm_opts</span><span class="o">.</span><span class="n">nm</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="n">newton_output</span>
+        <span class="n">lrnm_opts</span><span class="o">.</span><span class="n">nm</span><span class="o">.</span><span class="n">res2_tol</span> <span class="o">=</span> <span class="n">newton_res2_tol</span>
+        <span class="n">lrnm_opts</span><span class="o">.</span><span class="n">nm</span><span class="o">.</span><span class="n">singleshifts</span> <span class="o">=</span> <span class="n">newton_singleshifts</span>
+
+        <span class="k">return</span> <span class="n">lrnm_opts</span></div>
+
+<div class="viewcode-block" id="ricc_lrcf_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.ricc_lrcf_solver_options">[docs]</a>    <span class="k">def</span> <span class="nf">ricc_lrcf_solver_options</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;Return available Riccati solvers with default options for the pymess backend.</span>
+
+<span class="sd">        Also see :func:`dense_nm_gmpcare_solver_options` and</span>
+<span class="sd">        :func:`lrnm_solver_options`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A dict of available solvers with default solver options.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;pymess_dense_nm_gmpcare&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;pymess_dense_nm_gmpcare&#39;</span><span class="p">,</span>
+                                            <span class="s1">&#39;opts&#39;</span><span class="p">:</span> <span class="n">dense_nm_gmpcare_solver_options</span><span class="p">()},</span>
+                <span class="s1">&#39;pymess_lrnm&#39;</span><span class="p">:</span>             <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;pymess_lrnm&#39;</span><span class="p">,</span>
+                                            <span class="s1">&#39;opts&#39;</span><span class="p">:</span> <span class="n">lrnm_solver_options</span><span class="p">()}}</span></div>
+
+<div class="viewcode-block" id="solve_ricc_lrcf"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.solve_ricc_lrcf">[docs]</a>    <span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;default_solver&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">solve_ricc_lrcf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">S</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">default_solver</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute an approximate low-rank solution of a Riccati equation.</span>
+
+<span class="sd">        See :func:`pymor.algorithms.riccati.solve_ricc_lrcf` for a</span>
+<span class="sd">        general description.</span>
+
+<span class="sd">        This function uses `pymess.dense_nm_gmpcare` and `pymess.lrnm`.</span>
+<span class="sd">        For both methods,</span>
+<span class="sd">        :meth:`~pymor.vectorarrays.interfaces.VectorArrayInterface.to_numpy`</span>
+<span class="sd">        and</span>
+<span class="sd">        :meth:`~pymor.vectorarrays.interfaces.VectorSpaceInterface.from_numpy`</span>
+<span class="sd">        need to be implemented for `A.source`.</span>
+<span class="sd">        Additionally, since `dense_nm_gmpcare` is a dense solver, it</span>
+<span class="sd">        expects :func:`~pymor.algorithms.to_matrix.to_matrix` to work</span>
+<span class="sd">        for A and E.</span>
+
+<span class="sd">        If the solver is not specified using the options or</span>
+<span class="sd">        default_solver arguments, `dense_nm_gmpcare` is used for small</span>
+<span class="sd">        problems (smaller than defined with</span>
+<span class="sd">        :func:`~pymor.algorithms.lyapunov.mat_eqn_sparse_min_size`) and</span>
+<span class="sd">        `lrnm` for large problems.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        A</span>
+<span class="sd">            The non-parametric |Operator| A.</span>
+<span class="sd">        E</span>
+<span class="sd">            The non-parametric |Operator| E or `None`.</span>
+<span class="sd">        B</span>
+<span class="sd">            The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">        C</span>
+<span class="sd">            The operator C as a |VectorArray| from `A.source`.</span>
+<span class="sd">        R</span>
+<span class="sd">            The operator R as a 2D |NumPy array| or `None`.</span>
+<span class="sd">        S</span>
+<span class="sd">            The operator S as a |VectorArray| from `A.source` or `None`.</span>
+<span class="sd">        trans</span>
+<span class="sd">            Whether the first |Operator| in the Riccati equation is</span>
+<span class="sd">            transposed.</span>
+<span class="sd">        options</span>
+<span class="sd">            The solver options to use (see</span>
+<span class="sd">            :func:`ricc_lrcf_solver_options`).</span>
+<span class="sd">        default_solver</span>
+<span class="sd">            Default solver to use (pymess_lrnm,</span>
+<span class="sd">            pymess_dense_nm_gmpcare).</span>
+<span class="sd">            If `None`, chose solver depending on dimension `A`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Z</span>
+<span class="sd">            Low-rank Cholesky factor of the Riccati equation solution,</span>
+<span class="sd">            |VectorArray| from `A.source`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">_solve_ricc_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">default_solver</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">default_solver</span> <span class="o">=</span> <span class="s1">&#39;pymess_lrnm&#39;</span> <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;=</span> <span class="n">mat_eqn_sparse_min_size</span><span class="p">()</span> <span class="k">else</span> <span class="s1">&#39;pymess_dense_nm_gmpcare&#39;</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">ricc_lrcf_solver_options</span><span class="p">(),</span> <span class="n">default_solver</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;pymess_dense_nm_gmpcare&#39;</span><span class="p">:</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">_call_pymess_dense_nm_gmpare</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="n">trans</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;opts&#39;</span><span class="p">],</span> <span class="n">plus</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                             <span class="n">method_name</span><span class="o">=</span><span class="s1">&#39;solve_ricc_lrcf&#39;</span><span class="p">)</span>
+            <span class="n">Z</span> <span class="o">=</span> <span class="n">_chol</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;pymess_lrnm&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">S</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+            <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="kn">import</span> <span class="nn">scipy.linalg</span> <span class="k">as</span> <span class="nn">spla</span>
+                <span class="n">Rc</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">cholesky</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>                                 <span class="c1"># R = Rc^T * Rc</span>
+                <span class="n">Rci</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">solve_triangular</span><span class="p">(</span><span class="n">Rc</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">Rc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>  <span class="c1"># R^{-1} = Rci * Rci^T</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span><span class="p">:</span>
+                    <span class="n">C</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Rci</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>  <span class="c1"># C &lt;- Rci^T * C = (C^T * Rci)^T</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">B</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Rci</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>  <span class="c1"># B &lt;- B * Rci</span>
+            <span class="n">opts</span> <span class="o">=</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;opts&#39;</span><span class="p">]</span>
+            <span class="n">opts</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_TRANSPOSE</span>
+            <span class="n">eqn</span> <span class="o">=</span> <span class="n">RiccatiEquation</span><span class="p">(</span><span class="n">opts</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">)</span>
+            <span class="n">Z</span><span class="p">,</span> <span class="n">status</span> <span class="o">=</span> <span class="n">pymess</span><span class="o">.</span><span class="n">lrnm</span><span class="p">(</span><span class="n">eqn</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
+            <span class="n">relres</span> <span class="o">=</span> <span class="n">status</span><span class="o">.</span><span class="n">res2_norm</span> <span class="o">/</span> <span class="n">status</span><span class="o">.</span><span class="n">res2_0</span>
+            <span class="k">if</span> <span class="n">relres</span> <span class="o">&gt;</span> <span class="n">opts</span><span class="o">.</span><span class="n">adi</span><span class="o">.</span><span class="n">res2_tol</span><span class="p">:</span>
+                <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.bindings.pymess.solve_ricc_lrcf&#39;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Desired relative residual tolerance was not achieved &#39;</span>
+                               <span class="sa">f</span><span class="s1">&#39;(</span><span class="si">{relres:e}</span><span class="s1"> &gt; </span><span class="si">{opts.adi.res2_tol:e}</span><span class="s1">).&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unexpected Riccati equation solver (</span><span class="si">{options[&quot;type&quot;]}</span><span class="s1">).&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">Z</span><span class="o">.</span><span class="n">T</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="pos_ricc_lrcf_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.pos_ricc_lrcf_solver_options">[docs]</a>    <span class="k">def</span> <span class="nf">pos_ricc_lrcf_solver_options</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;Return available positive Riccati solvers with default options for the pymess backend.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A dict of available solvers with default solver options.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;pymess_dense_nm_gmpcare&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;pymess_dense_nm_gmpcare&#39;</span><span class="p">,</span>
+                                            <span class="s1">&#39;opts&#39;</span><span class="p">:</span> <span class="n">dense_nm_gmpcare_solver_options</span><span class="p">()}}</span></div>
+
+<div class="viewcode-block" id="solve_pos_ricc_lrcf"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.solve_pos_ricc_lrcf">[docs]</a>    <span class="k">def</span> <span class="nf">solve_pos_ricc_lrcf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">S</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute an approximate low-rank solution of a positive Riccati equation.</span>
+
+<span class="sd">        See :func:`pymor.algorithms.riccati.solve_pos_ricc_lrcf` for a</span>
+<span class="sd">        general description.</span>
+
+<span class="sd">        This function uses `pymess.dense_nm_gmpcare`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        A</span>
+<span class="sd">            The non-parametric |Operator| A.</span>
+<span class="sd">        E</span>
+<span class="sd">            The non-parametric |Operator| E or `None`.</span>
+<span class="sd">        B</span>
+<span class="sd">            The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">        C</span>
+<span class="sd">            The operator C as a |VectorArray| from `A.source`.</span>
+<span class="sd">        R</span>
+<span class="sd">            The operator R as a 2D |NumPy array| or `None`.</span>
+<span class="sd">        S</span>
+<span class="sd">            The operator S as a |VectorArray| from `A.source` or `None`.</span>
+<span class="sd">        trans</span>
+<span class="sd">            Whether the first |Operator| in the Riccati equation is</span>
+<span class="sd">            transposed.</span>
+<span class="sd">        options</span>
+<span class="sd">            The solver options to use (see</span>
+<span class="sd">            :func:`pos_ricc_lrcf_solver_options`).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Z</span>
+<span class="sd">            Low-rank Cholesky factor of the Riccati equation solution,</span>
+<span class="sd">            |VectorArray| from `A.source`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">_solve_ricc_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">pos_ricc_lrcf_solver_options</span><span class="p">(),</span> <span class="s1">&#39;pymess_dense_nm_gmpcare&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;pymess_dense_nm_gmpcare&#39;</span><span class="p">:</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">_call_pymess_dense_nm_gmpare</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="n">trans</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;opts&#39;</span><span class="p">],</span> <span class="n">plus</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                             <span class="n">method_name</span><span class="o">=</span><span class="s1">&#39;solve_pos_ricc_lrcf&#39;</span><span class="p">)</span>
+            <span class="n">Z</span> <span class="o">=</span> <span class="n">_chol</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unexpected positive Riccati equation solver (</span><span class="si">{options[&quot;type&quot;]}</span><span class="s1">).&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">Z</span><span class="o">.</span><span class="n">T</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="_call_pymess_dense_nm_gmpare"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess._call_pymess_dense_nm_gmpare">[docs]</a>    <span class="k">def</span> <span class="nf">_call_pymess_dense_nm_gmpare</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plus</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">method_name</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the solution from pymess.dense_nm_gmpare solver.&quot;&quot;&quot;</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">to_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="n">to_matrix</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">E</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">S</span> <span class="o">=</span> <span class="n">S</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span> <span class="k">if</span> <span class="n">S</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="n">Q</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">C</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">C</span><span class="p">)</span>
+        <span class="n">pymess_trans</span> <span class="o">=</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_TRANSPOSE</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span><span class="p">:</span>
+            <span class="n">RinvC</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">C</span><span class="p">)</span> <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">C</span>
+            <span class="n">G</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">RinvC</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">S</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">RinvST</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">S</span><span class="o">.</span><span class="n">T</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">plus</span><span class="p">:</span>
+                    <span class="n">A</span> <span class="o">-=</span> <span class="n">S</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">RinvC</span><span class="p">)</span>
+                    <span class="n">Q</span> <span class="o">-=</span> <span class="n">S</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">RinvST</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">A</span> <span class="o">+=</span> <span class="n">S</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">RinvC</span><span class="p">)</span>
+                    <span class="n">Q</span> <span class="o">+=</span> <span class="n">S</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">RinvST</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">RinvBT</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">B</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">G</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">RinvBT</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">S</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">RinvST</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">S</span><span class="o">.</span><span class="n">T</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">plus</span><span class="p">:</span>
+                    <span class="n">A</span> <span class="o">-=</span> <span class="n">RinvBT</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">S</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+                    <span class="n">Q</span> <span class="o">-=</span> <span class="n">S</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">RinvST</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">A</span> <span class="o">+=</span> <span class="n">RinvBT</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">S</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+                    <span class="n">Q</span> <span class="o">+=</span> <span class="n">S</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">RinvST</span><span class="p">)</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">absres</span><span class="p">,</span> <span class="n">relres</span> <span class="o">=</span> <span class="n">pymess</span><span class="o">.</span><span class="n">dense_nm_gmpare</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span>
+                                                   <span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span>
+                                                   <span class="n">plus</span><span class="o">=</span><span class="n">plus</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="n">pymess_trans</span><span class="p">,</span>
+                                                   <span class="n">linesearch</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;linesearch&#39;</span><span class="p">],</span>
+                                                   <span class="n">maxit</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;maxit&#39;</span><span class="p">],</span>
+                                                   <span class="n">absres_tol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;absres_tol&#39;</span><span class="p">],</span>
+                                                   <span class="n">relres_tol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;relres_tol&#39;</span><span class="p">],</span>
+                                                   <span class="n">nrm</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;nrm&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">absres</span> <span class="o">&gt;</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;absres_tol&#39;</span><span class="p">]:</span>
+            <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.bindings.pymess.&#39;</span> <span class="o">+</span> <span class="n">method_name</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Desired absolute residual tolerance was not achieved &#39;</span>
+                           <span class="sa">f</span><span class="s1">&#39;(</span><span class="si">{absres:e}</span><span class="s1"> &gt; </span><span class="si">{options[&quot;absres_tol&quot;]:e}</span><span class="s1">).&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">relres</span> <span class="o">&gt;</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;relres_tol&#39;</span><span class="p">]:</span>
+            <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.bindings.pymess.&#39;</span> <span class="o">+</span> <span class="n">method_name</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Desired relative residual tolerance was not achieved &#39;</span>
+                           <span class="sa">f</span><span class="s1">&#39;(</span><span class="si">{relres:e}</span><span class="s1"> &gt; </span><span class="si">{options[&quot;relres_tol&quot;]:e}</span><span class="s1">).&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">X</span></div>
+
+<div class="viewcode-block" id="LyapunovEquation"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.LyapunovEquation">[docs]</a>    <span class="k">class</span> <span class="nc">LyapunovEquation</span><span class="p">(</span><span class="n">pymess</span><span class="o">.</span><span class="n">Equation</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Lyapunov equation class for pymess</span>
+
+<span class="sd">        Represents a (generalized) continuous-time algebraic Lyapunov</span>
+<span class="sd">        equation:</span>
+
+<span class="sd">        - if opt.type is `pymess.MESS_OP_NONE` and E is `None`:</span>
+
+<span class="sd">          .. math::</span>
+<span class="sd">              A X + X A^T + B B^T = 0,</span>
+
+<span class="sd">        - if opt.type is `pymess.MESS_OP_NONE` and E is not `None`:</span>
+
+<span class="sd">          .. math::</span>
+<span class="sd">              A X E^T + E X A^T + B B^T = 0,</span>
+
+<span class="sd">        - if opt.type is `pymess.MESS_OP_TRANSPOSE` and E is `None`:</span>
+
+<span class="sd">          .. math::</span>
+<span class="sd">              A^T X + X A + B^T B = 0,</span>
+
+<span class="sd">        - if opt.type is `pymess.MESS_OP_TRANSPOSE` and E is not `None`:</span>
+
+<span class="sd">          .. math::</span>
+<span class="sd">              A^T X E + E^T X A + B^T B = 0.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        opt</span>
+<span class="sd">            pymess Options structure.</span>
+<span class="sd">        A</span>
+<span class="sd">            The non-parametric |Operator| A.</span>
+<span class="sd">        E</span>
+<span class="sd">            The non-parametric |Operator| E or `None`.</span>
+<span class="sd">        B</span>
+<span class="sd">            The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">opt</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;LyapunovEquation&#39;</span><span class="p">,</span> <span class="n">opt</span><span class="o">=</span><span class="n">opt</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="n">A</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="o">=</span> <span class="n">E</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="LyapunovEquation.ax_apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.LyapunovEquation.ax_apply">[docs]</a>        <span class="k">def</span> <span class="nf">ax_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="LyapunovEquation.ex_apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.LyapunovEquation.ex_apply">[docs]</a>        <span class="k">def</span> <span class="nf">ex_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">y</span>
+
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="LyapunovEquation.ainv_apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.LyapunovEquation.ainv_apply">[docs]</a>        <span class="k">def</span> <span class="nf">ainv_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="LyapunovEquation.einv_apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.LyapunovEquation.einv_apply">[docs]</a>        <span class="k">def</span> <span class="nf">einv_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">y</span>
+
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="LyapunovEquation.apex_apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.LyapunovEquation.apex_apply">[docs]</a>        <span class="k">def</span> <span class="nf">apex_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">idx_p</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">x</span> <span class="o">+=</span> <span class="n">p</span> <span class="o">*</span> <span class="n">y</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">x</span> <span class="o">+=</span> <span class="n">p</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">x</span> <span class="o">+=</span> <span class="n">p</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span> <span class="o">*</span> <span class="n">y</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">x</span> <span class="o">+=</span> <span class="n">p</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="LyapunovEquation.apeinv_apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.LyapunovEquation.apeinv_apply">[docs]</a>        <span class="k">def</span> <span class="nf">apeinv_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">idx_p</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="n">IdentityOperator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span>
+
+            <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">imag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">ape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">+</span> <span class="n">p</span><span class="o">.</span><span class="n">real</span> <span class="o">*</span> <span class="n">e</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">+</span> <span class="n">p</span> <span class="o">*</span> <span class="n">e</span>
+
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">ape</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">ape</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">conj</span><span class="p">())</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="LyapunovEquation.parameter"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.LyapunovEquation.parameter">[docs]</a>        <span class="k">def</span> <span class="nf">parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arp_p</span><span class="p">,</span> <span class="n">arp_m</span><span class="p">,</span> <span class="n">B</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">K</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span></div></div>
+
+<div class="viewcode-block" id="RiccatiEquation"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.RiccatiEquation">[docs]</a>    <span class="k">class</span> <span class="nc">RiccatiEquation</span><span class="p">(</span><span class="n">pymess</span><span class="o">.</span><span class="n">Equation</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Riccati equation class for pymess</span>
+
+<span class="sd">        Represents a Riccati equation</span>
+
+<span class="sd">        - if opt.type is `pymess.MESS_OP_NONE` and E is `None`:</span>
+
+<span class="sd">          .. math::</span>
+<span class="sd">              A X + X A^T - X C^T C X + B B^T = 0,</span>
+
+<span class="sd">        - if opt.type is `pymess.MESS_OP_NONE` and E is not `None`:</span>
+
+<span class="sd">          .. math::</span>
+<span class="sd">              A X E^T + E X A^T - E X C^T C X E^T + B B^T = 0,</span>
+
+<span class="sd">        - if opt.type is `pymess.MESS_OP_TRANSPOSE` and E is `None`:</span>
+
+<span class="sd">          .. math::</span>
+<span class="sd">              A^T X + X A - X B B^T X + C^T C = 0,</span>
+
+<span class="sd">        - if opt.type is `pymess.MESS_OP_TRANSPOSE` and E is not `None`:</span>
+
+<span class="sd">          .. math::</span>
+<span class="sd">              A^T X E + E^T X A - E X B B^T X E^T + C^T C = 0.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        opt</span>
+<span class="sd">            pymess Options structure.</span>
+<span class="sd">        A</span>
+<span class="sd">            The non-parametric |Operator| A.</span>
+<span class="sd">        E</span>
+<span class="sd">            The non-parametric |Operator| E or `None`.</span>
+<span class="sd">        B</span>
+<span class="sd">            The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">        C</span>
+<span class="sd">            The operator C as a |VectorArray| from `A.source`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">opt</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">):</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;RiccatiEquation&#39;</span><span class="p">,</span> <span class="n">opt</span><span class="o">=</span><span class="n">opt</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="n">A</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="o">=</span> <span class="n">E</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">c</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="k">if</span> <span class="n">opt</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">T</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="RiccatiEquation.ax_apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.RiccatiEquation.ax_apply">[docs]</a>        <span class="k">def</span> <span class="nf">ax_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="RiccatiEquation.ex_apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.RiccatiEquation.ex_apply">[docs]</a>        <span class="k">def</span> <span class="nf">ex_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">y</span>
+
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="RiccatiEquation.ainv_apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.RiccatiEquation.ainv_apply">[docs]</a>        <span class="k">def</span> <span class="nf">ainv_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="RiccatiEquation.einv_apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.RiccatiEquation.einv_apply">[docs]</a>        <span class="k">def</span> <span class="nf">einv_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">y</span>
+
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="RiccatiEquation.apex_apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.RiccatiEquation.apex_apply">[docs]</a>        <span class="k">def</span> <span class="nf">apex_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">idx_p</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">x</span> <span class="o">+=</span> <span class="n">p</span> <span class="o">*</span> <span class="n">y</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">x</span> <span class="o">+=</span> <span class="n">p</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">x</span> <span class="o">+=</span> <span class="n">p</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span> <span class="o">*</span> <span class="n">y</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">x</span> <span class="o">+=</span> <span class="n">p</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="RiccatiEquation.apeinv_apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.RiccatiEquation.apeinv_apply">[docs]</a>        <span class="k">def</span> <span class="nf">apeinv_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">idx_p</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="n">IdentityOperator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">source</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span>
+
+            <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">imag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">ape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">+</span> <span class="n">p</span><span class="o">.</span><span class="n">real</span> <span class="o">*</span> <span class="n">e</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">+</span> <span class="n">p</span> <span class="o">*</span> <span class="n">e</span>
+
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">pymess</span><span class="o">.</span><span class="n">MESS_OP_NONE</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">ape</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">ape</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">conj</span><span class="p">())</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="RiccatiEquation.parameter"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.pymess.RiccatiEquation.parameter">[docs]</a>        <span class="k">def</span> <span class="nf">parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arp_p</span><span class="p">,</span> <span class="n">arp_m</span><span class="p">,</span> <span class="n">B</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">K</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

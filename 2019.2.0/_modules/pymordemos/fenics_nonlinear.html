@@ -1,0 +1,218 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymordemos.fenics_nonlinear &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymordemos.fenics_nonlinear</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;Simple example script for reducing a FEniCS-based nonlinear diffusion problem.</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">    fenics_nonlinear.py DIM N ORDER</span>
+
+<span class="sd">Arguments:</span>
+<span class="sd">    DIM               Spatial dimension of the problem.</span>
+<span class="sd">    N                 Number of mesh intervals per spatial dimension.</span>
+<span class="sd">    ORDER             Finite element order.</span>
+
+<span class="sd">Options:</span>
+<span class="sd">    -h, --help   Show this message.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">docopt</span> <span class="kn">import</span> <span class="n">docopt</span>
+
+
+<div class="viewcode-block" id="discretize"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.fenics_nonlinear.discretize">[docs]</a><span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="n">DIM</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">ORDER</span><span class="p">):</span>
+    <span class="c1"># ### problem definition</span>
+    <span class="kn">import</span> <span class="nn">dolfin</span> <span class="k">as</span> <span class="nn">df</span>
+
+    <span class="k">if</span> <span class="n">DIM</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">mesh</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">UnitSquareMesh</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">DIM</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">mesh</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">UnitCubeMesh</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="n">V</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="s2">&quot;CG&quot;</span><span class="p">,</span> <span class="n">ORDER</span><span class="p">)</span>
+
+    <span class="n">g</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">Constant</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">Constant</span><span class="p">(</span><span class="mf">1.</span><span class="p">)</span>
+
+    <span class="k">class</span> <span class="nc">DirichletBoundary</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">SubDomain</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">inside</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">on_boundary</span><span class="p">):</span>
+            <span class="k">return</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">df</span><span class="o">.</span><span class="n">DOLFIN_EPS</span> <span class="ow">and</span> <span class="n">on_boundary</span>
+    <span class="n">db</span> <span class="o">=</span> <span class="n">DirichletBoundary</span><span class="p">()</span>
+    <span class="n">bc</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">DirichletBC</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">db</span><span class="p">)</span>
+
+    <span class="n">u</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">TestFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">Expression</span><span class="p">(</span><span class="s2">&quot;x[0]*sin(x[1])&quot;</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">F</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">inner</span><span class="p">((</span><span class="mi">1</span> <span class="o">+</span> <span class="n">c</span><span class="o">*</span><span class="n">u</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="n">df</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">df</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">v</span><span class="p">))</span><span class="o">*</span><span class="n">df</span><span class="o">.</span><span class="n">dx</span> <span class="o">-</span> <span class="n">f</span><span class="o">*</span><span class="n">v</span><span class="o">*</span><span class="n">df</span><span class="o">.</span><span class="n">dx</span>
+
+    <span class="n">df</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">F</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span>
+             <span class="n">solver_parameters</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;newton_solver&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;relative_tolerance&quot;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">}})</span>
+
+    <span class="c1"># ### pyMOR wrapping</span>
+    <span class="kn">from</span> <span class="nn">pymor.bindings.fenics</span> <span class="kn">import</span> <span class="n">FenicsVectorSpace</span><span class="p">,</span> <span class="n">FenicsOperator</span><span class="p">,</span> <span class="n">FenicsVisualizer</span>
+    <span class="kn">from</span> <span class="nn">pymor.models.basic</span> <span class="kn">import</span> <span class="n">StationaryModel</span>
+    <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">VectorOperator</span>
+    <span class="kn">from</span> <span class="nn">pymor.parameters.spaces</span> <span class="kn">import</span> <span class="n">CubicParameterSpace</span>
+
+    <span class="n">space</span> <span class="o">=</span> <span class="n">FenicsVectorSpace</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+    <span class="n">op</span> <span class="o">=</span> <span class="n">FenicsOperator</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="n">bc</span><span class="p">,),</span>
+                        <span class="n">parameter_setter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">mu</span><span class="p">:</span> <span class="n">c</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">mu</span><span class="p">[</span><span class="s1">&#39;c&#39;</span><span class="p">])),</span>
+                        <span class="n">parameter_type</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="p">()},</span>
+                        <span class="n">solver_options</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;inverse&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;newton&#39;</span><span class="p">,</span> <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">}})</span>
+    <span class="n">rhs</span> <span class="o">=</span> <span class="n">VectorOperator</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">zeros</span><span class="p">())</span>
+
+    <span class="n">fom</span> <span class="o">=</span> <span class="n">StationaryModel</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span>
+                          <span class="n">visualizer</span><span class="o">=</span><span class="n">FenicsVisualizer</span><span class="p">(</span><span class="n">space</span><span class="p">),</span>
+                          <span class="n">parameter_space</span><span class="o">=</span><span class="n">CubicParameterSpace</span><span class="p">({</span><span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="p">()},</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1000.</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">fom</span></div>
+
+
+<div class="viewcode-block" id="fenics_nonlinear_demo"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.fenics_nonlinear.fenics_nonlinear_demo">[docs]</a><span class="k">def</span> <span class="nf">fenics_nonlinear_demo</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">DIM</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;DIM&#39;</span><span class="p">])</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;N&#39;</span><span class="p">])</span>
+    <span class="n">ORDER</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;ORDER&#39;</span><span class="p">])</span>
+
+    <span class="kn">from</span> <span class="nn">pymor.tools</span> <span class="kn">import</span> <span class="n">mpi</span>
+
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">parallel</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">pymor.models.mpi</span> <span class="kn">import</span> <span class="n">mpi_wrap_model</span>
+        <span class="n">local_models</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">function_call_manage</span><span class="p">,</span> <span class="n">discretize</span><span class="p">,</span> <span class="n">DIM</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">ORDER</span><span class="p">)</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="n">mpi_wrap_model</span><span class="p">(</span><span class="n">local_models</span><span class="p">,</span> <span class="n">use_with</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">pickle_local_spaces</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="n">discretize</span><span class="p">(</span><span class="n">DIM</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">ORDER</span><span class="p">)</span>
+
+    <span class="c1"># ### ROM generation (POD/DEIM)</span>
+    <span class="kn">from</span> <span class="nn">pymor.algorithms.ei</span> <span class="kn">import</span> <span class="n">ei_greedy</span>
+    <span class="kn">from</span> <span class="nn">pymor.algorithms.newton</span> <span class="kn">import</span> <span class="n">newton</span>
+    <span class="kn">from</span> <span class="nn">pymor.algorithms.pod</span> <span class="kn">import</span> <span class="n">pod</span>
+    <span class="kn">from</span> <span class="nn">pymor.operators.ei</span> <span class="kn">import</span> <span class="n">EmpiricalInterpolatedOperator</span>
+    <span class="kn">from</span> <span class="nn">pymor.reductors.basic</span> <span class="kn">import</span> <span class="n">StationaryRBReductor</span>
+
+    <span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="n">residuals</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_uniformly</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+        <span class="n">UU</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">newton</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">as_vector</span><span class="p">(),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">return_residuals</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">U</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">UU</span><span class="p">)</span>
+        <span class="n">residuals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;residuals&#39;</span><span class="p">])</span>
+
+    <span class="n">dofs</span><span class="p">,</span> <span class="n">cb</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">ei_greedy</span><span class="p">(</span><span class="n">residuals</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">)</span>
+    <span class="n">ei_op</span> <span class="o">=</span> <span class="n">EmpiricalInterpolatedOperator</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">collateral_basis</span><span class="o">=</span><span class="n">cb</span><span class="p">,</span> <span class="n">interpolation_dofs</span><span class="o">=</span><span class="n">dofs</span><span class="p">,</span> <span class="n">triangular</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">rb</span><span class="p">,</span> <span class="n">svals</span> <span class="o">=</span> <span class="n">pod</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">)</span>
+    <span class="n">fom_ei</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">operator</span><span class="o">=</span><span class="n">ei_op</span><span class="p">)</span>
+    <span class="n">reductor</span> <span class="o">=</span> <span class="n">StationaryRBReductor</span><span class="p">(</span><span class="n">fom_ei</span><span class="p">,</span> <span class="n">rb</span><span class="p">)</span>
+    <span class="n">rom</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">()</span>
+    <span class="c1"># the reductor currently removes all solver_options so we need to add them again</span>
+    <span class="n">rom</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">operator</span><span class="o">=</span><span class="n">rom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">solver_options</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">solver_options</span><span class="p">))</span>
+
+    <span class="c1"># ### ROM validation</span>
+    <span class="kn">import</span> <span class="nn">time</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+    <span class="c1"># ensure that FFC is not called during runtime measurements</span>
+    <span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">errs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">speedups</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+        <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">t_fom</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span>
+
+        <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">u_red</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">t_rom</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span>
+
+        <span class="n">U_red</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">u_red</span><span class="p">)</span>
+        <span class="n">errs</span><span class="o">.</span><span class="n">append</span><span class="p">(((</span><span class="n">U</span> <span class="o">-</span> <span class="n">U_red</span><span class="p">)</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">U</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">())[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">speedups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t_fom</span> <span class="o">/</span> <span class="n">t_rom</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Maximum relative ROM error: {max(errs)}&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Median of ROM speedup: {np.median(speedups)}&#39;</span><span class="p">)</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">docopt</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">)</span>
+    <span class="n">fenics_nonlinear_demo</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

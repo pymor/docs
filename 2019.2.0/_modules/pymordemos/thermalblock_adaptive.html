@@ -1,0 +1,277 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymordemos.thermalblock_adaptive &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymordemos.thermalblock_adaptive</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;Modified thermalblock demo using adaptive greedy basis generation algorithm.</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">  thermalblock_adaptive.py [options] RBSIZE</span>
+<span class="sd">  thermalblock_adaptive.py -h | --help</span>
+
+
+<span class="sd">Arguments:</span>
+<span class="sd">  RBSIZE     Size of the reduced basis</span>
+
+
+<span class="sd">Options:</span>
+<span class="sd">  -h, --help                 Show this message.</span>
+<span class="sd">  --without-estimator        Do not use error estimator for basis generation.</span>
+<span class="sd">  --extension-alg=ALG        Basis extension algorithm (trivial, gram_schmidt)</span>
+<span class="sd">                             to be used [default: gram_schmidt].</span>
+<span class="sd">  --grid=NI                  Use grid with 2*NI*NI elements [default: 100].</span>
+<span class="sd">  --pickle=PREFIX            Pickle reduced discretizaion, as well as reductor and high-dimensional</span>
+<span class="sd">                             model to files with this prefix.</span>
+<span class="sd">  -p, --plot-err             Plot error.</span>
+<span class="sd">  --plot-solutions           Plot some example solutions.</span>
+<span class="sd">  --plot-error-sequence      Plot reduction error vs. basis size.</span>
+<span class="sd">  --product=PROD             Product (euclidean, h1) w.r.t. which to orthonormalize</span>
+<span class="sd">                             and calculate Riesz representatives [default: h1].</span>
+<span class="sd">  --reductor=RED             Reductor (error estimator) to choose (traditional, residual_basis)</span>
+<span class="sd">                             [default: residual_basis]</span>
+<span class="sd">  --test=COUNT               Use COUNT snapshots for stochastic error estimation</span>
+<span class="sd">                             [default: 10].</span>
+<span class="sd">  --ipython-engines=COUNT    If positive, the number of IPython cluster engines to use for</span>
+<span class="sd">                             parallel greedy search. If zero, no parallelization is performed.</span>
+<span class="sd">                             [default: 0]</span>
+<span class="sd">  --ipython-profile=PROFILE  IPython profile to use for parallelization.</span>
+<span class="sd">  --cache-region=REGION      Name of cache region to use for caching solution snapshots</span>
+<span class="sd">                             (NONE, MEMORY, DISK, PERSISTENT)</span>
+<span class="sd">                             [default: NONE]</span>
+<span class="sd">  --list-vector-array        Solve using ListVectorArray[NumpyVector] instead of NumpyVectorArray.</span>
+<span class="sd">  --no-visualize-refinement  Do not visualize the training set refinement indicators.</span>
+<span class="sd">  --validation-mus=VALUE     Size of validation set. [default: 0]</span>
+<span class="sd">  --rho=VALUE                Maximum allowed ratio between error on validation set and on</span>
+<span class="sd">                             training set [default: 1.1].</span>
+<span class="sd">  --gamma=VALUE              Weight factor for age penalty term in refinement indicators</span>
+<span class="sd">                             [default: 0.2].</span>
+<span class="sd">  --theta=VALUE              Ratio of elements to refine [default: 0.].</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">from</span> <span class="nn">docopt</span> <span class="kn">import</span> <span class="n">docopt</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.adaptivegreedy</span> <span class="kn">import</span> <span class="n">rb_adaptive_greedy</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.error</span> <span class="kn">import</span> <span class="n">reduction_error_analysis</span>
+<span class="kn">from</span> <span class="nn">pymor.analyticalproblems.thermalblock</span> <span class="kn">import</span> <span class="n">thermal_block_problem</span>
+<span class="kn">from</span> <span class="nn">pymor.core.pickle</span> <span class="kn">import</span> <span class="n">dump</span>
+<span class="kn">from</span> <span class="nn">pymor.discretizers.cg</span> <span class="kn">import</span> <span class="n">discretize_stationary_cg</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.functionals</span> <span class="kn">import</span> <span class="n">ExpressionParameterFunctional</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.spaces</span> <span class="kn">import</span> <span class="n">CubicParameterSpace</span>
+<span class="kn">from</span> <span class="nn">pymor.parallel.default</span> <span class="kn">import</span> <span class="n">new_parallel_pool</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.coercive</span> <span class="kn">import</span> <span class="n">CoerciveRBReductor</span><span class="p">,</span> <span class="n">SimpleCoerciveRBReductor</span>
+
+
+<div class="viewcode-block" id="thermalblock_demo"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.thermalblock_adaptive.thermalblock_demo">[docs]</a><span class="k">def</span> <span class="nf">thermalblock_demo</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;RBSIZE&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;RBSIZE&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--test&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--test&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ipython-engines&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ipython-engines&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--extension-alg&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--extension-alg&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--extension-alg&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;trivial&#39;</span><span class="p">,</span> <span class="s1">&#39;gram_schmidt&#39;</span><span class="p">}</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--product&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--product&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--product&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;trivial&#39;</span><span class="p">,</span> <span class="s1">&#39;h1&#39;</span><span class="p">}</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--reductor&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--reductor&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--reductor&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;traditional&#39;</span><span class="p">,</span> <span class="s1">&#39;residual_basis&#39;</span><span class="p">}</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--cache-region&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--cache-region&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--validation-mus&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--validation-mus&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--rho&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--rho&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--gamma&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--gamma&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--theta&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--theta&#39;</span><span class="p">])</span>
+
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">thermal_block_problem</span><span class="p">(</span><span class="n">num_blocks</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">functionals</span> <span class="o">=</span> <span class="p">[</span><span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;diffusion[0]&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;diffusion&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">2</span><span class="p">,)}),</span>
+                   <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;diffusion[1]**2&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;diffusion&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">2</span><span class="p">,)}),</span>
+                   <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;diffusion[0]&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;diffusion&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">2</span><span class="p">,)}),</span>
+                   <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;diffusion[1]&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;diffusion&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">2</span><span class="p">,)})]</span>
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span>
+        <span class="n">diffusion</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">diffusion</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">coefficients</span><span class="o">=</span><span class="n">functionals</span><span class="p">),</span>
+        <span class="n">parameter_space</span><span class="o">=</span><span class="n">CubicParameterSpace</span><span class="p">({</span><span class="s1">&#39;diffusion&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">2</span><span class="p">,)},</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Discretize ...&#39;</span><span class="p">)</span>
+    <span class="n">fom</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">discretize_stationary_cg</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--list-vector-array&#39;</span><span class="p">]:</span>
+        <span class="kn">from</span> <span class="nn">pymor.playground.discretizers.numpylistvectorarray</span> <span class="kn">import</span> <span class="n">convert_to_numpy_list_vector_array</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="n">convert_to_numpy_list_vector_array</span><span class="p">(</span><span class="n">fom</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--cache-region&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;none&#39;</span><span class="p">:</span>
+        <span class="n">fom</span><span class="o">.</span><span class="n">enable_caching</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--cache-region&#39;</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-solutions&#39;</span><span class="p">]:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Showing some solutions&#39;</span><span class="p">)</span>
+        <span class="n">Us</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="n">legend</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Solving for diffusion = </span><span class="se">\n</span><span class="si">{mu[&#39;diffusion&#39;]}</span><span class="s2"> ... &quot;</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+            <span class="n">Us</span> <span class="o">=</span> <span class="n">Us</span> <span class="o">+</span> <span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">),)</span>
+            <span class="n">legend</span> <span class="o">=</span> <span class="n">legend</span> <span class="o">+</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">mu</span><span class="p">[</span><span class="s1">&#39;diffusion&#39;</span><span class="p">]),)</span>
+        <span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">Us</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="n">legend</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Detailed Solutions for different parameters&#39;</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;RB generation ...&#39;</span><span class="p">)</span>
+
+    <span class="n">product</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_product</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--product&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;h1&#39;</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">coercivity_estimator</span> <span class="o">=</span> <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;min([diffusion[0], diffusion[1]**2])&#39;</span><span class="p">,</span>
+                                                         <span class="n">fom</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">)</span>
+    <span class="n">reductors</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;residual_basis&#39;</span><span class="p">:</span> <span class="n">CoerciveRBReductor</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span>
+                                                      <span class="n">coercivity_estimator</span><span class="o">=</span><span class="n">coercivity_estimator</span><span class="p">),</span>
+                 <span class="s1">&#39;traditional&#39;</span><span class="p">:</span> <span class="n">SimpleCoerciveRBReductor</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span>
+                                                         <span class="n">coercivity_estimator</span><span class="o">=</span><span class="n">coercivity_estimator</span><span class="p">)}</span>
+    <span class="n">reductor</span> <span class="o">=</span> <span class="n">reductors</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--reductor&#39;</span><span class="p">]]</span>
+
+    <span class="n">pool</span> <span class="o">=</span> <span class="n">new_parallel_pool</span><span class="p">(</span><span class="n">ipython_num_engines</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ipython-engines&#39;</span><span class="p">],</span> <span class="n">ipython_profile</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ipython-profile&#39;</span><span class="p">])</span>
+    <span class="n">greedy_data</span> <span class="o">=</span> <span class="n">rb_adaptive_greedy</span><span class="p">(</span>
+        <span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span>
+        <span class="n">validation_mus</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--validation-mus&#39;</span><span class="p">],</span>
+        <span class="n">rho</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--rho&#39;</span><span class="p">],</span>
+        <span class="n">gamma</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--gamma&#39;</span><span class="p">],</span>
+        <span class="n">theta</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--theta&#39;</span><span class="p">],</span>
+        <span class="n">use_estimator</span><span class="o">=</span><span class="ow">not</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--without-estimator&#39;</span><span class="p">],</span>
+        <span class="n">error_norm</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_norm</span><span class="p">,</span>
+        <span class="n">max_extensions</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;RBSIZE&#39;</span><span class="p">],</span>
+        <span class="n">visualize</span><span class="o">=</span><span class="ow">not</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--no-visualize-refinement&#39;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="n">rom</span> <span class="o">=</span> <span class="n">greedy_data</span><span class="p">[</span><span class="s1">&#39;rom&#39;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--pickle&#39;</span><span class="p">]:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Writing reduced model to file </span><span class="si">{args[&#39;--pickle&#39;]}</span><span class="s2">_reduced ...&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--pickle&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;_reduced&#39;</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">dump</span><span class="p">(</span><span class="n">rom</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Writing detailed model and reductor to file </span><span class="si">{args[&#39;--pickle&#39;]}</span><span class="s2">_detailed ...&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--pickle&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;_detailed&#39;</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">dump</span><span class="p">((</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">),</span> <span class="n">f</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">Searching for maximum error on random snapshots ...&#39;</span><span class="p">)</span>
+
+    <span class="n">results</span> <span class="o">=</span> <span class="n">reduction_error_analysis</span><span class="p">(</span><span class="n">rom</span><span class="p">,</span>
+                                       <span class="n">fom</span><span class="o">=</span><span class="n">fom</span><span class="p">,</span>
+                                       <span class="n">reductor</span><span class="o">=</span><span class="n">reductor</span><span class="p">,</span>
+                                       <span class="n">estimator</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                       <span class="n">error_norms</span><span class="o">=</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_norm</span><span class="p">,),</span>
+                                       <span class="n">condition</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                       <span class="n">test_mus</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--test&#39;</span><span class="p">],</span>
+                                       <span class="n">basis_sizes</span><span class="o">=</span><span class="mi">25</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-error-sequence&#39;</span><span class="p">]</span> <span class="k">else</span> <span class="mi">1</span><span class="p">,</span>
+                                       <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                       <span class="n">pool</span><span class="o">=</span><span class="n">pool</span><span class="p">)</span>
+
+    <span class="n">real_rb_size</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">dim</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">*** RESULTS ***</span>
+
+<span class="s1">Problem:</span>
+<span class="s1">   number of blocks:                   2x2</span>
+<span class="s1">   h:                                  sqrt(2)/</span><span class="si">{args[--grid]}</span><span class="s1"></span>
+
+<span class="s1">Greedy basis generation:</span>
+<span class="s1">   estimator disabled:                 </span><span class="si">{args[--without-estimator]}</span><span class="s1"></span>
+<span class="s1">   extension method:                   </span><span class="si">{args[--extension-alg]}</span><span class="s1"></span>
+<span class="s1">   product:                            </span><span class="si">{args[--product]}</span><span class="s1"></span>
+<span class="s1">   prescribed basis size:              </span><span class="si">{args[RBSIZE]}</span><span class="s1"></span>
+<span class="s1">   actual basis size:                  </span><span class="si">{real_rb_size}</span><span class="s1"></span>
+<span class="s1">   elapsed time:                       </span><span class="si">{greedy_data[time]}</span><span class="s1"></span>
+<span class="s1">&#39;&#39;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="nb">locals</span><span class="p">()))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;summary&#39;</span><span class="p">])</span>
+
+    <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-error-sequence&#39;</span><span class="p">]:</span>
+        <span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;figure&#39;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-err&#39;</span><span class="p">]:</span>
+        <span class="n">mumax</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;max_error_mus&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mumax</span><span class="p">)</span>
+        <span class="n">URB</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mumax</span><span class="p">))</span>
+        <span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">((</span><span class="n">U</span><span class="p">,</span> <span class="n">URB</span><span class="p">,</span> <span class="n">U</span> <span class="o">-</span> <span class="n">URB</span><span class="p">),</span> <span class="n">legend</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;Detailed Solution&#39;</span><span class="p">,</span> <span class="s1">&#39;Reduced Solution&#39;</span><span class="p">,</span> <span class="s1">&#39;Error&#39;</span><span class="p">),</span>
+                    <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Maximum Error Solution&#39;</span><span class="p">,</span> <span class="n">separate_colorbars</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="c1"># parse arguments</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">docopt</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">)</span>
+    <span class="c1"># run demo</span>
+    <span class="n">thermalblock_demo</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

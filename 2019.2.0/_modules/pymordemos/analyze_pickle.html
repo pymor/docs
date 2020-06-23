@@ -1,0 +1,351 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymordemos.analyze_pickle &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymordemos.analyze_pickle</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;Analyze pickled data demo.</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">  analyze_pickle.py histogram [--detailed=DETAILED_DATA] [--error-norm=NORM] REDUCED_DATA SAMPLES</span>
+<span class="sd">  analyze_pickle.py convergence [--detailed=DETAILED_DATA] [--error-norm=NORM] [--ndim=NDIM] REDUCED_DATA SAMPLES</span>
+<span class="sd">  analyze_pickle.py (-h | --help)</span>
+
+<span class="sd">This demo loads a pickled reduced model, solves for random</span>
+<span class="sd">parameters, estimates the reduction errors and then visualizes these</span>
+<span class="sd">estimates. If the detailed model and the reductor are</span>
+<span class="sd">also provided, the estimated error is visualized in comparison to</span>
+<span class="sd">the real reduction error.</span>
+
+<span class="sd">The needed data files are created by the thermal block demo, by</span>
+<span class="sd">setting the &#39;--pickle&#39; option.</span>
+
+<span class="sd">Arguments:</span>
+<span class="sd">  REDUCED_DATA  File containing the pickled reduced model.</span>
+
+<span class="sd">  SAMPLES       Number of parameter samples to test with.</span>
+
+<span class="sd">Options:</span>
+<span class="sd">  --detailed=DETAILED_DATA  File containing the high-dimensional model</span>
+<span class="sd">                            and the reductor.</span>
+
+<span class="sd">  --error-norm=NORM         Name of norm in which to compute the errors.</span>
+
+<span class="sd">  --ndim=NDIM               Number of reduced basis dimensions for which to estimate</span>
+<span class="sd">                            the error.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">docopt</span> <span class="kn">import</span> <span class="n">docopt</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.pickle</span> <span class="kn">import</span> <span class="n">load</span>
+
+
+<div class="viewcode-block" id="_bins"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.analyze_pickle._bins">[docs]</a><span class="k">def</span> <span class="nf">_bins</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39; numpy has a quirk in unreleased master where logspace</span>
+<span class="sd">    might sometimes not return a 1d array</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">bins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">start</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">stop</span><span class="p">),</span> <span class="n">steps</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">bins</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">steps</span><span class="p">,</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">bins</span> <span class="o">=</span> <span class="n">bins</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">bins</span></div>
+
+
+<div class="viewcode-block" id="analyze_pickle_histogram"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.analyze_pickle.analyze_pickle_histogram">[docs]</a><span class="k">def</span> <span class="nf">analyze_pickle_histogram</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;SAMPLES&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;SAMPLES&#39;</span><span class="p">])</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Loading reduced model ...&#39;</span><span class="p">)</span>
+    <span class="n">rom</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;REDUCED_DATA&#39;</span><span class="p">],</span> <span class="s1">&#39;rb&#39;</span><span class="p">))</span>
+
+    <span class="n">mus</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;SAMPLES&#39;</span><span class="p">])</span>
+    <span class="n">us</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mus</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Solving reduced for </span><span class="si">{mu}</span><span class="s1"> ... &#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="n">us</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;done&#39;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rom</span><span class="p">,</span> <span class="s1">&#39;estimate&#39;</span><span class="p">):</span>
+        <span class="n">ests</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">us</span><span class="p">,</span> <span class="n">mus</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Estimating error for </span><span class="si">{mu}</span><span class="s1"> ... &#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+            <span class="n">ests</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;done&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--detailed&#39;</span><span class="p">]:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Loading high-dimensional data ...&#39;</span><span class="p">)</span>
+        <span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--detailed&#39;</span><span class="p">],</span> <span class="s1">&#39;rb&#39;</span><span class="p">))</span>
+
+        <span class="n">errs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">us</span><span class="p">,</span> <span class="n">mus</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Calculating error for </span><span class="si">{mu}</span><span class="s1"> ... &#39;</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+            <span class="n">err</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="o">-</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--error-norm&#39;</span><span class="p">]:</span>
+                <span class="n">errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--error-norm&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;_norm&#39;</span><span class="p">)(</span><span class="n">err</span><span class="p">)))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">err</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;done&#39;</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">()</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s1">&#39;ggplot&#39;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="k">pass</span>  <span class="c1"># plt.style is only available in newer matplotlib versions</span>
+
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rom</span><span class="p">,</span> <span class="s1">&#39;estimate&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--detailed&#39;</span><span class="p">]:</span>
+
+        <span class="c1"># setup axes</span>
+        <span class="n">left</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.65</span>
+        <span class="n">bottom</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.65</span>
+        <span class="n">bottom_h</span> <span class="o">=</span> <span class="n">left_h</span> <span class="o">=</span> <span class="n">left</span><span class="o">+</span><span class="n">width</span><span class="o">+</span><span class="mf">0.02</span>
+        <span class="n">rect_scatter</span> <span class="o">=</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="n">bottom</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">]</span>
+        <span class="n">rect_histx</span> <span class="o">=</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="n">bottom_h</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">]</span>
+        <span class="n">rect_histy</span> <span class="o">=</span> <span class="p">[</span><span class="n">left_h</span><span class="p">,</span> <span class="n">bottom</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="n">height</span><span class="p">]</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+        <span class="n">axScatter</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">rect_scatter</span><span class="p">)</span>
+        <span class="n">axHistx</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">rect_histx</span><span class="p">)</span>
+        <span class="n">axHisty</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">rect_histy</span><span class="p">)</span>
+
+        <span class="c1"># scatter plot</span>
+        <span class="n">total_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">ests</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="n">errs</span><span class="p">))</span> <span class="o">*</span> <span class="mf">0.9</span>
+        <span class="n">total_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">ests</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">errs</span><span class="p">))</span> <span class="o">*</span> <span class="mf">1.1</span>
+        <span class="n">axScatter</span><span class="o">.</span><span class="n">set_xscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+        <span class="n">axScatter</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+        <span class="n">axScatter</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="n">total_min</span><span class="p">,</span> <span class="n">total_max</span><span class="p">])</span>
+        <span class="n">axScatter</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">([</span><span class="n">total_min</span><span class="p">,</span> <span class="n">total_max</span><span class="p">])</span>
+        <span class="n">axScatter</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;errors&#39;</span><span class="p">)</span>
+        <span class="n">axScatter</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;estimates&#39;</span><span class="p">)</span>
+        <span class="n">axScatter</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">total_min</span><span class="p">,</span> <span class="n">total_max</span><span class="p">],</span> <span class="p">[</span><span class="n">total_min</span><span class="p">,</span> <span class="n">total_max</span><span class="p">],</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span>
+        <span class="n">axScatter</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">errs</span><span class="p">,</span> <span class="n">ests</span><span class="p">)</span>
+
+        <span class="c1"># plot histograms</span>
+        <span class="n">x_hist</span><span class="p">,</span> <span class="n">x_bin_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">errs</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="n">_bins</span><span class="p">(</span><span class="n">total_min</span><span class="p">,</span> <span class="n">total_max</span><span class="p">))</span>
+        <span class="n">axHistx</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x_bin_edges</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">x_hist</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="n">x_bin_edges</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_bin_edges</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">)</span>
+        <span class="n">y_hist</span><span class="p">,</span> <span class="n">y_bin_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">ests</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="n">_bins</span><span class="p">(</span><span class="n">total_min</span><span class="p">,</span> <span class="n">total_max</span><span class="p">))</span>
+        <span class="n">axHisty</span><span class="o">.</span><span class="n">barh</span><span class="p">(</span><span class="n">y_bin_edges</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">y_hist</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="n">y_bin_edges</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y_bin_edges</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">)</span>
+        <span class="n">axHistx</span><span class="o">.</span><span class="n">set_xscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+        <span class="n">axHisty</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+        <span class="n">axHistx</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">([])</span>
+        <span class="n">axHisty</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">([])</span>
+        <span class="n">axHistx</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">axScatter</span><span class="o">.</span><span class="n">get_xlim</span><span class="p">())</span>
+        <span class="n">axHisty</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">axScatter</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">())</span>
+        <span class="n">axHistx</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">x_hist</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">y_hist</span><span class="p">))])</span>
+        <span class="n">axHisty</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">x_hist</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">y_hist</span><span class="p">))])</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rom</span><span class="p">,</span> <span class="s1">&#39;estimate&#39;</span><span class="p">):</span>
+
+        <span class="n">total_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">ests</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.9</span>
+        <span class="n">total_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">ests</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1.1</span>
+
+        <span class="n">hist</span><span class="p">,</span> <span class="n">bin_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">ests</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="n">_bins</span><span class="p">(</span><span class="n">total_min</span><span class="p">,</span> <span class="n">total_max</span><span class="p">))</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">bin_edges</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">hist</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="n">bin_edges</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">bin_edges</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlim</span><span class="p">([</span><span class="n">total_min</span><span class="p">,</span> <span class="n">total_max</span><span class="p">])</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;estimated error&#39;</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">elif</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--detailed&#39;</span><span class="p">]:</span>
+
+        <span class="n">total_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">ests</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.9</span>
+        <span class="n">total_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">ests</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1.1</span>
+
+        <span class="n">hist</span><span class="p">,</span> <span class="n">bin_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">errs</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="n">_bins</span><span class="p">(</span><span class="n">total_min</span><span class="p">,</span> <span class="n">total_max</span><span class="p">))</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">bin_edges</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">hist</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="n">bin_edges</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">bin_edges</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlim</span><span class="p">([</span><span class="n">total_min</span><span class="p">,</span> <span class="n">total_max</span><span class="p">])</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Nothing to plot!&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="analyze_pickle_convergence"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.analyze_pickle.analyze_pickle_convergence">[docs]</a><span class="k">def</span> <span class="nf">analyze_pickle_convergence</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;SAMPLES&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;SAMPLES&#39;</span><span class="p">])</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Loading reduced model ...&#39;</span><span class="p">)</span>
+    <span class="n">rom</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;REDUCED_DATA&#39;</span><span class="p">],</span> <span class="s1">&#39;rb&#39;</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--detailed&#39;</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;High-dimensional data file must be specified.&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Loading high-dimensional data ...&#39;</span><span class="p">)</span>
+    <span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--detailed&#39;</span><span class="p">],</span> <span class="s1">&#39;rb&#39;</span><span class="p">))</span>
+    <span class="n">fom</span><span class="o">.</span><span class="n">enable_caching</span><span class="p">(</span><span class="s1">&#39;disk&#39;</span><span class="p">)</span>
+
+    <span class="n">dim</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">dim</span>
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ndim&#39;</span><span class="p">]:</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ndim&#39;</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">mus</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;SAMPLES&#39;</span><span class="p">])</span>
+
+    <span class="n">ESTS</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">ERRS</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">T_SOLVES</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">T_ESTS</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">N</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;N = </span><span class="si">{N:3}</span><span class="s1"> &#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="n">us</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;solve &#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mus</span><span class="p">:</span>
+            <span class="n">us</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">))</span>
+        <span class="n">T_SOLVES</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1000.</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">mus</span><span class="p">))</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;estimate &#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rom</span><span class="p">,</span> <span class="s1">&#39;estimate&#39;</span><span class="p">):</span>
+            <span class="n">ests</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">us</span><span class="p">,</span> <span class="n">mus</span><span class="p">):</span>
+                <span class="c1"># print(&#39;e&#39;, end=&#39;&#39;)</span>
+                <span class="c1"># sys.stdout.flush()</span>
+                <span class="n">ests</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">))</span>
+            <span class="n">ESTS</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">ests</span><span class="p">))</span>
+            <span class="n">T_ESTS</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1000.</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">mus</span><span class="p">))</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;errors&#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="n">errs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">us</span><span class="p">,</span> <span class="n">mus</span><span class="p">):</span>
+            <span class="n">err</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="o">-</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--error-norm&#39;</span><span class="p">]:</span>
+                <span class="n">errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--error-norm&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;_norm&#39;</span><span class="p">)(</span><span class="n">err</span><span class="p">)))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">err</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()))</span>
+        <span class="n">ERRS</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">errs</span><span class="p">))</span>
+
+        <span class="nb">print</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">()</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s1">&#39;ggplot&#39;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="k">pass</span>  <span class="c1"># plt.style is only available in newer matplotlib versions</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rom</span><span class="p">,</span> <span class="s1">&#39;estimate&#39;</span><span class="p">):</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">ESTS</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;max. estimate&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">ERRS</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;max. error&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;dimension&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">T_SOLVES</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;avg. solve time&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rom</span><span class="p">,</span> <span class="s1">&#39;estimate&#39;</span><span class="p">):</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">T_ESTS</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;avg. estimate time&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;dimension&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;milliseconds&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="analyze_pickle_demo"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.analyze_pickle.analyze_pickle_demo">[docs]</a><span class="k">def</span> <span class="nf">analyze_pickle_demo</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;histogram&#39;</span><span class="p">]:</span>
+        <span class="n">analyze_pickle_histogram</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">analyze_pickle_convergence</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="c1"># parse arguments</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">docopt</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">)</span>
+    <span class="c1"># run demo</span>
+    <span class="n">analyze_pickle_demo</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

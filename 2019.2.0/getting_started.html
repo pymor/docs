@@ -1,0 +1,395 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Getting started &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Technical Overview" href="technical_overview.html" />
+    <link rel="prev" title="pyMOR - Model Order Reduction with python" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="technical_overview.html" title="Technical Overview"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="pyMOR - Model Order Reduction with python"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">pyMOR v2019.2.0 Manual</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="getting-started">
+<span id="id1"></span><h1>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h1>
+<a class="reference download internal" href="getting_started_full.ipynb">Download this page as a Jupyter notebook (with outputs)</a><div class="section" id="trying-it-out">
+<h2>Trying it out<a class="headerlink" href="#trying-it-out" title="Permalink to this headline">¶</a></h2>
+<p>While we consider pyMOR mainly as a library for building MOR applications, we
+ship a few example scripts. These can be found in the <code class="docutils literal notranslate"><span class="pre">src/pymordemos</span></code>
+directory of the source repository (some are available as Jupyter notebooks in
+the <code class="docutils literal notranslate"><span class="pre">notebooks</span></code> directory). Try launching one of them using the <code class="docutils literal notranslate"><span class="pre">pymor-demo</span></code>
+script:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pymor</span><span class="o">-</span><span class="n">demo</span> <span class="n">thermalblock</span> <span class="o">--</span><span class="n">plot</span><span class="o">-</span><span class="n">err</span> <span class="o">--</span><span class="n">plot</span><span class="o">-</span><span class="n">solutions</span> <span class="mi">3</span> <span class="mi">2</span> <span class="mi">3</span> <span class="mi">32</span>
+</pre></div>
+</div>
+<p>The demo scripts can also be launched directly from the source tree:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">thermalblock</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">plot</span><span class="o">-</span><span class="n">err</span> <span class="o">--</span><span class="n">plot</span><span class="o">-</span><span class="n">solutions</span> <span class="mi">3</span> <span class="mi">2</span> <span class="mi">3</span> <span class="mi">32</span>
+</pre></div>
+</div>
+<p>This will reduce the so called thermal block problem using the reduced basis
+method with a greedy basis generation algorithm. The thermal block problem
+consists in solving the stationary heat equation</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>- ∇ ⋅ [ d(x, μ) ∇ u(x, μ) ] = 1     for x in Ω
+                  u(x, μ)   = 0     for x in ∂Ω
+</pre></div>
+</div>
+<p>on the domain Ω = [0,1]^2 for the unknown u. The domain is partitioned into
+<code class="docutils literal notranslate"><span class="pre">XBLOCKS</span> <span class="pre">x</span> <span class="pre">YBLOCKS</span></code> blocks (<code class="docutils literal notranslate"><span class="pre">XBLOCKS</span></code> and <code class="docutils literal notranslate"><span class="pre">YBLOCKS</span></code> are the first
+two arguments to <code class="docutils literal notranslate"><span class="pre">thermalblock.py</span></code>). The thermal conductivity d(x, μ)
+is constant on each block (i,j) with value μ_ij:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span><span class="o">------------------</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+<span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
+<span class="o">|</span>  <span class="n">μ_11</span>  <span class="o">|</span>  <span class="n">μ_12</span>  <span class="o">|</span>  <span class="n">μ_13</span>  <span class="o">|</span>
+<span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
+<span class="o">|---------------------------</span>
+<span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
+<span class="o">|</span>  <span class="n">μ_21</span>  <span class="o">|</span>  <span class="n">μ_22</span>  <span class="o">|</span>  <span class="n">μ_23</span>  <span class="o">|</span>
+<span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
+<span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span><span class="o">------------------</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The real numbers μ_ij form the <code class="docutils literal notranslate"><span class="pre">XBLOCKS</span> <span class="pre">x</span> <span class="pre">YBLOCKS</span></code> - dimensional parameter
+on which the solution depends.</p>
+<p>Running <code class="docutils literal notranslate"><span class="pre">thermalblock.py</span></code> will first produce plots of two detailed
+solutions of the problem for different randomly chosen parameters
+using linear finite elements. (The size of the grid can be controlled
+via the <code class="docutils literal notranslate"><span class="pre">--grid</span></code> parameter. The randomly chosen parameters will
+actually be the same for each run, since a the random generator
+is initialized with a fixed default seed in
+<a class="reference internal" href="generated/pymor.tools.html#pymor.tools.random.default_random_state" title="pymor.tools.random.default_random_state"><code class="xref py py-func docutils literal notranslate"><span class="pre">default_random_state</span></code></a>.)</p>
+<p>After closing the window, the reduced basis for model order reduction
+is generated using a greedy search algorithm with error estimator.
+The third parameter <code class="docutils literal notranslate"><span class="pre">SNAPSHOTS</span></code> of <code class="docutils literal notranslate"><span class="pre">thermalblock.py</span></code> determines how many
+different values per parameter component μ_ij should be considered.
+I.e. the parameter training set for basis generation will have the
+size <code class="docutils literal notranslate"><span class="pre">SNAPSHOTS^(XBLOCKS</span> <span class="pre">x</span> <span class="pre">YBLOCKS)</span></code>. After the basis of size 32 (the
+last parameter) has been computed, the quality of the obtained reduced model
+(on the 32-dimensional reduced basis space) is evaluated by comparing the
+solutions of the reduced and detailed models for new, randomly chosen
+parameters. Finally, plots of the detailed and reduced solutions, as well
+as the difference between the two, are displayed for the random parameter
+which maximises reduction error.</p>
+</div>
+<div class="section" id="the-thermalblock-demo-explained">
+<h2>The thermalblock demo explained<a class="headerlink" href="#the-thermalblock-demo-explained" title="Permalink to this headline">¶</a></h2>
+<p>In the following we will walk through the thermal block demo step by
+step in an interactive Python shell. We assume that you are familiar
+with the reduced basis method and that you know the basics of
+<a class="reference external" href="http://www.python.org">Python</a> programming as well as working
+with <a class="reference external" href="https://numpy.org/doc/stable/reference/index.html#module-numpy" title="(in NumPy v1.18)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">NumPy</span></code></a>. (Note that our code will differ a bit from
+<code class="docutils literal notranslate"><span class="pre">thermalblock.py</span></code> as we will hardcode the various options the script
+offers and leave out some features.)</p>
+<p>First, start a Python shell. We recommend using
+<a class="reference external" href="http://ipython.org">IPython</a></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ipython</span>
+</pre></div>
+</div>
+<p>You can paste the following input lines starting with <code class="docutils literal notranslate"><span class="pre">&gt;&gt;&gt;</span></code> by copying
+them to the system clipboard and then executing</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">paste</span>
+</pre></div>
+</div>
+<p>inside the IPython shell.</p>
+<p>First, we will import the most commonly used methods and classes of pyMOR
+by executing:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pymor.basic</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">set_log_levels</span>
+<span class="n">set_log_levels</span><span class="p">({</span><span class="s1">&#39;pymor.algorithms.greedy&#39;</span><span class="p">:</span> <span class="s1">&#39;ERROR&#39;</span><span class="p">,</span> <span class="s1">&#39;pymor.algorithms.gram_schmidt.gram_schmidt&#39;</span><span class="p">:</span> <span class="s1">&#39;ERROR&#39;</span><span class="p">,</span> <span class="s1">&#39;pymor.algorithms.image.estimate_image_hierarchical&#39;</span><span class="p">:</span> <span class="s1">&#39;ERROR&#39;</span><span class="p">})</span>
+</pre></div>
+</div>
+<p>Next we will instantiate a class describing the analytical problem
+we want so solve. In this case, a
+<a class="reference internal" href="generated/pymor.analyticalproblems.html#pymor.analyticalproblems.thermalblock.thermal_block_problem" title="pymor.analyticalproblems.thermalblock.thermal_block_problem"><code class="xref py py-meth docutils literal notranslate"><span class="pre">thermal_block_problem</span></code></a>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">p</span> <span class="o">=</span> <span class="n">thermal_block_problem</span><span class="p">(</span><span class="n">num_blocks</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>We want to discretize this problem using the finite element method.
+We could do this by hand, creating a <a class="reference internal" href="generated/pymor.grids.html#pymor.grids.interfaces.AffineGridInterface" title="pymor.grids.interfaces.AffineGridInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a>, instatiating
+<a class="reference internal" href="generated/pymor.operators.html#pymor.operators.cg.DiffusionOperatorP1" title="pymor.operators.cg.DiffusionOperatorP1"><code class="xref py py-class docutils literal notranslate"><span class="pre">DiffusionOperatorP1</span></code></a> finite element diffusion
+operators for each subblock of the domain, forming a <a class="reference internal" href="generated/pymor.operators.html#pymor.operators.constructions.LincombOperator" title="pymor.operators.constructions.LincombOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">LincombOperator</span></code></a>
+to represent the affine decomposition, instantiating a
+<a class="reference internal" href="generated/pymor.operators.html#pymor.operators.cg.L2ProductFunctionalP1" title="pymor.operators.cg.L2ProductFunctionalP1"><code class="xref py py-class docutils literal notranslate"><span class="pre">L2ProductFunctionalP1</span></code></a> as right hand side, and
+putting it all together into a <a class="reference internal" href="generated/pymor.models.html#pymor.models.basic.StationaryModel" title="pymor.models.basic.StationaryModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">StationaryModel</span></code></a>. However, since
+<a class="reference internal" href="generated/pymor.analyticalproblems.html#pymor.analyticalproblems.thermalblock.thermal_block_problem" title="pymor.analyticalproblems.thermalblock.thermal_block_problem"><code class="xref py py-meth docutils literal notranslate"><span class="pre">thermal_block_problem</span></code></a> returns
+a <a class="reference internal" href="generated/pymor.analyticalproblems.html#pymor.analyticalproblems.elliptic.StationaryProblem" title="pymor.analyticalproblems.elliptic.StationaryProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">StationaryProblem</span></code></a>, we can use
+a predifined <em>discretizer</em> to do the work for us. In this case, we use
+<a class="reference internal" href="generated/pymor.discretizers.html#pymor.discretizers.cg.discretize_stationary_cg" title="pymor.discretizers.cg.discretize_stationary_cg"><code class="xref py py-func docutils literal notranslate"><span class="pre">discretize_stationary_cg</span></code></a>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">fom</span><span class="p">,</span> <span class="n">fom_data</span> <span class="o">=</span> <span class="n">discretize_stationary_cg</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="mf">1.</span><span class="o">/</span><span class="mf">50.</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">fom</span></code> is the <a class="reference internal" href="generated/pymor.models.html#pymor.models.basic.StationaryModel" title="pymor.models.basic.StationaryModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">StationaryModel</span></code></a> which has been created for us,
+whereas <code class="docutils literal notranslate"><span class="pre">fom_data</span></code> contains some additional data, in particular the <a class="reference internal" href="generated/pymor.grids.html#pymor.grids.interfaces.AffineGridInterface" title="pymor.grids.interfaces.AffineGridInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a>
+and the <a class="reference internal" href="generated/pymor.grids.html#pymor.grids.interfaces.BoundaryInfoInterface" title="pymor.grids.interfaces.BoundaryInfoInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">BoundaryInfo</span></code></a> which have been created during discretization. We
+can have a look at the grid,</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">fom_data</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+<div class="highlight-ipythonconsole notranslate"><div class="highlight"><pre><span></span><span class="go">Tria-Grid on domain [0,1] x [0,1]</span>
+<span class="go">x0-intervals: 50, x1-intervals: 50</span>
+<span class="go">elements: 10000, edges: 15100, vertices: 5101</span>
+</pre></div>
+</div>
+<p>and, as always, we can display its class documentation using
+<code class="docutils literal notranslate"><span class="pre">help(fom_data['grid'])</span></code>.</p>
+<p>Let’s solve the thermal block problem and visualize the solution:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])</span>
+<span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Solution&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-ipythonconsole notranslate"><div class="highlight"><pre><span></span><span class="go">&lt;pymor.gui.jupyter.patch.visualize_patch.&lt;locals&gt;.Plot object at 0x7f5707341be0&gt;</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//getting_started-5.png">png</a>, <a class="reference external" href=".//getting_started-5.hires.png">hires.png</a>, <a class="reference external" href=".//getting_started-5.pdf">pdf</a>)</p>
+<div class="figure align-default">
+<img alt="_images/getting_started-5.png" src="_images/getting_started-5.png" />
+</div>
+<p>Each class in pyMOR that describes a <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Parameter" title="pymor.parameters.base.Parameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Parameter</span></code></a> dependent mathematical
+object, like the <a class="reference internal" href="generated/pymor.models.html#pymor.models.basic.StationaryModel" title="pymor.models.basic.StationaryModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">StationaryModel</span></code></a> in our case, derives from
+<a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Parametric" title="pymor.parameters.base.Parametric"><code class="xref py py-class docutils literal notranslate"><span class="pre">Parametric</span></code></a> and determines the <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Parameter" title="pymor.parameters.base.Parameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Parameters</span></code></a> it expects during <code class="xref py py-meth docutils literal notranslate"><span class="pre">__init__</span></code>
+by calling <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Parametric.build_parameter_type" title="pymor.parameters.base.Parametric.build_parameter_type"><code class="xref py py-meth docutils literal notranslate"><span class="pre">build_parameter_type</span></code></a>.
+The resulting <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.ParameterType" title="pymor.parameters.base.ParameterType"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterType</span></code></a> is stored in the object’s
+<a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Parametric.parameter_type" title="pymor.parameters.base.Parametric.parameter_type"><code class="xref py py-attr docutils literal notranslate"><span class="pre">parameter_type</span></code></a> attribute. Let us
+have a look:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-ipythonconsole notranslate"><div class="highlight"><pre><span></span><span class="go">{&#39;diffusion&#39;: (2, 3)}</span>
+</pre></div>
+</div>
+<p>This tells us, that the <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Parameter" title="pymor.parameters.base.Parameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Parameter</span></code></a> which
+<a class="reference internal" href="generated/pymor.models.html#pymor.models.interfaces.ModelInterface.solve" title="pymor.models.interfaces.ModelInterface.solve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">solve</span></code></a> expects
+should be a dictionary with one key <code class="docutils literal notranslate"><span class="pre">'diffusion'</span></code> whose value is a
+<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.18)"><code class="xref py py-class docutils literal notranslate"><span class="pre">NumPy</span> <span class="pre">array</span></code></a> of shape <code class="docutils literal notranslate"><span class="pre">(2,</span> <span class="pre">3)</span></code>, corresponding to the block structure of
+the problem. However, by using the
+<a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Parametric.parse_parameter" title="pymor.parameters.base.Parametric.parse_parameter"><code class="xref py py-meth docutils literal notranslate"><span class="pre">parse_parameter</span></code></a> method, pyMOR is
+smart enough to correctly parse the input <code class="docutils literal notranslate"><span class="pre">[1.0,</span> <span class="pre">0.1,</span> <span class="pre">0.3,</span> <span class="pre">0.1,</span> <span class="pre">0.2,</span> <span class="pre">1.0]</span></code>.</p>
+<p>Next we want to use the <a class="reference internal" href="generated/pymor.algorithms.html#pymor.algorithms.greedy.greedy" title="pymor.algorithms.greedy.greedy"><code class="xref py py-func docutils literal notranslate"><span class="pre">greedy</span></code></a> algorithm
+to reduce the problem. For this we need to choose a reductor which will keep
+track of the reduced basis and perform the actual RB-projection. We will use
+<a class="reference internal" href="generated/pymor.reductors.html#pymor.reductors.coercive.CoerciveRBReductor" title="pymor.reductors.coercive.CoerciveRBReductor"><code class="xref py py-class docutils literal notranslate"><span class="pre">CoerciveRBReductor</span></code></a>, which will
+also assemble an error estimator to estimate the reduction error. This
+will significantly speed up the basis generation, as we will only need to
+solve the high-dimensional problem for those parameters in the training set
+which are actually selected for basis extension. To control the condition of
+the reduced system matrix, we must ensure that the generated basis is
+orthonormal w.r.t. the H1_0-product on the solution space. For this we pass
+the <code class="xref py py-attr docutils literal notranslate"><span class="pre">h1_0_semi_product</span></code> attribute of the model as inner product to
+the reductor, which will also use it for computing the Riesz representatives
+required for error estimation. Moreover, we have to provide
+the reductor with a <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.interfaces.ParameterFunctionalInterface" title="pymor.parameters.interfaces.ParameterFunctionalInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterFunctional</span></code></a> which computes a lower bound for
+the coercivity of the problem for a given parameter.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reductor</span> <span class="o">=</span> <span class="n">CoerciveRBReductor</span><span class="p">(</span>
+    <span class="n">fom</span><span class="p">,</span>
+    <span class="n">product</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_product</span><span class="p">,</span>
+    <span class="n">coercivity_estimator</span><span class="o">=</span><span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;min(diffusion)&#39;</span><span class="p">,</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Moreover, we need to select a <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Parameter" title="pymor.parameters.base.Parameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Parameter</span></code></a> training set. The model
+<code class="docutils literal notranslate"><span class="pre">fom</span></code> already comes with a <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.interfaces.ParameterSpaceInterface" title="pymor.parameters.interfaces.ParameterSpaceInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterSpace</span></code></a> which it has inherited from the
+analytical problem. We can sample our parameters from this space, which is a
+<a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.spaces.CubicParameterSpace" title="pymor.parameters.spaces.CubicParameterSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">CubicParameterSpace</span></code></a>. E.g.:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">training_set</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_uniformly</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">training_set</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</pre></div>
+</div>
+<div class="highlight-ipythonconsole notranslate"><div class="highlight"><pre><span></span><span class="go">{diffusion: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]}</span>
+</pre></div>
+</div>
+<p>Now we start the basis generation:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">greedy_data</span> <span class="o">=</span> <span class="n">rb_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">training_set</span><span class="p">,</span> <span class="n">max_extensions</span><span class="o">=</span><span class="mi">32</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">max_extensions</span></code> parameter defines how many basis vectors we want to
+obtain. <code class="docutils literal notranslate"><span class="pre">greedy_data</span></code> is a dictionary containing various data that has
+been generated during the run of the algorithm:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">greedy_data</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="highlight-ipythonconsole notranslate"><div class="highlight"><pre><span></span><span class="go">dict_keys([&#39;max_errs&#39;, &#39;max_err_mus&#39;, &#39;extensions&#39;, &#39;time&#39;, &#39;rom&#39;])</span>
+</pre></div>
+</div>
+<p>The most important items is <code class="docutils literal notranslate"><span class="pre">'rom'</span></code> which holds the reduced <a class="reference internal" href="generated/pymor.models.html#pymor.models.interfaces.ModelInterface" title="pymor.models.interfaces.ModelInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">Model</span></code></a>
+obtained from applying our reductor with the final reduced basis.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">rom</span> <span class="o">=</span> <span class="n">greedy_data</span><span class="p">[</span><span class="s1">&#39;rom&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>All vectors in pyMOR are stored in so called <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interfaces.VectorArrayInterface" title="pymor.vectorarrays.interfaces.VectorArrayInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArrays</span></code></a>. For example
+the solution <code class="docutils literal notranslate"><span class="pre">U</span></code> computed above is given as a <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interfaces.VectorArrayInterface" title="pymor.vectorarrays.interfaces.VectorArrayInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a> of length 1.
+For the reduced basis we have:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">RB</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">RB</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">RB</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">RB</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-ipythonconsole notranslate"><div class="highlight"><pre><span></span><span class="go">&lt;class &#39;pymor.vectorarrays.numpy.NumpyVectorArray&#39;&gt;</span>
+<span class="go">32</span>
+<span class="go">5101</span>
+</pre></div>
+</div>
+<p>Let us check if the reduced basis really is orthonormal with respect to
+the H1-product. For this we use the <a class="reference internal" href="generated/pymor.operators.html#pymor.operators.interfaces.OperatorInterface.apply2" title="pymor.operators.interfaces.OperatorInterface.apply2"><code class="xref py py-meth docutils literal notranslate"><span class="pre">apply2</span></code></a>
+method:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="n">gram_matrix</span> <span class="o">=</span> <span class="n">RB</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_product</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">gram_matrix</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">32</span><span class="p">))))</span>
+</pre></div>
+</div>
+<div class="highlight-ipythonconsole notranslate"><div class="highlight"><pre><span></span><span class="go">3.4022697853464123e-14</span>
+</pre></div>
+</div>
+<p>Looks good! We can now solve the reduced model for the same parameter as above.
+The result is a vector of coefficients w.r.t. the reduced basis, which is
+currently stored in <code class="docutils literal notranslate"><span class="pre">rb</span></code>. To form the linear combination, we can use the
+<code class="docutils literal notranslate"><span class="pre">reconstruct</span></code> method of the reductor:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">u</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+<span class="n">U_red</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">U_red</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-ipythonconsole notranslate"><div class="highlight"><pre><span></span><span class="go">[[ 5.60087364e-01 -1.34964470e-01  2.37554576e-01 -1.26583829e-01</span>
+<span class="go">   8.94444859e-02 -2.61717775e-02 -1.70970195e-01 -2.62808437e-02</span>
+<span class="go">   5.89890312e-02  1.15894049e-01  1.90803995e-01  2.24234406e-02</span>
+<span class="go">   1.39972965e-02 -1.30114735e-02  3.77898084e-02  3.12547323e-03</span>
+<span class="go">  -3.01176537e-02 -1.79596612e-03 -4.98765087e-03  6.91649721e-03</span>
+<span class="go">   3.99975873e-03 -5.44374960e-03  6.15523510e-03 -4.68258445e-03</span>
+<span class="go">   3.22682687e-03 -6.54000608e-03 -1.49861652e-02 -1.64285837e-04</span>
+<span class="go">   3.15124558e-03  5.16699747e-03  7.13655075e-04 -5.30204818e-05]]</span>
+<span class="go">5101</span>
+</pre></div>
+</div>
+<p>Finally we compute the reduction error and display the reduced solution along with
+the detailed solution and the error:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ERR</span> <span class="o">=</span> <span class="n">U</span> <span class="o">-</span> <span class="n">U_red</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">ERR</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_product</span><span class="p">))</span>
+<span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">((</span><span class="n">U</span><span class="p">,</span> <span class="n">U_red</span><span class="p">,</span> <span class="n">ERR</span><span class="p">),</span>
+              <span class="n">legend</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;Detailed&#39;</span><span class="p">,</span> <span class="s1">&#39;Reduced&#39;</span><span class="p">,</span> <span class="s1">&#39;Error&#39;</span><span class="p">),</span>
+              <span class="n">separate_colorbars</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-ipythonconsole notranslate"><div class="highlight"><pre><span></span><span class="go">[0.00439057]</span>
+<span class="go">&lt;pymor.gui.jupyter.patch.visualize_patch.&lt;locals&gt;.Plot object at 0x7f570d4f7438&gt;</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//getting_started-15.png">png</a>, <a class="reference external" href=".//getting_started-15.hires.png">hires.png</a>, <a class="reference external" href=".//getting_started-15.pdf">pdf</a>)</p>
+<div class="figure align-default">
+<img alt="_images/getting_started-15.png" src="_images/getting_started-15.png" />
+</div>
+<p>We can nicely observe that, as expected, the error is maximized along the
+jumps of the diffusion coefficient.</p>
+</div>
+<div class="section" id="learning-more">
+<h2>Learning more<a class="headerlink" href="#learning-more" title="Permalink to this headline">¶</a></h2>
+<p>As a next step, you should read our <a class="reference internal" href="technical_overview.html#technical-overview"><span class="std std-ref">Technical Overview</span></a> which discusses the
+most important concepts and design decisions behind pyMOR. After that
+you should be ready to delve into the reference documentation.</p>
+<p>Should you have any problems regarding pyMOR, questions or
+<a class="reference external" href="https://github.com/pymor/pymor/issues">feature requests</a>, do not hesitate
+to contact us at our
+<a class="reference external" href="http://listserv.uni-muenster.de/mailman/listinfo/pymor-dev">mailing list</a>!</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Getting started</a><ul>
+<li><a class="reference internal" href="#trying-it-out">Trying it out</a></li>
+<li><a class="reference internal" href="#the-thermalblock-demo-explained">The thermalblock demo explained</a></li>
+<li><a class="reference internal" href="#learning-more">Learning more</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">pyMOR - Model Order Reduction with python</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="technical_overview.html"
+                        title="next chapter">Technical Overview</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/getting_started.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="technical_overview.html" title="Technical Overview"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="pyMOR - Model Order Reduction with python"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">pyMOR v2019.2.0 Manual</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

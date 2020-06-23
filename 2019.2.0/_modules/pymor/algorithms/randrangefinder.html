@@ -1,0 +1,223 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.randrangefinder &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.randrangefinder</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.sparse.linalg</span> <span class="kn">import</span> <span class="n">eigsh</span><span class="p">,</span> <span class="n">LinearOperator</span>
+<span class="kn">from</span> <span class="nn">scipy.special</span> <span class="kn">import</span> <span class="n">erfinv</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.gram_schmidt</span> <span class="kn">import</span> <span class="n">gram_schmidt</span>
+<span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.interfaces</span> <span class="kn">import</span> <span class="n">OperatorInterface</span>
+
+
+<div class="viewcode-block" id="adaptive_rrf"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.randrangefinder.adaptive_rrf">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;tol&#39;</span><span class="p">,</span> <span class="s1">&#39;failure_tolerance&#39;</span><span class="p">,</span> <span class="s1">&#39;num_testvecs&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">adaptive_rrf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">source_product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">range_product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span>
+                 <span class="n">failure_tolerance</span><span class="o">=</span><span class="mf">1e-15</span><span class="p">,</span> <span class="n">num_testvecs</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">lambda_min</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">iscomplex</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Adaptive randomized range approximation of `A`.</span>
+
+<span class="sd">    This is an implementation of Algorithm 1 in [BS18]_.</span>
+
+<span class="sd">    Given the |Operator| `A`, the return value of this method is the |VectorArray|</span>
+<span class="sd">    `B` with the property</span>
+
+<span class="sd">    .. math::</span>
+<span class="sd">        \Vert A - P_{span(B)} A \Vert \leq tol</span>
+
+<span class="sd">    with a failure probability smaller than `failure_tolerance`, where the norm denotes the</span>
+<span class="sd">    operator norm. The inner product of the range of `A` is given by `range_product` and</span>
+<span class="sd">    the inner product of the source of `A` is given by `source_product`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The |Operator| A.</span>
+<span class="sd">    source_product</span>
+<span class="sd">        Inner product |Operator| of the source of A.</span>
+<span class="sd">    range_product</span>
+<span class="sd">        Inner product |Operator| of the range of A.</span>
+<span class="sd">    tol</span>
+<span class="sd">        Error tolerance for the algorithm.</span>
+<span class="sd">    failure_tolerance</span>
+<span class="sd">        Maximum failure probability.</span>
+<span class="sd">    num_testvecs</span>
+<span class="sd">        Number of test vectors.</span>
+<span class="sd">    lambda_min</span>
+<span class="sd">        The smallest eigenvalue of source_product.</span>
+<span class="sd">        If `None`, the smallest eigenvalue is computed using scipy.</span>
+<span class="sd">    iscomplex</span>
+<span class="sd">        If `True`, the random vectors are chosen complex.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    B</span>
+<span class="sd">        |VectorArray| which contains the basis, whose span approximates the range of A.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="n">source_product</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source_product</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">range_product</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">range_product</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+
+    <span class="n">B</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+
+    <span class="n">R</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">num_testvecs</span><span class="p">,</span> <span class="n">distribution</span><span class="o">=</span><span class="s1">&#39;normal&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">iscomplex</span><span class="p">:</span>
+        <span class="n">R</span> <span class="o">+=</span> <span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">num_testvecs</span><span class="p">,</span> <span class="n">distribution</span><span class="o">=</span><span class="s1">&#39;normal&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">source_product</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">lambda_min</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">elif</span> <span class="n">lambda_min</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">def</span> <span class="nf">mv</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">source_product</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">source_product</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">v</span><span class="p">))</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+        <span class="k">def</span> <span class="nf">mvinv</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">source_product</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">source_product</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">v</span><span class="p">))</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">L</span> <span class="o">=</span> <span class="n">LinearOperator</span><span class="p">((</span><span class="n">source_product</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">source_product</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">matvec</span><span class="o">=</span><span class="n">mv</span><span class="p">)</span>
+        <span class="n">Linv</span> <span class="o">=</span> <span class="n">LinearOperator</span><span class="p">((</span><span class="n">source_product</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">source_product</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">matvec</span><span class="o">=</span><span class="n">mvinv</span><span class="p">)</span>
+        <span class="n">lambda_min</span> <span class="o">=</span> <span class="n">eigsh</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">which</span><span class="o">=</span><span class="s2">&quot;LM&quot;</span><span class="p">,</span> <span class="n">return_eigenvectors</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">OPinv</span><span class="o">=</span><span class="n">Linv</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">testfail</span> <span class="o">=</span> <span class="n">failure_tolerance</span> <span class="o">/</span> <span class="nb">min</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+    <span class="n">testlimit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">lambda_min</span><span class="p">)</span> <span class="o">*</span> <span class="n">erfinv</span><span class="p">(</span><span class="n">testfail</span><span class="o">**</span><span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">num_testvecs</span><span class="p">))</span> <span class="o">*</span> <span class="n">tol</span>
+    <span class="n">maxnorm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>
+
+    <span class="k">while</span><span class="p">(</span><span class="n">maxnorm</span> <span class="o">&gt;</span> <span class="n">testlimit</span><span class="p">):</span>
+        <span class="n">basis_length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">distribution</span><span class="o">=</span><span class="s1">&#39;normal&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">iscomplex</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">+=</span> <span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">distribution</span><span class="o">=</span><span class="s1">&#39;normal&#39;</span><span class="p">)</span>
+        <span class="n">B</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
+        <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">range_product</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">basis_length</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">M</span> <span class="o">-=</span> <span class="n">B</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">range_product</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">maxnorm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">M</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">range_product</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">B</span></div>
+
+
+<div class="viewcode-block" id="rrf"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.randrangefinder.rrf">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;q&#39;</span><span class="p">,</span> <span class="s1">&#39;l&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">rrf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">source_product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">range_product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">l</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">iscomplex</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Randomized range approximation of `A`.</span>
+
+<span class="sd">    This is an implementation of Algorithm 4.4 in [HMT11]_.</span>
+
+<span class="sd">    Given the |Operator| `A`, the return value of this method is the |VectorArray|</span>
+<span class="sd">    `Q` whose vectors form an approximate orthonomal basis for the range of `A`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The |Operator| A.</span>
+<span class="sd">    source_product</span>
+<span class="sd">        Inner product |Operator| of the source of A.</span>
+<span class="sd">    range_product</span>
+<span class="sd">        Inner product |Operator| of the range of A.</span>
+<span class="sd">    q</span>
+<span class="sd">        The number of power iterations.</span>
+<span class="sd">    l</span>
+<span class="sd">        The block size of the normalized power iterations.</span>
+<span class="sd">    iscomplex</span>
+<span class="sd">        If `True`, the random vectors are chosen complex.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Q</span>
+<span class="sd">        |VectorArray| which contains the basis, whose span approximates the range of A.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="n">source_product</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source_product</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">range_product</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">range_product</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+
+    <span class="n">R</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="n">distribution</span><span class="o">=</span><span class="s1">&#39;normal&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">iscomplex</span><span class="p">:</span>
+        <span class="n">R</span> <span class="o">+=</span> <span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="n">distribution</span><span class="o">=</span><span class="s1">&#39;normal&#39;</span><span class="p">)</span>
+    <span class="n">Q</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>
+    <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">range_product</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span>
+        <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">source_product</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span>
+        <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">range_product</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">Q</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,355 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymordemos.burgers_ei &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymordemos.burgers_ei</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;Burgers with EI demo.</span>
+
+<span class="sd">Model order reduction of a two-dimensional Burgers-type equation</span>
+<span class="sd">(see pymor.analyticalproblems.burgers) using the reduced basis method</span>
+<span class="sd">with empirical operator interpolation.</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">  burgers_ei.py [options] EXP_MIN EXP_MAX EI_SNAPSHOTS EISIZE SNAPSHOTS RBSIZE</span>
+
+<span class="sd">Arguments:</span>
+<span class="sd">  EXP_MIN       Minimal exponent</span>
+<span class="sd">  EXP_MAX       Maximal exponent</span>
+<span class="sd">  EI_SNAPSHOTS  Number of snapshots for empirical interpolation.</span>
+<span class="sd">  EISIZE        Number of interpolation DOFs.</span>
+<span class="sd">  SNAPSHOTS     Number of snapshots for basis generation.</span>
+<span class="sd">  RBSIZE        Size of the reduced basis</span>
+
+
+<span class="sd">Options:</span>
+<span class="sd">  --cache-region=REGION           Name of cache region to use for caching solution snapshots</span>
+<span class="sd">                                  (NONE, MEMORY, DISK, PERSISTENT)</span>
+<span class="sd">                                  [default: DISK]</span>
+<span class="sd">  --ei-alg=ALG                    Interpolation algorithm to use (EI_GREEDY, DEIM)</span>
+<span class="sd">                                  [default: EI_GREEDY].</span>
+<span class="sd">  --grid=NI                       Use grid with (2*NI)*NI elements [default: 60].</span>
+<span class="sd">  --grid-type=TYPE                Type of grid to use (rect, tria) [default: rect].</span>
+<span class="sd">  --initial-data=TYPE             Select the initial data (sin, bump) [default: sin]</span>
+<span class="sd">  --lxf-lambda=VALUE              Parameter lambda in Lax-Friedrichs flux [default: 1].</span>
+<span class="sd">  --not-periodic                  Solve with dirichlet boundary conditions on left</span>
+<span class="sd">                                  and bottom boundary.</span>
+<span class="sd">  --nt=COUNT                      Number of time steps [default: 100].</span>
+<span class="sd">  --num-flux=FLUX                 Numerical flux to use (lax_friedrichs, engquist_osher)</span>
+<span class="sd">                                  [default: engquist_osher].</span>
+<span class="sd">  -h, --help                      Show this message.</span>
+<span class="sd">  -p, --plot-err                  Plot error.</span>
+<span class="sd">  --plot-ei-err                   Plot empirical interpolation error.</span>
+<span class="sd">  --plot-error-landscape          Calculate and show plot of reduction error vs. basis sizes.</span>
+<span class="sd">  --plot-error-landscape-N=COUNT  Number of basis sizes to test [default: 10]</span>
+<span class="sd">  --plot-error-landscape-M=COUNT  Number of collateral basis sizes to test [default: 10]</span>
+<span class="sd">  --plot-solutions                Plot some example solutions.</span>
+<span class="sd">  --test=COUNT                    Use COUNT snapshots for stochastic error estimation</span>
+<span class="sd">                                  [default: 10].</span>
+<span class="sd">  --vx=XSPEED                     Speed in x-direction [default: 1].</span>
+<span class="sd">  --vy=YSPEED                     Speed in y-direction [default: 1].</span>
+<span class="sd">  --ipython-engines=COUNT         If positive, the number of IPython cluster engines to use</span>
+<span class="sd">                                  for parallel greedy search. If zero, no parallelization</span>
+<span class="sd">                                  is performed. [default: 0]</span>
+<span class="sd">  --ipython-profile=PROFILE       IPython profile to use for parallelization.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">docopt</span> <span class="kn">import</span> <span class="n">docopt</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.greedy</span> <span class="kn">import</span> <span class="n">rb_greedy</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.ei</span> <span class="kn">import</span> <span class="n">interpolate_operators</span>
+<span class="kn">from</span> <span class="nn">pymor.analyticalproblems.burgers</span> <span class="kn">import</span> <span class="n">burgers_problem_2d</span>
+<span class="kn">from</span> <span class="nn">pymor.discretizers.fv</span> <span class="kn">import</span> <span class="n">discretize_instationary_fv</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.rect</span> <span class="kn">import</span> <span class="n">RectGrid</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.tria</span> <span class="kn">import</span> <span class="n">TriaGrid</span>
+<span class="kn">from</span> <span class="nn">pymor.parallel.default</span> <span class="kn">import</span> <span class="n">new_parallel_pool</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.basic</span> <span class="kn">import</span> <span class="n">InstationaryRBReductor</span>
+
+
+<div class="viewcode-block" id="main"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.burgers_ei.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">docopt</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--cache-region&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--cache-region&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ei-alg&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ei-alg&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ei-alg&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;ei_greedy&#39;</span><span class="p">,</span> <span class="s1">&#39;deim&#39;</span><span class="p">)</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid-type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid-type&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid-type&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;rect&#39;</span><span class="p">,</span> <span class="s1">&#39;tria&#39;</span><span class="p">)</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--initial-data&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--initial-data&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--initial-data&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="s1">&#39;bump&#39;</span><span class="p">)</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--lxf-lambda&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--lxf-lambda&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--nt&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--nt&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--not-periodic&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--not-periodic&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--num-flux&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--num-flux&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--num-flux&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;lax_friedrichs&#39;</span><span class="p">,</span> <span class="s1">&#39;engquist_osher&#39;</span><span class="p">)</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-error-landscape-N&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-error-landscape-N&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-error-landscape-M&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-error-landscape-M&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--test&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--test&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--vx&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--vx&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--vy&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--vy&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ipython-engines&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ipython-engines&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;EXP_MIN&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;EXP_MIN&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;EXP_MAX&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;EXP_MAX&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;EI_SNAPSHOTS&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;EI_SNAPSHOTS&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;EISIZE&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;EISIZE&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;SNAPSHOTS&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;SNAPSHOTS&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;RBSIZE&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;RBSIZE&#39;</span><span class="p">])</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Setup Problem ...&#39;</span><span class="p">)</span>
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">burgers_problem_2d</span><span class="p">(</span><span class="n">vx</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--vx&#39;</span><span class="p">],</span> <span class="n">vy</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--vy&#39;</span><span class="p">],</span> <span class="n">initial_data_type</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--initial-data&#39;</span><span class="p">],</span>
+                                 <span class="n">parameter_range</span><span class="o">=</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;EXP_MIN&#39;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;EXP_MAX&#39;</span><span class="p">]),</span> <span class="n">torus</span><span class="o">=</span><span class="ow">not</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--not-periodic&#39;</span><span class="p">])</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Discretize ...&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid-type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;rect&#39;</span><span class="p">:</span>
+        <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">]</span> <span class="o">*=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">fom</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">discretize_instationary_fv</span><span class="p">(</span>
+        <span class="n">problem</span><span class="p">,</span>
+        <span class="n">diameter</span><span class="o">=</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">],</span>
+        <span class="n">grid_type</span><span class="o">=</span><span class="n">RectGrid</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid-type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;rect&#39;</span> <span class="k">else</span> <span class="n">TriaGrid</span><span class="p">,</span>
+        <span class="n">num_flux</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--num-flux&#39;</span><span class="p">],</span>
+        <span class="n">lxf_lambda</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--lxf-lambda&#39;</span><span class="p">],</span>
+        <span class="n">nt</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--nt&#39;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--cache-region&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;none&#39;</span><span class="p">:</span>
+        <span class="n">fom</span><span class="o">.</span><span class="n">enable_caching</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--cache-region&#39;</span><span class="p">])</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">grid</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;The parameter type is </span><span class="si">{fom.parameter_type}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-solutions&#39;</span><span class="p">]:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Showing some solutions&#39;</span><span class="p">)</span>
+        <span class="n">Us</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="n">legend</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_uniformly</span><span class="p">(</span><span class="mi">4</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Solving for exponent = </span><span class="si">{mu[&#39;exponent&#39;]}</span><span class="s2"> ... &quot;</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+            <span class="n">Us</span> <span class="o">=</span> <span class="n">Us</span> <span class="o">+</span> <span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">),)</span>
+            <span class="n">legend</span> <span class="o">=</span> <span class="n">legend</span> <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;exponent: </span><span class="si">{mu[&#39;exponent&#39;]}</span><span class="s2">&quot;</span><span class="p">,)</span>
+        <span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">Us</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="n">legend</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Detailed Solutions&#39;</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">pool</span> <span class="o">=</span> <span class="n">new_parallel_pool</span><span class="p">(</span><span class="n">ipython_num_engines</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ipython-engines&#39;</span><span class="p">],</span> <span class="n">ipython_profile</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ipython-profile&#39;</span><span class="p">])</span>
+    <span class="n">eim</span><span class="p">,</span> <span class="n">ei_data</span> <span class="o">=</span> <span class="n">interpolate_operators</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;operator&#39;</span><span class="p">],</span>
+                                         <span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_uniformly</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;EI_SNAPSHOTS&#39;</span><span class="p">]),</span>  <span class="c1"># NOQA</span>
+                                         <span class="n">error_norm</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">l2_product</span><span class="p">,</span>
+                                         <span class="n">max_interpolation_dofs</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;EISIZE&#39;</span><span class="p">],</span>
+                                         <span class="n">alg</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--ei-alg&#39;</span><span class="p">],</span>
+                                         <span class="n">pool</span><span class="o">=</span><span class="n">pool</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-ei-err&#39;</span><span class="p">]:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Showing some EI errors&#39;</span><span class="p">)</span>
+        <span class="n">ERRs</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="n">legend</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Solving for exponent = </span><span class="se">\n</span><span class="si">{mu[&#39;exponent&#39;]}</span><span class="s2"> ... &quot;</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+            <span class="n">U_EI</span> <span class="o">=</span> <span class="n">eim</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+            <span class="n">ERR</span> <span class="o">=</span> <span class="n">U</span> <span class="o">-</span> <span class="n">U_EI</span>
+            <span class="n">ERRs</span> <span class="o">=</span> <span class="n">ERRs</span> <span class="o">+</span> <span class="p">(</span><span class="n">ERR</span><span class="p">,)</span>
+            <span class="n">legend</span> <span class="o">=</span> <span class="n">legend</span> <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;exponent: </span><span class="si">{mu[&#39;exponent&#39;]}</span><span class="s2">&quot;</span><span class="p">,)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Error: {np.max(fom.l2_norm(ERR))}&#39;</span><span class="p">)</span>
+        <span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">ERRs</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="n">legend</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;EI Errors&#39;</span><span class="p">,</span> <span class="n">separate_colorbars</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Showing interpolation DOFs ...&#39;</span><span class="p">)</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+        <span class="n">dofs</span> <span class="o">=</span> <span class="n">eim</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">interpolation_dofs</span>
+        <span class="n">U</span><span class="p">[</span><span class="n">dofs</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">dofs</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">U</span><span class="p">[</span><span class="n">eim</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">source_dofs</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dofs</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">U</span><span class="p">),</span>
+                      <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Interpolation DOFs&#39;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;RB generation ...&#39;</span><span class="p">)</span>
+
+    <span class="n">reductor</span> <span class="o">=</span> <span class="n">InstationaryRBReductor</span><span class="p">(</span><span class="n">eim</span><span class="p">)</span>
+
+    <span class="n">greedy_data</span> <span class="o">=</span> <span class="n">rb_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_uniformly</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;SNAPSHOTS&#39;</span><span class="p">]),</span>
+                            <span class="n">use_estimator</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">error_norm</span><span class="o">=</span><span class="k">lambda</span> <span class="n">U</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">(</span><span class="n">U</span><span class="p">)),</span>
+                            <span class="n">extension_params</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;pod&#39;</span><span class="p">},</span> <span class="n">max_extensions</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;RBSIZE&#39;</span><span class="p">],</span>
+                            <span class="n">pool</span><span class="o">=</span><span class="n">pool</span><span class="p">)</span>
+
+    <span class="n">rom</span> <span class="o">=</span> <span class="n">greedy_data</span><span class="p">[</span><span class="s1">&#39;rom&#39;</span><span class="p">]</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">Searching for maximum error on random snapshots ...&#39;</span><span class="p">)</span>
+
+    <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="n">mus</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--test&#39;</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">error_analysis</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">M</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;N = </span><span class="si">{N}</span><span class="s1">, M = </span><span class="si">{M}</span><span class="s1">: &#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">operator</span><span class="o">=</span><span class="n">rom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">with_cb_dim</span><span class="p">(</span><span class="n">M</span><span class="p">))</span>
+        <span class="n">l2_err_max</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">mumax</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mus</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+            <span class="n">u</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+            <span class="n">URB</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+            <span class="n">l2_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">(</span><span class="n">U</span> <span class="o">-</span> <span class="n">URB</span><span class="p">))</span>
+            <span class="n">l2_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">l2_err</span><span class="p">)</span> <span class="k">else</span> <span class="n">l2_err</span>
+            <span class="k">if</span> <span class="n">l2_err</span> <span class="o">&gt;</span> <span class="n">l2_err_max</span><span class="p">:</span>
+                <span class="n">l2_err_max</span> <span class="o">=</span> <span class="n">l2_err</span>
+                <span class="n">mumax</span> <span class="o">=</span> <span class="n">mu</span>
+        <span class="nb">print</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">l2_err_max</span><span class="p">,</span> <span class="n">mumax</span>
+    <span class="n">error_analysis</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frompyfunc</span><span class="p">(</span><span class="n">error_analysis</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+    <span class="n">real_rb_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">reductor</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">])</span>
+    <span class="n">real_cb_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ei_data</span><span class="p">[</span><span class="s1">&#39;basis&#39;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-error-landscape&#39;</span><span class="p">]:</span>
+        <span class="n">N_count</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">real_rb_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-error-landscape-N&#39;</span><span class="p">])</span>
+        <span class="n">M_count</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">real_cb_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-error-landscape-M&#39;</span><span class="p">])</span>
+        <span class="n">Ns</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">real_rb_size</span><span class="p">,</span> <span class="n">N_count</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+        <span class="n">Ms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">real_cb_size</span><span class="p">,</span> <span class="n">M_count</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">Ns</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">real_rb_size</span><span class="p">])</span>
+        <span class="n">Ms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">real_cb_size</span><span class="p">])</span>
+
+    <span class="n">N_grid</span><span class="p">,</span> <span class="n">M_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">Ns</span><span class="p">,</span> <span class="n">Ms</span><span class="p">)</span>
+
+    <span class="n">errs</span><span class="p">,</span> <span class="n">err_mus</span> <span class="o">=</span> <span class="n">error_analysis</span><span class="p">(</span><span class="n">N_grid</span><span class="p">,</span> <span class="n">M_grid</span><span class="p">)</span>
+    <span class="n">errs</span> <span class="o">=</span> <span class="n">errs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">)</span>
+
+    <span class="n">l2_err_max</span> <span class="o">=</span> <span class="n">errs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">mumax</span> <span class="o">=</span> <span class="n">err_mus</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">toc</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">t_est</span> <span class="o">=</span> <span class="n">toc</span> <span class="o">-</span> <span class="n">tic</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">    *** RESULTS ***</span>
+
+<span class="s1">    Problem:</span>
+<span class="s1">       parameter range:                    (</span><span class="si">{args[EXP_MIN]}</span><span class="s1">, </span><span class="si">{args[EXP_MAX]}</span><span class="s1">)</span>
+<span class="s1">       h:                                  sqrt(2)/</span><span class="si">{args[--grid]}</span><span class="s1"></span>
+<span class="s1">       grid-type:                          </span><span class="si">{args[--grid-type]}</span><span class="s1"></span>
+<span class="s1">       initial-data:                       </span><span class="si">{args[--initial-data]}</span><span class="s1"></span>
+<span class="s1">       lxf-lambda:                         </span><span class="si">{args[--lxf-lambda]}</span><span class="s1"></span>
+<span class="s1">       nt:                                 </span><span class="si">{args[--nt]}</span><span class="s1"></span>
+<span class="s1">       not-periodic:                       </span><span class="si">{args[--not-periodic]}</span><span class="s1"></span>
+<span class="s1">       num-flux:                           </span><span class="si">{args[--num-flux]}</span><span class="s1"></span>
+<span class="s1">       (vx, vy):                           (</span><span class="si">{args[--vx]}</span><span class="s1">, </span><span class="si">{args[--vy]}</span><span class="s1">)</span>
+
+<span class="s1">    Greedy basis generation:</span>
+<span class="s1">       number of ei-snapshots:             </span><span class="si">{args[EI_SNAPSHOTS]}</span><span class="s1"></span>
+<span class="s1">       prescribed collateral basis size:   </span><span class="si">{args[EISIZE]}</span><span class="s1"></span>
+<span class="s1">       actual collateral basis size:       </span><span class="si">{real_cb_size}</span><span class="s1"></span>
+<span class="s1">       number of snapshots:                </span><span class="si">{args[SNAPSHOTS]}</span><span class="s1"></span>
+<span class="s1">       prescribed basis size:              </span><span class="si">{args[RBSIZE]}</span><span class="s1"></span>
+<span class="s1">       actual basis size:                  </span><span class="si">{real_rb_size}</span><span class="s1"></span>
+<span class="s1">       elapsed time:                       </span><span class="si">{greedy_data[time]}</span><span class="s1"></span>
+
+<span class="s1">    Stochastic error estimation:</span>
+<span class="s1">       number of samples:                  </span><span class="si">{args[--test]}</span><span class="s1"></span>
+<span class="s1">       maximal L2-error:                   </span><span class="si">{l2_err_max}</span><span class="s1">  (mu = </span><span class="si">{mumax}</span><span class="s1">)</span>
+<span class="s1">       elapsed time:                       </span><span class="si">{t_est}</span><span class="s1"></span>
+<span class="s1">    &#39;&#39;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="nb">locals</span><span class="p">()))</span>
+
+    <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-error-landscape&#39;</span><span class="p">]:</span>
+        <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+        <span class="kn">import</span> <span class="nn">mpl_toolkits.mplot3d</span>             <span class="c1"># NOQA</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="c1"># we have to rescale the errors since matplotlib does not support logarithmic scales on 3d plots</span>
+        <span class="c1"># https://github.com/matplotlib/matplotlib/issues/209</span>
+        <span class="n">surf</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">plot_surface</span><span class="p">(</span><span class="n">M_grid</span><span class="p">,</span> <span class="n">N_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">errs</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span>
+                               <span class="n">rstride</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cstride</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;jet&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--plot-err&#39;</span><span class="p">]:</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mumax</span><span class="p">)</span>
+        <span class="n">URB</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mumax</span><span class="p">))</span>
+        <span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">((</span><span class="n">U</span><span class="p">,</span> <span class="n">URB</span><span class="p">,</span> <span class="n">U</span> <span class="o">-</span> <span class="n">URB</span><span class="p">),</span> <span class="n">legend</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;Detailed Solution&#39;</span><span class="p">,</span> <span class="s1">&#39;Reduced Solution&#39;</span><span class="p">,</span> <span class="s1">&#39;Error&#39;</span><span class="p">),</span>
+                      <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Maximum Error Solution&#39;</span><span class="p">,</span> <span class="n">separate_colorbars</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">ei_data</span><span class="p">,</span> <span class="n">greedy_data</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

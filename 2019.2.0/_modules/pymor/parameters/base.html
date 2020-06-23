@@ -1,0 +1,526 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.parameters.base &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.parameters.base</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;This module contains the implementation of pyMOR&#39;s parameter handling facilities.</span>
+
+<span class="sd">A |Parameter| in pyMOR is basically a `dict` of |NumPy Arrays|. Each item of the</span>
+<span class="sd">dict is called a parameter component. The |ParameterType| of a |Parameter| is the dict</span>
+<span class="sd">of the shapes of the parameter components, i.e. ::</span>
+
+<span class="sd">    mu.parameter_type[&#39;component&#39;] == mu[&#39;component&#39;].shape</span>
+
+<span class="sd">Classes which represent mathematical objects depending on parameters, e.g. |Functions|,</span>
+<span class="sd">|Operators|, |Models| derive from the |Parametric| mixin. Each |Parametric|</span>
+<span class="sd">object has a :attr:`~Parametric.parameter_type` attribute holding the |ParameterType|</span>
+<span class="sd">of the |Parameters| the object&#39;s `evaluate`, `apply`, `solve`, etc. methods expect.</span>
+<span class="sd">Note that the |ParameterType| of the given |Parameter| is allowed to be a</span>
+<span class="sd">superset of the object&#39;s |ParameterType|.</span>
+
+<span class="sd">The |ParameterType| of a |Parametric| object is determined in its :meth:`__init__`</span>
+<span class="sd">method by calling :meth:`~Parametric.build_parameter_type` which computes the</span>
+<span class="sd">|ParameterType| as the union of the |ParameterTypes| of the objects given to the</span>
+<span class="sd">method. This way, e.g., an |Operator| can inherit the |ParameterTypes| of the</span>
+<span class="sd">data functions it depends upon.</span>
+
+<span class="sd">A |Parametric| object can have a |ParameterSpace| assigned to it by setting the</span>
+<span class="sd">:attr:`~Parametric.parameter_space` attribute (the |ParameterType| of the space</span>
+<span class="sd">has to agree with the |ParameterType| of the object). The</span>
+<span class="sd">:meth:`~Parametric.parse_parameter` method parses a user input according to</span>
+<span class="sd">the object&#39;s |ParameterType| to make it a |Parameter| (e.g. if the |ParameterType|</span>
+<span class="sd">consists of a single one-dimensional component, the user can simply supply a list</span>
+<span class="sd">of numbers of the right length). Moreover, when given a |Parameter|,</span>
+<span class="sd">:meth:`~Parametric.parse_parameter` ensures the |Parameter| has an appropriate</span>
+<span class="sd">|ParameterType|.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">generate_sid</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.floatcmp</span> <span class="kn">import</span> <span class="n">float_cmp_all</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.pprint</span> <span class="kn">import</span> <span class="n">format_array</span>
+
+
+<div class="viewcode-block" id="ParameterType"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.ParameterType">[docs]</a><span class="k">class</span> <span class="nc">ParameterType</span><span class="p">(</span><span class="n">OrderedDict</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Class representing a parameter type.</span>
+
+<span class="sd">    A parameter type is simply a dictionary with strings as keys and tuples of</span>
+<span class="sd">    natural numbers as values. The keys are the names of the parameter components</span>
+<span class="sd">    and the tuples their expected shape (compare :class:`Parameter`).</span>
+
+<span class="sd">    Apart from checking the correct format of its values, the only difference</span>
+<span class="sd">    between a |ParameterType| and an ordinary `dict` is, that |ParameterType|</span>
+<span class="sd">    orders its keys alphabetically.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    t</span>
+<span class="sd">        If `t` is an object with a `parameter_type` attribute, a copy of this</span>
+<span class="sd">        |ParameterType| is created. Otherwise, `t` can be anything from which</span>
+<span class="sd">        a `dict` can be constructed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">ParameterType</span><span class="p">):</span>
+            <span class="k">pass</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="s1">&#39;parameter_type&#39;</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">,</span> <span class="n">ParameterType</span><span class="p">)</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">parameter_type</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">t</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">Number</span><span class="p">)</span>
+                    <span class="n">t</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span> <span class="k">if</span> <span class="n">v</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="n">v</span><span class="p">,)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clear</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__setitem__</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__delitem__</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">popitem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">update</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_immutable</span>
+
+    <span class="k">def</span> <span class="nf">_is_immutable</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;ParameterTypes cannot be modified&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ParameterType.copy"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.ParameterType.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ParameterType</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ParameterType.fromkeys"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.ParameterType.fromkeys">[docs]</a>    <span class="k">def</span> <span class="nf">fromkeys</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">v</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="ParameterType.__str__"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.ParameterType.__str__">[docs]</a>    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="ParameterType.__repr__"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.ParameterType.__repr__">[docs]</a>    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s1">&#39;ParameterType(&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;)&#39;</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">sid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">sid</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;__sid&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sid</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sid</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__sid</span> <span class="o">=</span> <span class="n">sid</span> <span class="o">=</span> <span class="n">generate_sid</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">sid</span>
+
+<div class="viewcode-block" id="ParameterType.__reduce__"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.ParameterType.__reduce__">[docs]</a>    <span class="k">def</span> <span class="nf">__reduce__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">ParameterType</span><span class="p">,</span> <span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="p">),))</span></div>
+
+<div class="viewcode-block" id="ParameterType.__hash__"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.ParameterType.__hash__">[docs]</a>    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sid</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Parameter"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter">[docs]</a><span class="k">class</span> <span class="nc">Parameter</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Class representing a parameter.</span>
+
+<span class="sd">    A |Parameter| is simply a `dict` where each key is a string and each value</span>
+<span class="sd">    is a |NumPy array|. We call an item of the dictionary a *parameter component*.</span>
+
+<span class="sd">    A |Parameter| differs from an ordinary `dict` in the following ways:</span>
+
+<span class="sd">        - It is ensured that each value is a |NumPy array|.</span>
+<span class="sd">        - We overwrite :meth:`copy` to ensure that not only the `dict`</span>
+<span class="sd">          but also the |NumPy arrays| are copied.</span>
+<span class="sd">        - The :meth:`allclose` method allows to compare |Parameters| for</span>
+<span class="sd">          equality in a mathematically meaningful way.</span>
+<span class="sd">        - Each |Parameter| has a :attr:`~Parameter.sid` property providing a</span>
+<span class="sd">          unique |state id|.</span>
+<span class="sd">        - We override :meth:`__str__` to ensure alphanumerical ordering of the keys</span>
+<span class="sd">          and pretty printing of the values.</span>
+<span class="sd">        - The :attr:`parameter_type` property can be used to obtain the |ParameterType|</span>
+<span class="sd">          of the parameter.</span>
+<span class="sd">        - Use :meth:`from_parameter_type` to construct a |Parameter| from a |ParameterType|</span>
+<span class="sd">          and user supplied input.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    v</span>
+<span class="sd">        Anything that :class:`dict` accepts for the construction of a dictionary.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    parameter_type</span>
+<span class="sd">        The |ParameterType| of the |Parameter|.</span>
+<span class="sd">    sid</span>
+<span class="sd">        The |state id| of the |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">items</span><span class="p">())</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="s1">&#39;items&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span>
+        <span class="nb">dict</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">i</span><span class="p">})</span>
+
+<div class="viewcode-block" id="Parameter.from_parameter_type"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter.from_parameter_type">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_parameter_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">parameter_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Takes a user input `mu` and interprets it as a |Parameter| according to the given</span>
+<span class="sd">        |ParameterType|.</span>
+
+<span class="sd">        Depending on the |ParameterType|, `mu` can be given as a |Parameter|, dict, tuple,</span>
+<span class="sd">        list, array or scalar.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mu</span>
+<span class="sd">            The user input which shall be interpreted as a |Parameter|.</span>
+<span class="sd">        parameter_type</span>
+<span class="sd">            The |ParameterType| w.r.t. which `mu` is to be interpreted.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        The resulting |Parameter|.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            Is raised if `mu` cannot be interpreted as a |Parameter| of |ParameterType|</span>
+<span class="sd">            `parameter_type`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">parameter_type</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">mu</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">mu</span> <span class="o">==</span> <span class="p">{}</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="n">mu</span><span class="o">.</span><span class="n">parameter_type</span> <span class="o">==</span> <span class="n">parameter_type</span>
+            <span class="k">return</span> <span class="n">mu</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parameter_type</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">mu</span> <span class="o">=</span> <span class="p">(</span><span class="n">mu</span><span class="p">,)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">mu</span> <span class="o">=</span> <span class="p">(</span><span class="n">mu</span><span class="p">,)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">parameter_type</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Parameter length does not match.&#39;</span><span class="p">)</span>
+            <span class="n">mu</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">parameter_type</span><span class="p">),</span> <span class="n">mu</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="nb">set</span><span class="p">(</span><span class="n">mu</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">parameter_type</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Provided parameter with keys {list(mu.keys())} does not match &#39;</span>
+                             <span class="sa">f</span><span class="s1">&#39;parameter type </span><span class="si">{parameter_type}</span><span class="s1">.&#39;</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">parse_value</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">parameter_type</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Shape mismatch for parameter component </span><span class="si">{k}</span><span class="s1">: got </span><span class="si">{v.shape}</span><span class="s1">, &#39;</span>
+                                     <span class="sa">f</span><span class="s1">&#39;expected </span><span class="si">{parameter_type[k]}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">parameter_type</span><span class="p">[</span><span class="n">k</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Shape mismatch for parameter component </span><span class="si">{k}</span><span class="s1">: got </span><span class="si">{v.shape}</span><span class="s1">, &#39;</span>
+                                 <span class="sa">f</span><span class="s1">&#39;expected </span><span class="si">{parameter_type[k]}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">v</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">parse_value</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">mu</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span></div>
+
+<div class="viewcode-block" id="Parameter.allclose"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter.allclose">[docs]</a>    <span class="k">def</span> <span class="nf">allclose</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compare two |Parameters| using :meth:`~pymor.tools.floatcmp.float_cmp_all`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mu</span>
+<span class="sd">            The |Parameter| with which to compare.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        `True` if both |Parameters| have the same |ParameterType| and all parameter</span>
+<span class="sd">        components are almost equal, else `False`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">!=</span> <span class="nb">list</span><span class="p">(</span><span class="n">mu</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">float_cmp_all</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="Parameter.clear"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter.clear">[docs]</a>    <span class="k">def</span> <span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">dict</span><span class="o">.</span><span class="n">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__sid</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Parameter.copy"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+        <span class="k">return</span> <span class="n">c</span></div>
+
+<div class="viewcode-block" id="Parameter.__setitem__"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter.__setitem__">[docs]</a>    <span class="k">def</span> <span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="nb">dict</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__sid</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Parameter.__delitem__"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter.__delitem__">[docs]</a>    <span class="k">def</span> <span class="fm">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="nb">dict</span><span class="o">.</span><span class="fm">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__sid</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Parameter.__eq__"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter.__eq__">[docs]</a>    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">):</span>
+            <span class="n">mu</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">!=</span> <span class="nb">list</span><span class="p">(</span><span class="n">mu</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="Parameter.fromkeys"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter.fromkeys">[docs]</a>    <span class="k">def</span> <span class="nf">fromkeys</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">v</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="Parameter.pop"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter.pop">[docs]</a>    <span class="k">def</span> <span class="nf">pop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="Parameter.popitem"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter.popitem">[docs]</a>    <span class="k">def</span> <span class="nf">popitem</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="Parameter.update"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameter_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ParameterType</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">sid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">sid</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;__sid&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sid</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sid</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__sid</span> <span class="o">=</span> <span class="n">sid</span> <span class="o">=</span> <span class="n">generate_sid</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">sid</span>
+
+<div class="viewcode-block" id="Parameter.__str__"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parameter.__str__">[docs]</a>    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">set_string_function</span><span class="p">(</span><span class="n">format_array</span><span class="p">,</span> <span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s1">&#39;{&#39;</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">s</span> <span class="o">==</span> <span class="s1">&#39;{&#39;</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{k}</span><span class="s1">: </span><span class="si">{v}</span><span class="s1">&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;, </span><span class="si">{k}</span><span class="s1">: </span><span class="si">{v}</span><span class="s1">&#39;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39;}&#39;</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">set_string_function</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span></div>
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Parametric"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parametric">[docs]</a><span class="k">class</span> <span class="nc">Parametric</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Mixin class for objects representing mathematical entities depending on a |Parameter|.</span>
+
+<span class="sd">    Each such object has a |ParameterType| stored in the :attr:`parameter_type` attribute,</span>
+<span class="sd">    which should be set by the implementor during :meth:`__init__` using the</span>
+<span class="sd">    :meth:`build_parameter_type` method. Methods expecting the |Parameter| (typically</span>
+<span class="sd">    `evaluate`, `apply`, `solve`, etc. ..) should accept an optional argument `mu` defaulting</span>
+<span class="sd">    to `None`. This argument `mu` should then be fed into :meth:`parse_parameter` to obtain a</span>
+<span class="sd">    |Parameter| of correct |ParameterType| from the (user supplied) input `mu`.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    parameter_type</span>
+<span class="sd">        The |ParameterType| of the |Parameters| the object expects.</span>
+<span class="sd">    parameter_space</span>
+<span class="sd">        |ParameterSpace| the parameters are expected to lie in or `None`.</span>
+<span class="sd">    parametric:</span>
+<span class="sd">        `True` if the object really depends on a parameter, i.e. :attr:`parameter_type`</span>
+<span class="sd">        is not empty.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">parameter_type</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameter_space</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_space</span>
+
+    <span class="nd">@parameter_space</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">parameter_space</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ps</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">ps</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span> <span class="o">==</span> <span class="n">ps</span><span class="o">.</span><span class="n">parameter_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_space</span> <span class="o">=</span> <span class="n">ps</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parametric</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Parametric.parse_parameter"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parametric.parse_parameter">[docs]</a>    <span class="k">def</span> <span class="nf">parse_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Interpret a user supplied parameter `mu` as a |Parameter|.</span>
+
+<span class="sd">        If `mu` is not already a |Parameter|, :meth:`Parameter.from_parameter_type`</span>
+<span class="sd">        is used, to make `mu` a parameter of the correct |ParameterType|. If `mu`</span>
+<span class="sd">        is already a |Parameter|, it is checked if its |ParameterType| matches our own.</span>
+<span class="sd">        (It is actually allowed that the |ParameterType| of `mu` is a superset of</span>
+<span class="sd">        our own |ParameterType| in the obvious sense.)</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mu</span>
+<span class="sd">            The input to parse as a |Parameter|.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">mu</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">,</span> \
+                <span class="sa">f</span><span class="s1">&#39;Given parameter is None but expected parameter of type </span><span class="si">{self.parameter_type}</span><span class="s1">&#39;</span>
+            <span class="k">return</span> <span class="n">Parameter</span><span class="p">({})</span>
+        <span class="k">if</span> <span class="n">mu</span><span class="o">.</span><span class="vm">__class__</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Parameter</span><span class="p">:</span>
+            <span class="n">mu</span> <span class="o">=</span> <span class="n">Parameter</span><span class="o">.</span><span class="n">from_parameter_type</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span> <span class="ow">or</span> <span class="nb">all</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">mu</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="s1">&#39;shape&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">==</span> <span class="n">v</span>
+                                              <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="o">.</span><span class="n">items</span><span class="p">()),</span> \
+            <span class="sa">f</span><span class="s1">&#39;Given parameter of type </span><span class="si">{mu.parameter_type}</span><span class="s1"> does not match expected parameter type </span><span class="si">{self.parameter_type}</span><span class="s1">&#39;</span>
+        <span class="k">return</span> <span class="n">mu</span></div>
+
+<div class="viewcode-block" id="Parametric.strip_parameter"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parametric.strip_parameter">[docs]</a>    <span class="k">def</span> <span class="nf">strip_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove all components of the |Parameter| `mu` which are not part of the object&#39;s |ParameterType|.</span>
+
+<span class="sd">        Otherwise :meth:`strip_parameter` behaves like :meth:`parse_parameter`.</span>
+
+<span class="sd">        This method is mainly useful for caching where the key should only contain the</span>
+<span class="sd">        relevant parameter components.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">mu</span><span class="o">.</span><span class="vm">__class__</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Parameter</span><span class="p">:</span>
+            <span class="n">mu</span> <span class="o">=</span> <span class="n">Parameter</span><span class="o">.</span><span class="n">from_parameter_type</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">mu</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="s1">&#39;shape&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">==</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">Parameter</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">mu</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">})</span></div>
+
+<div class="viewcode-block" id="Parametric.build_parameter_type"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.base.Parametric.build_parameter_type">[docs]</a>    <span class="k">def</span> <span class="nf">build_parameter_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">provides</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Builds the |ParameterType| of the object. Should be called by :meth:`__init__`.</span>
+
+<span class="sd">        The |ParameterType| of a |Parametric| object is determined by the parameter components</span>
+<span class="sd">        the object itself requires for evaluation, and by the parameter components</span>
+<span class="sd">        required by the objects the object depends upon for evaluation.</span>
+
+<span class="sd">        All parameter components (directly specified or inherited by the |ParameterType|</span>
+<span class="sd">        of a given |Parametric| object) with the same name are treated as identical and</span>
+<span class="sd">        are thus required to have the same shapes. The object&#39;s |ParameterType| is then</span>
+<span class="sd">        made up by the shapes of all parameter components appearing.</span>
+
+<span class="sd">        Additionally components of the resulting |ParameterType| can be removed by</span>
+<span class="sd">        specifying them via the `provides` parameter. The idea is that the object itself</span>
+<span class="sd">        may provide parameter components to the inherited objects which thus should</span>
+<span class="sd">        not become part of the object&#39;s own parameter type. (A typical application</span>
+<span class="sd">        would be |InstationaryModel|, which provides a time parameter</span>
+<span class="sd">        component to its (time-dependent) operators during time-stepping.)</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        args</span>
+<span class="sd">            Each positional argument must either be a dict of parameter components and shapes or</span>
+<span class="sd">            a |Parametric| object whose :attr:`~Parametric.parameter_type` is added.</span>
+<span class="sd">        kwargs</span>
+<span class="sd">            Each keyword argument is interpreted as parameter component with corresponding shape.</span>
+<span class="sd">        provides</span>
+<span class="sd">            `Dict` of parameter component names and shapes which are provided by the object</span>
+<span class="sd">            itself. The parameter components listed here will not become part of the object&#39;s</span>
+<span class="sd">            |ParameterType|.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">provides</span> <span class="o">=</span> <span class="n">provides</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">my_parameter_type</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">def</span> <span class="nf">check_shapes</span><span class="p">(</span><span class="n">shape1</span><span class="p">,</span> <span class="n">shape2</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">shape1</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">tuple</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">shape1</span><span class="p">,</span> <span class="n">Number</span><span class="p">)</span>
+                <span class="n">shape1</span> <span class="o">=</span> <span class="p">()</span> <span class="k">if</span> <span class="n">shape1</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="n">shape1</span><span class="p">,)</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">shape2</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">tuple</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">shape2</span><span class="p">,</span> <span class="n">Number</span><span class="p">)</span>
+                <span class="n">shape2</span> <span class="o">=</span> <span class="p">()</span> <span class="k">if</span> <span class="n">shape2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="n">shape2</span><span class="p">,)</span>
+            <span class="k">assert</span> <span class="n">shape1</span> <span class="o">==</span> <span class="n">shape2</span><span class="p">,</span> \
+                <span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Dimension mismatch for parameter component </span><span class="si">{component}</span><span class="s1"> &#39;</span>
+                 <span class="sa">f</span><span class="s1">&#39;(got </span><span class="si">{my_parameter_type[component]}</span><span class="s1"> and </span><span class="si">{shape}</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="s1">&#39;parameter_type&#39;</span><span class="p">):</span>
+                <span class="n">arg</span> <span class="o">=</span> <span class="n">arg</span><span class="o">.</span><span class="n">parameter_type</span>
+            <span class="k">if</span> <span class="n">arg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">for</span> <span class="n">component</span><span class="p">,</span> <span class="n">shape</span> <span class="ow">in</span> <span class="n">arg</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">assert</span> <span class="n">component</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">my_parameter_type</span> <span class="ow">or</span> <span class="n">check_shapes</span><span class="p">(</span><span class="n">my_parameter_type</span><span class="p">[</span><span class="n">component</span><span class="p">],</span> <span class="n">shape</span><span class="p">)</span>
+                <span class="n">my_parameter_type</span><span class="p">[</span><span class="n">component</span><span class="p">]</span> <span class="o">=</span> <span class="n">shape</span>
+
+        <span class="k">for</span> <span class="n">component</span><span class="p">,</span> <span class="n">shape</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">assert</span> <span class="n">component</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">my_parameter_type</span> <span class="ow">or</span> <span class="n">check_shapes</span><span class="p">(</span><span class="n">my_parameter_type</span><span class="p">[</span><span class="n">component</span><span class="p">],</span> <span class="n">shape</span><span class="p">)</span>
+            <span class="n">my_parameter_type</span><span class="p">[</span><span class="n">component</span><span class="p">]</span> <span class="o">=</span> <span class="n">shape</span>
+
+        <span class="k">for</span> <span class="n">component</span><span class="p">,</span> <span class="n">shape</span> <span class="ow">in</span> <span class="n">provides</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">assert</span> <span class="n">component</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">my_parameter_type</span> <span class="ow">or</span> <span class="n">check_shapes</span><span class="p">(</span><span class="n">my_parameter_type</span><span class="p">[</span><span class="n">component</span><span class="p">],</span> <span class="n">shape</span><span class="p">)</span>
+            <span class="n">my_parameter_type</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span> <span class="o">=</span> <span class="n">ParameterType</span><span class="p">(</span><span class="n">my_parameter_type</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,176 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymordemos.hapod &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymordemos.hapod</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;HAPOD demo.</span>
+
+<span class="sd">Demonstrates compression of snapshot data with the HAPOD algorithm from [HLR18].</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">  hapod.py [options] TOL DIST INC</span>
+
+
+<span class="sd">Arguments:</span>
+<span class="sd">  TOL                    Prescribed mean l2 approximation error.</span>
+<span class="sd">  DIST                   Number of slices for distributed HAPOD.</span>
+<span class="sd">  INC                    Number of steps for incremental HAPOD.</span>
+
+<span class="sd">Options:</span>
+<span class="sd">  --grid=NI              Use grid with (2*NI)*NI elements [default: 60].</span>
+<span class="sd">  -h, --help             Show this message.</span>
+<span class="sd">  --nt=COUNT             Number of time steps [default: 100].</span>
+<span class="sd">  --omega=OMEGA          Parameter omega from HAPOD algorithm [default: 0.9].</span>
+<span class="sd">  --procs=PROCS          Number of processes to use for parallelization [default: 0].</span>
+<span class="sd">  --snap=SNAP            Number of snapshot trajectories to compute [default: 20].</span>
+<span class="sd">  --threads=THREADS      Number of threads to use for parallelization [default: 0].</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">concurrent.futures</span> <span class="kn">import</span> <span class="n">ThreadPoolExecutor</span><span class="p">,</span> <span class="n">ProcessPoolExecutor</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">time</span>
+
+<span class="kn">from</span> <span class="nn">docopt</span> <span class="kn">import</span> <span class="n">docopt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.analyticalproblems.burgers</span> <span class="kn">import</span> <span class="n">burgers_problem_2d</span>
+<span class="kn">from</span> <span class="nn">pymor.discretizers.fv</span> <span class="kn">import</span> <span class="n">discretize_instationary_fv</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.hapod</span> <span class="kn">import</span> <span class="n">dist_vectorarray_hapod</span><span class="p">,</span> <span class="n">inc_vectorarray_hapod</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.pod</span> <span class="kn">import</span> <span class="n">pod</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.rect</span> <span class="kn">import</span> <span class="n">RectGrid</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.table</span> <span class="kn">import</span> <span class="n">format_table</span>
+
+
+<div class="viewcode-block" id="hapod_demo"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.hapod.hapod_demo">[docs]</a><span class="k">def</span> <span class="nf">hapod_demo</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--nt&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--nt&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--omega&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--omega&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--procs&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--procs&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--snap&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--snap&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--threads&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--threads&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;TOL&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;TOL&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;DIST&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;DIST&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;INC&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;INC&#39;</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--procs&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--threads&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span>
+
+    <span class="n">tol</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;TOL&#39;</span><span class="p">]</span>
+    <span class="n">omega</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--omega&#39;</span><span class="p">]</span>
+    <span class="n">executor</span> <span class="o">=</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--procs&#39;</span><span class="p">])</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--procs&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> \
+        <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--threads&#39;</span><span class="p">])</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--threads&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> \
+        <span class="kc">None</span>
+
+    <span class="n">p</span> <span class="o">=</span> <span class="n">burgers_problem_2d</span><span class="p">()</span>
+    <span class="n">m</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">discretize_instationary_fv</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">grid_type</span><span class="o">=</span><span class="n">RectGrid</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">],</span> <span class="n">nt</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--nt&#39;</span><span class="p">])</span>
+
+    <span class="n">U</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--snap&#39;</span><span class="p">]):</span>
+        <span class="n">U</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">))</span>
+
+    <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+    <span class="n">pod_modes</span> <span class="o">=</span> <span class="n">pod</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">l2_err</span><span class="o">=</span><span class="n">tol</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)),</span> <span class="n">product</span><span class="o">=</span><span class="n">m</span><span class="o">.</span><span class="n">l2_product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">pod_time</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span>
+
+    <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+    <span class="n">dist_modes</span> <span class="o">=</span> <span class="n">dist_vectorarray_hapod</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;DIST&#39;</span><span class="p">],</span> <span class="n">U</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">m</span><span class="o">.</span><span class="n">l2_product</span><span class="p">,</span> <span class="n">executor</span><span class="o">=</span><span class="n">executor</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">dist_time</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span>
+
+    <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+    <span class="n">inc_modes</span> <span class="o">=</span> <span class="n">inc_vectorarray_hapod</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;INC&#39;</span><span class="p">],</span> <span class="n">U</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">m</span><span class="o">.</span><span class="n">l2_product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">inc_time</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Snapshot matrix: </span><span class="si">{U.dim}</span><span class="s1"> x {len(U)}&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">format_table</span><span class="p">([</span>
+        <span class="p">[</span><span class="s1">&#39;Method&#39;</span><span class="p">,</span> <span class="s1">&#39;Error&#39;</span><span class="p">,</span> <span class="s1">&#39;Modes&#39;</span><span class="p">,</span> <span class="s1">&#39;Time&#39;</span><span class="p">],</span>
+        <span class="p">[</span><span class="s1">&#39;POD&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">(</span><span class="n">U</span><span class="o">-</span><span class="n">pod_modes</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">l2_product</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">pod_modes</span><span class="p">)))</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">))),</span>
+         <span class="nb">len</span><span class="p">(</span><span class="n">pod_modes</span><span class="p">),</span> <span class="n">pod_time</span><span class="p">],</span>
+        <span class="p">[</span><span class="s1">&#39;DIST HAPOD&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">(</span><span class="n">U</span><span class="o">-</span><span class="n">dist_modes</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">l2_product</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">dist_modes</span><span class="p">)))</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">))),</span>
+         <span class="nb">len</span><span class="p">(</span><span class="n">dist_modes</span><span class="p">),</span> <span class="n">dist_time</span><span class="p">],</span>
+        <span class="p">[</span><span class="s1">&#39;INC HAPOD&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">(</span><span class="n">U</span><span class="o">-</span><span class="n">inc_modes</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">l2_product</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">inc_modes</span><span class="p">)))</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">))),</span>
+         <span class="nb">len</span><span class="p">(</span><span class="n">inc_modes</span><span class="p">),</span> <span class="n">inc_time</span><span class="p">]]</span>
+    <span class="p">))</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="c1"># parse arguments</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">docopt</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">)</span>
+    <span class="c1"># run demo</span>
+    <span class="n">hapod_demo</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

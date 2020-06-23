@@ -1,0 +1,326 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.reductors.coercive &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.reductors.coercive</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">ImmutableInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">LincombOperator</span><span class="p">,</span> <span class="n">induced_norm</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.basic</span> <span class="kn">import</span> <span class="n">StationaryRBReductor</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.residual</span> <span class="kn">import</span> <span class="n">ResidualReductor</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.numpy</span> <span class="kn">import</span> <span class="n">NumpyVectorSpace</span>
+
+
+<div class="viewcode-block" id="CoerciveRBReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.coercive.CoerciveRBReductor">[docs]</a><span class="k">class</span> <span class="nc">CoerciveRBReductor</span><span class="p">(</span><span class="n">StationaryRBReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Reduced Basis reductor for |StationaryModels| with coercive linear operator.</span>
+
+<span class="sd">    The only addition to :class:`~pymor.reductors.basic.StationaryRBReductor` is an error</span>
+<span class="sd">    estimator which evaluates the dual norm of the residual with respect to a given inner</span>
+<span class="sd">    product. For the reduction of the residual we use</span>
+<span class="sd">    :class:`~pymor.reductors.residual.ResidualReductor` for improved numerical stability</span>
+<span class="sd">    [BEOR14]_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The |Model| which is to be reduced.</span>
+<span class="sd">    RB</span>
+<span class="sd">        |VectorArray| containing the reduced basis on which to project.</span>
+<span class="sd">    product</span>
+<span class="sd">        Inner product for the orthonormalization of `RB`, the projection of the</span>
+<span class="sd">        |Operators| given by `vector_ranged_operators` and for the computation of</span>
+<span class="sd">        Riesz representatives of the residual. If `None`, the Euclidean product is used.</span>
+<span class="sd">    coercivity_estimator</span>
+<span class="sd">        `None` or a |Parameterfunctional| returning a lower bound for the coercivity</span>
+<span class="sd">        constant of the given problem. Note that the computed error estimate is only</span>
+<span class="sd">        guaranteed to be an upper bound for the error when an appropriate coercivity</span>
+<span class="sd">        estimate is specified.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">RB</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coercivity_estimator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">check_orthonormality</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">check_tol</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span> <span class="n">check_orthonormality</span><span class="o">=</span><span class="n">check_orthonormality</span><span class="p">,</span>
+                         <span class="n">check_tol</span><span class="o">=</span><span class="n">check_tol</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span> <span class="o">=</span> <span class="n">coercivity_estimator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">residual_reductor</span> <span class="o">=</span> <span class="n">ResidualReductor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span>
+                                                  <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span> <span class="n">riesz_representatives</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">assemble_estimator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">()</span>
+        <span class="n">estimator</span> <span class="o">=</span> <span class="n">CoerciveRBEstimator</span><span class="p">(</span><span class="n">residual</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">residual_reductor</span><span class="o">.</span><span class="n">residual_range_dims</span><span class="p">),</span>
+                                        <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">estimator</span>
+
+    <span class="k">def</span> <span class="nf">assemble_estimator_for_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">restricted_to_subbasis</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">],</span> <span class="n">m</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CoerciveRBEstimator"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.coercive.CoerciveRBEstimator">[docs]</a><span class="k">class</span> <span class="nc">CoerciveRBEstimator</span><span class="p">(</span><span class="n">ImmutableInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Instantiated by :class:`CoerciveRBReductor`.</span>
+
+<span class="sd">    Not to be used directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">residual</span><span class="p">,</span> <span class="n">residual_range_dims</span><span class="p">,</span> <span class="n">coercivity_estimator</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">estimate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="n">est</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">:</span>
+            <span class="n">est</span> <span class="o">/=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">est</span>
+
+    <span class="k">def</span> <span class="nf">restricted_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range_dims</span><span class="p">:</span>
+            <span class="n">residual_range_dims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range_dims</span><span class="p">[:</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">residual</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual</span><span class="o">.</span><span class="n">projected_to_subbasis</span><span class="p">(</span><span class="n">residual_range_dims</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">dim</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">CoerciveRBEstimator</span><span class="p">(</span><span class="n">residual</span><span class="p">,</span> <span class="n">residual_range_dims</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Cannot efficiently reduce to subbasis&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">CoerciveRBEstimator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">residual</span><span class="o">.</span><span class="n">projected_to_subbasis</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="kc">None</span><span class="p">,</span>
+                                       <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SimpleCoerciveRBReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.coercive.SimpleCoerciveRBReductor">[docs]</a><span class="k">class</span> <span class="nc">SimpleCoerciveRBReductor</span><span class="p">(</span><span class="n">StationaryRBReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Reductor for linear |StationaryModels| with affinely decomposed operator and rhs.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">       The reductor :class:`CoerciveRBReductor` can be used for arbitrary coercive</span>
+<span class="sd">       |StationaryModels| and offers an improved error estimator</span>
+<span class="sd">       with better numerical stability.</span>
+
+<span class="sd">    The only addition is to :class:`~pymor.reductors.basic.StationaryRBReductor` is an error</span>
+<span class="sd">    estimator, which evaluates the norm of the residual with respect to a given inner product.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The |Model| which is to be reduced.</span>
+<span class="sd">    RB</span>
+<span class="sd">        |VectorArray| containing the reduced basis on which to project.</span>
+<span class="sd">    product</span>
+<span class="sd">        Inner product for the orthonormalization of `RB`, the projection of the</span>
+<span class="sd">        |Operators| given by `vector_ranged_operators` and for the computation of</span>
+<span class="sd">        Riesz representatives of the residual. If `None`, the Euclidean product is used.</span>
+<span class="sd">    coercivity_estimator</span>
+<span class="sd">        `None` or a |Parameterfunctional| returning a lower bound for the coercivity</span>
+<span class="sd">        constant of the given problem. Note that the computed error estimate is only</span>
+<span class="sd">        guaranteed to be an upper bound for the error when an appropriate coercivity</span>
+<span class="sd">        estimate is specified.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">RB</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coercivity_estimator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">check_orthonormality</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">check_tol</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">linear</span> <span class="ow">and</span> <span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">linear</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">LincombOperator</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">parametric</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">operators</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">LincombOperator</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">parametric</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">operators</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span> <span class="n">check_orthonormality</span><span class="o">=</span><span class="n">check_orthonormality</span><span class="p">,</span>
+                         <span class="n">check_tol</span><span class="o">=</span><span class="n">check_tol</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span> <span class="o">=</span> <span class="n">coercivity_estimator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">residual_reductor</span> <span class="o">=</span> <span class="n">ResidualReductor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span>
+                                                  <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">extends</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">assemble_estimator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">fom</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="n">extends</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">extends</span>
+        <span class="k">if</span> <span class="n">extends</span><span class="p">:</span>
+            <span class="n">old_RB_size</span> <span class="o">=</span> <span class="n">extends</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">old_data</span> <span class="o">=</span> <span class="n">extends</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">old_RB_size</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># compute data for estimator</span>
+        <span class="n">space</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+
+        <span class="c1"># compute the Riesz representative of (U, .)_L2 with respect to product</span>
+        <span class="k">def</span> <span class="nf">riesz_representative</span><span class="p">(</span><span class="n">U</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">U</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">U</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">append_vector</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">RR</span><span class="p">):</span>
+            <span class="n">RR</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">riesz_representative</span><span class="p">(</span><span class="n">U</span><span class="p">),</span> <span class="n">remove_from_other</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">R</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">remove_from_other</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># compute all components of the residual</span>
+        <span class="k">if</span> <span class="n">extends</span><span class="p">:</span>
+            <span class="n">R_R</span><span class="p">,</span> <span class="n">RR_R</span> <span class="o">=</span> <span class="n">old_data</span><span class="p">[</span><span class="s1">&#39;R_R&#39;</span><span class="p">],</span> <span class="n">old_data</span><span class="p">[</span><span class="s1">&#39;RR_R&#39;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="n">R_R</span> <span class="o">=</span> <span class="n">space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">RR_R</span> <span class="o">=</span> <span class="n">space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">append_vector</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">as_range_array</span><span class="p">(),</span> <span class="n">R_R</span><span class="p">,</span> <span class="n">RR_R</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">R_R</span> <span class="o">=</span> <span class="n">space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">operators</span><span class="p">))</span>
+            <span class="n">RR_R</span> <span class="o">=</span> <span class="n">space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">operators</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">operators</span><span class="p">:</span>
+                <span class="n">append_vector</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">as_range_array</span><span class="p">(),</span> <span class="n">R_R</span><span class="p">,</span> <span class="n">RR_R</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">RB</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">R_Os</span> <span class="o">=</span> <span class="p">[</span><span class="n">space</span><span class="o">.</span><span class="n">empty</span><span class="p">()]</span>
+            <span class="n">RR_Os</span> <span class="o">=</span> <span class="p">[</span><span class="n">space</span><span class="o">.</span><span class="n">empty</span><span class="p">()]</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="n">R_Os</span> <span class="o">=</span> <span class="p">[</span><span class="n">space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">RB</span><span class="p">))]</span>
+            <span class="n">RR_Os</span> <span class="o">=</span> <span class="p">[</span><span class="n">space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">RB</span><span class="p">))]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">RB</span><span class="p">)):</span>
+                <span class="n">append_vector</span><span class="p">(</span><span class="o">-</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">RB</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">R_Os</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">RR_Os</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">R_Os</span> <span class="o">=</span> <span class="p">[</span><span class="n">space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">RB</span><span class="p">))</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">operators</span><span class="p">))]</span>
+            <span class="n">RR_Os</span> <span class="o">=</span> <span class="p">[</span><span class="n">space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">RB</span><span class="p">))</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">operators</span><span class="p">))]</span>
+            <span class="k">if</span> <span class="n">old_RB_size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">op</span><span class="p">,</span> <span class="n">R_O</span><span class="p">,</span> <span class="n">RR_O</span><span class="p">,</span> <span class="n">old_R_O</span><span class="p">,</span> <span class="n">old_RR_O</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">operators</span><span class="p">,</span> <span class="n">R_Os</span><span class="p">,</span> <span class="n">RR_Os</span><span class="p">,</span>
+                                                            <span class="n">old_data</span><span class="p">[</span><span class="s1">&#39;R_Os&#39;</span><span class="p">],</span> <span class="n">old_data</span><span class="p">[</span><span class="s1">&#39;RR_Os&#39;</span><span class="p">]):</span>
+                    <span class="n">R_O</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">old_R_O</span><span class="p">)</span>
+                    <span class="n">RR_O</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">old_RR_O</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">op</span><span class="p">,</span> <span class="n">R_O</span><span class="p">,</span> <span class="n">RR_O</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">operators</span><span class="p">,</span> <span class="n">R_Os</span><span class="p">,</span> <span class="n">RR_Os</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">old_RB_size</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">RB</span><span class="p">)):</span>
+                    <span class="n">append_vector</span><span class="p">(</span><span class="o">-</span><span class="n">op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">RB</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">R_O</span><span class="p">,</span> <span class="n">RR_O</span><span class="p">)</span>
+
+        <span class="c1"># compute Gram matrix of the residuals</span>
+        <span class="n">R_RR</span> <span class="o">=</span> <span class="n">RR_R</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">R_R</span><span class="p">)</span>
+        <span class="n">R_RO</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">RR_R</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">R_O</span><span class="p">)</span> <span class="k">for</span> <span class="n">R_O</span> <span class="ow">in</span> <span class="n">R_Os</span><span class="p">])</span>
+        <span class="n">R_OO</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">RR_O</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">R_O</span><span class="p">)</span> <span class="k">for</span> <span class="n">R_O</span> <span class="ow">in</span> <span class="n">R_Os</span><span class="p">])</span> <span class="k">for</span> <span class="n">RR_O</span> <span class="ow">in</span> <span class="n">RR_Os</span><span class="p">])</span>
+
+        <span class="n">estimator_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">R_RR</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">R_OO</span><span class="p">),)</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">estimator_matrix</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">R_RR</span><span class="p">),</span> <span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">R_RR</span><span class="p">)]</span> <span class="o">=</span> <span class="n">R_RR</span>
+        <span class="n">estimator_matrix</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">R_RR</span><span class="p">):,</span> <span class="nb">len</span><span class="p">(</span><span class="n">R_RR</span><span class="p">):]</span> <span class="o">=</span> <span class="n">R_OO</span>
+        <span class="n">estimator_matrix</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">R_RR</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">R_RR</span><span class="p">):]</span> <span class="o">=</span> <span class="n">R_RO</span>
+        <span class="n">estimator_matrix</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">R_RR</span><span class="p">):,</span> <span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">R_RR</span><span class="p">)]</span> <span class="o">=</span> <span class="n">R_RO</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="n">estimator_matrix</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">estimator_matrix</span><span class="p">)</span>
+
+        <span class="n">estimator</span> <span class="o">=</span> <span class="n">SimpleCoerciveRBEstimator</span><span class="p">(</span><span class="n">estimator_matrix</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">extends</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">RB</span><span class="p">),</span> <span class="nb">dict</span><span class="p">(</span><span class="n">R_R</span><span class="o">=</span><span class="n">R_R</span><span class="p">,</span> <span class="n">RR_R</span><span class="o">=</span><span class="n">RR_R</span><span class="p">,</span> <span class="n">R_Os</span><span class="o">=</span><span class="n">R_Os</span><span class="p">,</span> <span class="n">RR_Os</span><span class="o">=</span><span class="n">RR_Os</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">estimator</span>
+
+    <span class="k">def</span> <span class="nf">assemble_estimator_for_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">restricted_to_subbasis</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">],</span> <span class="n">m</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SimpleCoerciveRBEstimator"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.coercive.SimpleCoerciveRBEstimator">[docs]</a><span class="k">class</span> <span class="nc">SimpleCoerciveRBEstimator</span><span class="p">(</span><span class="n">ImmutableInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Instantiated by :class:`SimpleCoerciveRBReductor`.</span>
+
+<span class="sd">    Not to be used directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">estimator_matrix</span><span class="p">,</span> <span class="n">coercivity_estimator</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">=</span> <span class="n">induced_norm</span><span class="p">(</span><span class="n">estimator_matrix</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">estimate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">m</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="n">CR</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">CR</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">evaluate_coefficients</span><span class="p">(</span><span class="n">mu</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">m</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="n">CO</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">CO</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">evaluate_coefficients</span><span class="p">(</span><span class="n">mu</span><span class="p">))</span>
+
+        <span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">CR</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">CO</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">U</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span><span class="o">.</span><span class="n">ravel</span><span class="p">()))</span>
+
+        <span class="n">est</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">NumpyVectorSpace</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">C</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">:</span>
+            <span class="n">est</span> <span class="o">/=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">est</span>
+
+    <span class="k">def</span> <span class="nf">restricted_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="n">cr</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">m</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">parametric</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">operators</span><span class="p">)</span>
+        <span class="n">co</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">m</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">parametric</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">operators</span><span class="p">)</span>
+        <span class="n">old_dim</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span>
+
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">cr</span><span class="p">),</span>
+                                 <span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">co</span><span class="p">)</span><span class="o">*</span><span class="n">old_dim</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dim</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="o">+</span> <span class="n">cr</span><span class="p">))</span>
+        <span class="n">matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_matrix</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">indices</span><span class="p">,</span> <span class="p">:][:,</span> <span class="n">indices</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">SimpleCoerciveRBEstimator</span><span class="p">(</span><span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">matrix</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

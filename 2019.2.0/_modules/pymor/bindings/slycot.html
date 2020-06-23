@@ -1,0 +1,411 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.bindings.slycot &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.bindings.slycot</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.config</span> <span class="kn">import</span> <span class="n">config</span>
+
+
+<span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_SLYCOT</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+    <span class="kn">import</span> <span class="nn">slycot</span>
+
+    <span class="kn">from</span> <span class="nn">pymor.algorithms.genericsolvers</span> <span class="kn">import</span> <span class="n">_parse_options</span>
+    <span class="kn">from</span> <span class="nn">pymor.algorithms.lyapunov</span> <span class="kn">import</span> <span class="n">_solve_lyap_lrcf_check_args</span><span class="p">,</span> <span class="n">_solve_lyap_dense_check_args</span><span class="p">,</span> <span class="n">_chol</span>
+    <span class="kn">from</span> <span class="nn">pymor.algorithms.to_matrix</span> <span class="kn">import</span> <span class="n">to_matrix</span>
+    <span class="kn">from</span> <span class="nn">pymor.bindings.scipy</span> <span class="kn">import</span> <span class="n">_solve_ricc_check_args</span>
+    <span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+
+<div class="viewcode-block" id="lyap_lrcf_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.slycot.lyap_lrcf_solver_options">[docs]</a>    <span class="k">def</span> <span class="nf">lyap_lrcf_solver_options</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;Return available Lyapunov solvers with default options for the slycot backend.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A dict of available solvers with default solver options.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;slycot_bartels-stewart&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;slycot_bartels-stewart&#39;</span><span class="p">}}</span></div>
+
+<div class="viewcode-block" id="solve_lyap_lrcf"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.slycot.solve_lyap_lrcf">[docs]</a>    <span class="k">def</span> <span class="nf">solve_lyap_lrcf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute an approximate low-rank solution of a Lyapunov equation.</span>
+
+<span class="sd">        See :func:`pymor.algorithms.lyapunov.solve_lyap_lrcf` for a</span>
+<span class="sd">        general description.</span>
+
+<span class="sd">        This function uses `slycot.sb03md` (if `E is None`) and</span>
+<span class="sd">        `slycot.sg03ad` (if `E is not None`), which are dense solvers</span>
+<span class="sd">        based on the Bartels-Stewart algorithm.</span>
+<span class="sd">        Therefore, we assume A and E can be converted to |NumPy arrays|</span>
+<span class="sd">        using :func:`~pymor.algorithms.to_matrix.to_matrix` and that</span>
+<span class="sd">        `B.to_numpy` is implemented.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        A</span>
+<span class="sd">            The non-parametric |Operator| A.</span>
+<span class="sd">        E</span>
+<span class="sd">            The non-parametric |Operator| E or `None`.</span>
+<span class="sd">        B</span>
+<span class="sd">            The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">        trans</span>
+<span class="sd">            Whether the first |Operator| in the Lyapunov equation is</span>
+<span class="sd">            transposed.</span>
+<span class="sd">        options</span>
+<span class="sd">            The solver options to use (see</span>
+<span class="sd">            :func:`lyap_lrcf_solver_options`).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Z</span>
+<span class="sd">            Low-rank Cholesky factor of the Lyapunov equation solution,</span>
+<span class="sd">            |VectorArray| from `A.source`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">_solve_lyap_lrcf_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">lyap_lrcf_solver_options</span><span class="p">(),</span> <span class="s1">&#39;slycot_bartels-stewart&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;slycot_bartels-stewart&#39;</span><span class="p">:</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">solve_lyap_dense</span><span class="p">(</span><span class="n">to_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">),</span>
+                                 <span class="n">to_matrix</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">E</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                                 <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+                                 <span class="n">trans</span><span class="o">=</span><span class="n">trans</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+            <span class="n">Z</span> <span class="o">=</span> <span class="n">_chol</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected Lyapunov equation solver (</span><span class="si">{options[&#39;type&#39;]}</span><span class="s2">).&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">Z</span><span class="o">.</span><span class="n">T</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="lyap_dense_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.slycot.lyap_dense_solver_options">[docs]</a>    <span class="k">def</span> <span class="nf">lyap_dense_solver_options</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;Return available Lyapunov solvers with default options for the slycot backend.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A dict of available solvers with default solver options.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;slycot_bartels-stewart&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;slycot_bartels-stewart&#39;</span><span class="p">}}</span></div>
+
+<div class="viewcode-block" id="solve_lyap_dense"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.slycot.solve_lyap_dense">[docs]</a>    <span class="k">def</span> <span class="nf">solve_lyap_dense</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the solution of a Lyapunov equation.</span>
+
+<span class="sd">        See :func:`pymor.algorithms.lyapunov.solve_lyap_dense` for a</span>
+<span class="sd">        general description.</span>
+
+<span class="sd">        This function uses `slycot.sb03md` (if `E is None`) and</span>
+<span class="sd">        `slycot.sg03ad` (if `E is not None`), which are based on the</span>
+<span class="sd">        Bartels-Stewart algorithm.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        A</span>
+<span class="sd">            The operator A as a 2D |NumPy array|.</span>
+<span class="sd">        E</span>
+<span class="sd">            The operator E as a 2D |NumPy array| or `None`.</span>
+<span class="sd">        B</span>
+<span class="sd">            The operator B as a 2D |NumPy array|.</span>
+<span class="sd">        trans</span>
+<span class="sd">            Whether the first operator in the Lyapunov equation is</span>
+<span class="sd">            transposed.</span>
+<span class="sd">        options</span>
+<span class="sd">            The solver options to use (see</span>
+<span class="sd">            :func:`lyap_dense_solver_options`).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        X</span>
+<span class="sd">            Lyapunov equation solution as a |NumPy array|.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">_solve_lyap_dense_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">lyap_dense_solver_options</span><span class="p">(),</span> <span class="s1">&#39;slycot_bartels-stewart&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;slycot_bartels-stewart&#39;</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">C</span> <span class="o">=</span> <span class="o">-</span><span class="n">B</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="o">-</span><span class="n">B</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+            <span class="n">trana</span> <span class="o">=</span> <span class="s1">&#39;T&#39;</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="s1">&#39;N&#39;</span>
+            <span class="n">dico</span> <span class="o">=</span> <span class="s1">&#39;C&#39;</span>
+            <span class="n">job</span> <span class="o">=</span> <span class="s1">&#39;B&#39;</span>
+            <span class="k">if</span> <span class="n">E</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">U</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+                <span class="n">X</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">ferr</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">slycot</span><span class="o">.</span><span class="n">sb03md</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">dico</span><span class="p">,</span> <span class="n">job</span><span class="o">=</span><span class="n">job</span><span class="p">,</span> <span class="n">trana</span><span class="o">=</span><span class="n">trana</span><span class="p">)</span>
+                <span class="n">_solve_check</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="s1">&#39;slycot.sb03md&#39;</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">ferr</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">fact</span> <span class="o">=</span> <span class="s1">&#39;N&#39;</span>
+                <span class="n">uplo</span> <span class="o">=</span> <span class="s1">&#39;L&#39;</span>
+                <span class="n">Q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+                <span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">ferr</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">slycot</span><span class="o">.</span><span class="n">sg03ad</span><span class="p">(</span><span class="n">dico</span><span class="p">,</span> <span class="n">job</span><span class="p">,</span> <span class="n">fact</span><span class="p">,</span> <span class="n">trana</span><span class="p">,</span> <span class="n">uplo</span><span class="p">,</span>
+                                                                         <span class="n">n</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span>
+                                                                         <span class="n">Q</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">C</span><span class="p">)</span>
+                <span class="n">_solve_check</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="s1">&#39;slycot.sg03ad&#39;</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">ferr</span><span class="p">)</span>
+            <span class="n">X</span> <span class="o">/=</span> <span class="n">scale</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected Lyapunov equation solver (</span><span class="si">{options[&#39;type&#39;]}</span><span class="s2">).&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">X</span></div>
+
+    <span class="k">def</span> <span class="nf">_solve_check</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">solver</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">ferr</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">ferr</span> <span class="o">&gt;</span> <span class="mf">1e-1</span><span class="p">:</span>
+            <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="n">solver</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Estimated forward relative error bound is large (ferr=</span><span class="si">{ferr:e}</span><span class="s1">, sep=</span><span class="si">{sep:e}</span><span class="s1">). &#39;</span>
+                           <span class="sa">f</span><span class="s1">&#39;Result may not be accurate.&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ricc_lrcf_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.slycot.ricc_lrcf_solver_options">[docs]</a>    <span class="k">def</span> <span class="nf">ricc_lrcf_solver_options</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;Return available Riccati solvers with default options for the slycot backend.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A dict of available solvers with default solver options.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;slycot&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;slycot&#39;</span><span class="p">}}</span></div>
+
+<div class="viewcode-block" id="solve_ricc_lrcf"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.slycot.solve_ricc_lrcf">[docs]</a>    <span class="k">def</span> <span class="nf">solve_ricc_lrcf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">S</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute an approximate low-rank solution of a Riccati equation.</span>
+
+<span class="sd">        See :func:`pymor.algorithms.riccati.solve_ricc_lrcf` for a</span>
+<span class="sd">        general description.</span>
+
+<span class="sd">        This function uses `slycot.sb02md` (if E and S are `None`),</span>
+<span class="sd">        `slycot.sb02od` (if E is `None` and S is not `None`) and</span>
+<span class="sd">        `slycot.sg03ad` (if E is not `None`), which are dense solvers.</span>
+<span class="sd">        Therefore, we assume all |Operators| and |VectorArrays| can be</span>
+<span class="sd">        converted to |NumPy arrays| using</span>
+<span class="sd">        :func:`~pymor.algorithms.to_matrix.to_matrix` and</span>
+<span class="sd">        :func:`~pymor.vectorarrays.interfaces.VectorArrayInterface.to_numpy`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        A</span>
+<span class="sd">            The non-parametric |Operator| A.</span>
+<span class="sd">        E</span>
+<span class="sd">            The non-parametric |Operator| E or `None`.</span>
+<span class="sd">        B</span>
+<span class="sd">            The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">        C</span>
+<span class="sd">            The operator C as a |VectorArray| from `A.source`.</span>
+<span class="sd">        R</span>
+<span class="sd">            The operator R as a 2D |NumPy array| or `None`.</span>
+<span class="sd">        S</span>
+<span class="sd">            The operator S as a |VectorArray| from `A.source` or `None`.</span>
+<span class="sd">        trans</span>
+<span class="sd">            Whether the first |Operator| in the Riccati equation is</span>
+<span class="sd">            transposed.</span>
+<span class="sd">        options</span>
+<span class="sd">            The solver options to use (see</span>
+<span class="sd">            :func:`ricc_lrcf_solver_options`).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Z</span>
+<span class="sd">            Low-rank Cholesky factor of the Riccati equation solution,</span>
+<span class="sd">            |VectorArray| from `A.source`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">_solve_ricc_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">ricc_lrcf_solver_options</span><span class="p">(),</span> <span class="s1">&#39;slycot&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;slycot&#39;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected Riccati equation solver (</span><span class="si">{options[&#39;type&#39;]}</span><span class="s2">).&quot;</span><span class="p">)</span>
+
+        <span class="n">A_source</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">to_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="n">to_matrix</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">E</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">S</span> <span class="o">=</span> <span class="n">S</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span> <span class="k">if</span> <span class="n">S</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="n">n</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">dico</span> <span class="o">=</span> <span class="s1">&#39;C&#39;</span>
+
+        <span class="k">if</span> <span class="n">E</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">S</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span><span class="p">:</span>
+                    <span class="n">A</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span>
+                    <span class="n">G</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">C</span><span class="p">)</span> <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">slycot</span><span class="o">.</span><span class="n">sb02mt</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">C</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">C</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">R</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">G</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">slycot</span><span class="o">.</span><span class="n">sb02mt</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">B</span><span class="p">,</span> <span class="n">R</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">Q</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">C</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">C</span><span class="p">)</span>
+                <span class="n">X</span><span class="p">,</span> <span class="n">rcond</span> <span class="o">=</span> <span class="n">slycot</span><span class="o">.</span><span class="n">sb02md</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">dico</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]</span>
+                <span class="n">_ricc_rcond_check</span><span class="p">(</span><span class="s1">&#39;slycot.sb02md&#39;</span><span class="p">,</span> <span class="n">rcond</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">m</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">C</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span><span class="p">:</span>
+                    <span class="n">A</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span>
+                    <span class="n">B</span><span class="p">,</span> <span class="n">C</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">T</span>
+                <span class="n">X</span><span class="p">,</span> <span class="n">rcond</span> <span class="o">=</span> <span class="n">slycot</span><span class="o">.</span><span class="n">sb02od</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">dico</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="n">S</span><span class="p">,</span> <span class="n">fact</span><span class="o">=</span><span class="s1">&#39;C&#39;</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]</span>
+                <span class="n">_ricc_rcond_check</span><span class="p">(</span><span class="s1">&#39;slycot.sb02od&#39;</span><span class="p">,</span> <span class="n">rcond</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">jobb</span> <span class="o">=</span> <span class="s1">&#39;B&#39;</span>
+            <span class="n">fact</span> <span class="o">=</span> <span class="s1">&#39;C&#39;</span>
+            <span class="n">uplo</span> <span class="o">=</span> <span class="s1">&#39;U&#39;</span>
+            <span class="n">jobl</span> <span class="o">=</span> <span class="s1">&#39;Z&#39;</span> <span class="k">if</span> <span class="n">S</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="s1">&#39;N&#39;</span>
+            <span class="n">scal</span> <span class="o">=</span> <span class="s1">&#39;N&#39;</span>
+            <span class="n">sort</span> <span class="o">=</span> <span class="s1">&#39;S&#39;</span>
+            <span class="n">acc</span> <span class="o">=</span> <span class="s1">&#39;R&#39;</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="n">C</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">S</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">S</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span><span class="p">:</span>
+                <span class="n">A</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span>
+                <span class="n">E</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">T</span>
+                <span class="n">B</span><span class="p">,</span> <span class="n">C</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">slycot</span><span class="o">.</span><span class="n">sg02ad</span><span class="p">(</span><span class="n">dico</span><span class="p">,</span> <span class="n">jobb</span><span class="p">,</span> <span class="n">fact</span><span class="p">,</span> <span class="n">uplo</span><span class="p">,</span> <span class="n">jobl</span><span class="p">,</span> <span class="n">scal</span><span class="p">,</span> <span class="n">sort</span><span class="p">,</span> <span class="n">acc</span><span class="p">,</span>
+                                <span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span>
+                                <span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">)</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">out</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">rcond</span> <span class="o">=</span> <span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">_ricc_rcond_check</span><span class="p">(</span><span class="s1">&#39;slycot.sg02ad&#39;</span><span class="p">,</span> <span class="n">rcond</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">A_source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">_chol</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_ricc_rcond_check</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">rcond</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">rcond</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">eps</span><span class="p">:</span>
+            <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="n">solver</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Estimated reciprocal condition number is small (rcond=</span><span class="si">{rcond:e}</span><span class="s1">). &#39;</span>
+                           <span class="sa">f</span><span class="s1">&#39;Result may not be accurate.&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="pos_ricc_lrcf_solver_options"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.slycot.pos_ricc_lrcf_solver_options">[docs]</a>    <span class="k">def</span> <span class="nf">pos_ricc_lrcf_solver_options</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;Return available positive Riccati solvers with default options for the slycot backend.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A dict of available solvers with default solver options.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;slycot&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;slycot&#39;</span><span class="p">}}</span></div>
+
+<div class="viewcode-block" id="solve_pos_ricc_lrcf"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.slycot.solve_pos_ricc_lrcf">[docs]</a>    <span class="k">def</span> <span class="nf">solve_pos_ricc_lrcf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">S</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute an approximate low-rank solution of a positive Riccati equation.</span>
+
+<span class="sd">        See :func:`pymor.algorithms.riccati.solve_pos_ricc_lrcf` for a</span>
+<span class="sd">        general description.</span>
+
+<span class="sd">        This function uses `slycot.sb02md` (if E and S are `None`),</span>
+<span class="sd">        `slycot.sb02od` (if E is `None` and S is not `None`) and</span>
+<span class="sd">        `slycot.sg03ad` (if E is not `None`), which are dense solvers.</span>
+<span class="sd">        Therefore, we assume all |Operators| and |VectorArrays| can be</span>
+<span class="sd">        converted to |NumPy arrays| using</span>
+<span class="sd">        :func:`~pymor.algorithms.to_matrix.to_matrix` and</span>
+<span class="sd">        :func:`~pymor.vectorarrays.interfaces.VectorArrayInterface.to_numpy`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        A</span>
+<span class="sd">            The non-parametric |Operator| A.</span>
+<span class="sd">        E</span>
+<span class="sd">            The non-parametric |Operator| E or `None`.</span>
+<span class="sd">        B</span>
+<span class="sd">            The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">        C</span>
+<span class="sd">            The operator C as a |VectorArray| from `A.source`.</span>
+<span class="sd">        R</span>
+<span class="sd">            The operator R as a 2D |NumPy array| or `None`.</span>
+<span class="sd">        S</span>
+<span class="sd">            The operator S as a |VectorArray| from `A.source` or `None`.</span>
+<span class="sd">        trans</span>
+<span class="sd">            Whether the first |Operator| in the positive Riccati</span>
+<span class="sd">            equation is transposed.</span>
+<span class="sd">        options</span>
+<span class="sd">            The solver options to use (see</span>
+<span class="sd">            :func:`pos_ricc_lrcf_solver_options`).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Z</span>
+<span class="sd">            Low-rank Cholesky factor of the positive Riccati equation</span>
+<span class="sd">            solution, |VectorArray| from `A.source`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">_solve_ricc_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">pos_ricc_lrcf_solver_options</span><span class="p">(),</span> <span class="s1">&#39;slycot&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;slycot&#39;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected positive Riccati equation solver (</span><span class="si">{options[&#39;type&#39;]}</span><span class="s2">).&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">C</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">B</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">solve_ricc_lrcf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="o">-</span><span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

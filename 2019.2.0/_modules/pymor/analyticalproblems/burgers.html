@@ -1,0 +1,209 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.analyticalproblems.burgers &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.analyticalproblems.burgers</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.analyticalproblems.elliptic</span> <span class="kn">import</span> <span class="n">StationaryProblem</span>
+<span class="kn">from</span> <span class="nn">pymor.analyticalproblems.instationary</span> <span class="kn">import</span> <span class="n">InstationaryProblem</span>
+<span class="kn">from</span> <span class="nn">pymor.domaindescriptions.basic</span> <span class="kn">import</span> <span class="n">LineDomain</span><span class="p">,</span> <span class="n">RectDomain</span><span class="p">,</span> <span class="n">TorusDomain</span><span class="p">,</span> <span class="n">CircleDomain</span>
+<span class="kn">from</span> <span class="nn">pymor.functions.basic</span> <span class="kn">import</span> <span class="n">ConstantFunction</span><span class="p">,</span> <span class="n">ExpressionFunction</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.spaces</span> <span class="kn">import</span> <span class="n">CubicParameterSpace</span>
+
+
+<div class="viewcode-block" id="burgers_problem"><a class="viewcode-back" href="../../../generated/pymor.analyticalproblems.html#pymor.analyticalproblems.burgers.burgers_problem">[docs]</a><span class="k">def</span> <span class="nf">burgers_problem</span><span class="p">(</span><span class="n">v</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">circle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">initial_data_type</span><span class="o">=</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="n">parameter_range</span><span class="o">=</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">2.</span><span class="p">)):</span>
+    <span class="sd">&quot;&quot;&quot;One-dimensional Burgers-type problem.</span>
+
+<span class="sd">    The problem is to solve ::</span>
+
+<span class="sd">        ∂_t u(x, t, μ)  +  ∂_x (v * u(x, t, μ)^μ) = 0</span>
+<span class="sd">                                       u(x, 0, μ) = u_0(x)</span>
+
+<span class="sd">    for u with t in [0, 0.3] and x in [0, 2].</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    v</span>
+<span class="sd">        The velocity v.</span>
+<span class="sd">    circle</span>
+<span class="sd">        If `True`, impose periodic boundary conditions. Otherwise Dirichlet left,</span>
+<span class="sd">        outflow right.</span>
+<span class="sd">    initial_data_type</span>
+<span class="sd">        Type of initial data (`&#39;sin&#39;` or `&#39;bump&#39;`).</span>
+<span class="sd">    parameter_range</span>
+<span class="sd">        The interval in which μ is allowed to vary.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="n">initial_data_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="s1">&#39;bump&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">initial_data_type</span> <span class="o">==</span> <span class="s1">&#39;sin&#39;</span><span class="p">:</span>
+        <span class="n">initial_data</span> <span class="o">=</span> <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;0.5 * (sin(2 * pi * x) + 1.)&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">())</span>
+        <span class="n">dirichlet_data</span> <span class="o">=</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="n">dim_domain</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">initial_data</span> <span class="o">=</span> <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x &gt;= 0.5) * (x &lt;= 1) * 1.&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">())</span>
+        <span class="n">dirichlet_data</span> <span class="o">=</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="n">dim_domain</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">InstationaryProblem</span><span class="p">(</span>
+
+        <span class="n">StationaryProblem</span><span class="p">(</span>
+            <span class="n">domain</span><span class="o">=</span><span class="n">CircleDomain</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span> <span class="k">if</span> <span class="n">circle</span> <span class="k">else</span> <span class="n">LineDomain</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">right</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+
+            <span class="n">dirichlet_data</span><span class="o">=</span><span class="n">dirichlet_data</span><span class="p">,</span>
+
+            <span class="n">rhs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+
+            <span class="n">nonlinear_advection</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;abs(x)**exponent * v&#39;</span><span class="p">,</span>
+                                                   <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="p">{</span><span class="s1">&#39;exponent&#39;</span><span class="p">:</span> <span class="p">()},</span> <span class="p">{</span><span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="n">v</span><span class="p">}),</span>
+
+            <span class="n">nonlinear_advection_derivative</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;exponent * abs(x)**(exponent-1) * sign(x) * v&#39;</span><span class="p">,</span>
+                                                              <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="p">{</span><span class="s1">&#39;exponent&#39;</span><span class="p">:</span> <span class="p">()},</span> <span class="p">{</span><span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="n">v</span><span class="p">}),</span>
+        <span class="p">),</span>
+
+        <span class="n">T</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+
+        <span class="n">initial_data</span><span class="o">=</span><span class="n">initial_data</span><span class="p">,</span>
+
+        <span class="n">parameter_space</span><span class="o">=</span><span class="n">CubicParameterSpace</span><span class="p">({</span><span class="s1">&#39;exponent&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span> <span class="o">*</span><span class="n">parameter_range</span><span class="p">),</span>
+
+        <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;burgers_problem(</span><span class="si">{v}</span><span class="s2">, </span><span class="si">{circle}</span><span class="s2">, &#39;</span><span class="si">{initial_data_type}</span><span class="s2">&#39;)&quot;</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="burgers_problem_2d"><a class="viewcode-back" href="../../../generated/pymor.analyticalproblems.html#pymor.analyticalproblems.burgers.burgers_problem_2d">[docs]</a><span class="k">def</span> <span class="nf">burgers_problem_2d</span><span class="p">(</span><span class="n">vx</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">vy</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">torus</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">initial_data_type</span><span class="o">=</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="n">parameter_range</span><span class="o">=</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">2.</span><span class="p">)):</span>
+    <span class="sd">&quot;&quot;&quot;Two-dimensional Burgers-type problem.</span>
+
+<span class="sd">    The problem is to solve ::</span>
+
+<span class="sd">        ∂_t u(x, t, μ)  +  ∇ ⋅ (v * u(x, t, μ)^μ) = 0</span>
+<span class="sd">                                       u(x, 0, μ) = u_0(x)</span>
+
+<span class="sd">    for u with t in [0, 0.3], x in [0, 2] x [0, 1].</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    vx</span>
+<span class="sd">        The x component of the velocity vector v.</span>
+<span class="sd">    vy</span>
+<span class="sd">        The y component of the velocity vector v.</span>
+<span class="sd">    torus</span>
+<span class="sd">        If `True`, impose periodic boundary conditions. Otherwise,</span>
+<span class="sd">        Dirichlet left and bottom, outflow top and right.</span>
+<span class="sd">    initial_data_type</span>
+<span class="sd">        Type of initial data (`&#39;sin&#39;` or `&#39;bump&#39;`).</span>
+<span class="sd">    parameter_range</span>
+<span class="sd">        The interval in which μ is allowed to vary.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="n">initial_data_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="s1">&#39;bump&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">initial_data_type</span> <span class="o">==</span> <span class="s1">&#39;sin&#39;</span><span class="p">:</span>
+        <span class="n">initial_data</span> <span class="o">=</span> <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s2">&quot;0.5 * (sin(2 * pi * x[..., 0]) * sin(2 * pi * x[..., 1]) + 1.)&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">())</span>
+        <span class="n">dirichlet_data</span> <span class="o">=</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">initial_data</span> <span class="o">=</span> <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s2">&quot;(x[..., 0] &gt;= 0.5) * (x[..., 0] &lt;= 1) * 1&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">())</span>
+        <span class="n">dirichlet_data</span> <span class="o">=</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">InstationaryProblem</span><span class="p">(</span>
+
+        <span class="n">StationaryProblem</span><span class="p">(</span>
+            <span class="n">domain</span><span class="o">=</span><span class="n">TorusDomain</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]])</span> <span class="k">if</span> <span class="n">torus</span> <span class="k">else</span> <span class="n">RectDomain</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]],</span> <span class="n">right</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+
+            <span class="n">dirichlet_data</span><span class="o">=</span><span class="n">dirichlet_data</span><span class="p">,</span>
+
+            <span class="n">rhs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+
+            <span class="n">nonlinear_advection</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s2">&quot;abs(x)**exponent * v&quot;</span><span class="p">,</span>
+                                                   <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,),</span> <span class="p">{</span><span class="s1">&#39;exponent&#39;</span><span class="p">:</span> <span class="p">()},</span> <span class="p">{</span><span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">])}),</span>
+
+            <span class="n">nonlinear_advection_derivative</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s2">&quot;exponent * abs(x)**(exponent-1) * sign(x) * v&quot;</span><span class="p">,</span>
+                                                              <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,),</span> <span class="p">{</span><span class="s1">&#39;exponent&#39;</span><span class="p">:</span> <span class="p">()},</span> <span class="p">{</span><span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">])}),</span>
+        <span class="p">),</span>
+
+        <span class="n">initial_data</span><span class="o">=</span><span class="n">initial_data</span><span class="p">,</span>
+
+        <span class="n">T</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+
+        <span class="n">parameter_space</span><span class="o">=</span><span class="n">CubicParameterSpace</span><span class="p">({</span><span class="s1">&#39;exponent&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span> <span class="o">*</span><span class="n">parameter_range</span><span class="p">),</span>
+
+        <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;burgers_problem_2d(</span><span class="si">{vx}</span><span class="s2">, </span><span class="si">{vy}</span><span class="s2">, </span><span class="si">{torus}</span><span class="s2">, &#39;</span><span class="si">{initial_data_type}</span><span class="s2">&#39;)&quot;</span>
+    <span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>
