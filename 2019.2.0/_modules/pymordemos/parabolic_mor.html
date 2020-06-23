@@ -1,0 +1,376 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymordemos.parabolic_mor &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymordemos.parabolic_mor</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;Reduced basis approximation of the heat equation.</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">  parabolic_mor.py BACKEND ALG SNAPSHOTS RBSIZE TEST</span>
+
+<span class="sd">Arguments:</span>
+<span class="sd">  BACKEND    Discretization toolkit to use (pymor, fenics).</span>
+<span class="sd">  ALG        The model reduction algorithm to use</span>
+<span class="sd">             (greedy, adaptive_greedy, pod).</span>
+<span class="sd">  SNAPSHOTS  greedy/pod:      number of training set parameters</span>
+<span class="sd">             adaptive_greedy: size of validation set.</span>
+<span class="sd">  RBSIZE     Size of the reduced basis.</span>
+<span class="sd">  TEST       Number of test parameters for reduction error estimation.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>    <span class="c1"># fix parameters of given function</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.basic</span> <span class="kn">import</span> <span class="o">*</span>        <span class="c1"># most common pyMOR functions and classes</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.timestepping</span> <span class="kn">import</span> <span class="n">ImplicitEulerTimeStepper</span>
+
+
+<span class="c1"># parameters for high-dimensional models</span>
+<span class="n">GRID_INTERVALS</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">FENICS_ORDER</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">NT</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">DT</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">NT</span>
+
+
+<span class="c1">####################################################################################################</span>
+<span class="c1"># High-dimensional models                                                                          #</span>
+<span class="c1">####################################################################################################</span>
+
+
+<div class="viewcode-block" id="discretize_pymor"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic_mor.discretize_pymor">[docs]</a><span class="k">def</span> <span class="nf">discretize_pymor</span><span class="p">():</span>
+
+    <span class="c1"># setup analytical problem</span>
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">InstationaryProblem</span><span class="p">(</span>
+
+        <span class="n">StationaryProblem</span><span class="p">(</span>
+            <span class="n">domain</span><span class="o">=</span><span class="n">RectDomain</span><span class="p">(</span><span class="n">top</span><span class="o">=</span><span class="s1">&#39;dirichlet&#39;</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="s1">&#39;neumann&#39;</span><span class="p">),</span>
+
+            <span class="n">diffusion</span><span class="o">=</span><span class="n">LincombFunction</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+                 <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x[..., 0] &gt; 0.45) * (x[..., 0] &lt; 0.55) * (x[..., 1] &lt; 0.7) * 1.&#39;</span><span class="p">,</span>
+                                    <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+                 <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x[..., 0] &gt; 0.35) * (x[..., 0] &lt; 0.40) * (x[..., 1] &gt; 0.3) * 1. + &#39;</span>
+                                    <span class="s1">&#39;(x[..., 0] &gt; 0.60) * (x[..., 0] &lt; 0.65) * (x[..., 1] &gt; 0.3) * 1.&#39;</span><span class="p">,</span>
+                                    <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">)],</span>
+                <span class="p">[</span><span class="mf">1.</span><span class="p">,</span>
+                 <span class="mf">100.</span> <span class="o">-</span> <span class="mf">1.</span><span class="p">,</span>
+                 <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;top - 1.&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;top&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">})]</span>
+            <span class="p">),</span>
+
+            <span class="n">rhs</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mf">100.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;sin(10*pi*_t)&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;_t&#39;</span><span class="p">:</span> <span class="p">()}),</span>
+
+            <span class="n">dirichlet_data</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+
+            <span class="n">neumann_data</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x[..., 0] &gt; 0.45) * (x[..., 0] &lt; 0.55) * -1000.&#39;</span><span class="p">,</span>
+                                            <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+        <span class="p">),</span>
+
+        <span class="n">T</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span>
+
+        <span class="n">initial_data</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x[..., 0] &gt; 0.45) * (x[..., 0] &lt; 0.55) * (x[..., 1] &lt; 0.7) * 10.&#39;</span><span class="p">,</span>
+                                        <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+
+        <span class="n">parameter_space</span><span class="o">=</span><span class="n">CubicParameterSpace</span><span class="p">({</span><span class="s1">&#39;top&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span> <span class="n">minimum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">maximum</span><span class="o">=</span><span class="mf">100.</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># discretize using continuous finite elements</span>
+    <span class="n">fom</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">discretize_instationary_cg</span><span class="p">(</span><span class="n">analytical_problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="mf">1.</span><span class="o">/</span><span class="n">GRID_INTERVALS</span><span class="p">,</span> <span class="n">nt</span><span class="o">=</span><span class="n">NT</span><span class="p">)</span>
+    <span class="n">fom</span><span class="o">.</span><span class="n">enable_caching</span><span class="p">(</span><span class="s1">&#39;disk&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">fom</span></div>
+
+
+<div class="viewcode-block" id="discretize_fenics"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic_mor.discretize_fenics">[docs]</a><span class="k">def</span> <span class="nf">discretize_fenics</span><span class="p">():</span>
+    <span class="kn">from</span> <span class="nn">pymor.tools</span> <span class="kn">import</span> <span class="n">mpi</span>
+
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">parallel</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">pymor.models.mpi</span> <span class="kn">import</span> <span class="n">mpi_wrap_model</span>
+        <span class="k">return</span> <span class="n">mpi_wrap_model</span><span class="p">(</span><span class="n">_discretize_fenics</span><span class="p">,</span> <span class="n">use_with</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">pickle_local_spaces</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_discretize_fenics</span><span class="p">()</span></div>
+
+
+<span class="k">def</span> <span class="nf">_discretize_fenics</span><span class="p">():</span>
+
+    <span class="c1"># assemble system matrices - FEniCS code</span>
+    <span class="c1">########################################</span>
+
+    <span class="kn">import</span> <span class="nn">dolfin</span> <span class="k">as</span> <span class="nn">df</span>
+
+    <span class="c1"># discrete function space</span>
+    <span class="n">mesh</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">UnitSquareMesh</span><span class="p">(</span><span class="n">GRID_INTERVALS</span><span class="p">,</span> <span class="n">GRID_INTERVALS</span><span class="p">,</span> <span class="s1">&#39;crossed&#39;</span><span class="p">)</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="s1">&#39;Lagrange&#39;</span><span class="p">,</span> <span class="n">FENICS_ORDER</span><span class="p">)</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">TrialFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">TestFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+
+    <span class="c1"># data functions</span>
+    <span class="n">bottom_diffusion</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">Expression</span><span class="p">(</span><span class="s1">&#39;(x[0] &gt; 0.45) * (x[0] &lt; 0.55) * (x[1] &lt; 0.7) * 1.&#39;</span><span class="p">,</span>
+                                     <span class="n">element</span><span class="o">=</span><span class="n">df</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="s1">&#39;DG&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">())</span>
+    <span class="n">top_diffusion</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">Expression</span><span class="p">(</span><span class="s1">&#39;(x[0] &gt; 0.35) * (x[0] &lt; 0.40) * (x[1] &gt; 0.3) * 1. +&#39;</span>
+                                  <span class="s1">&#39;(x[0] &gt; 0.60) * (x[0] &lt; 0.65) * (x[1] &gt; 0.3) * 1.&#39;</span><span class="p">,</span>
+                                  <span class="n">element</span><span class="o">=</span><span class="n">df</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="s1">&#39;DG&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">())</span>
+    <span class="n">initial_data</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">Expression</span><span class="p">(</span><span class="s1">&#39;(x[0] &gt; 0.45) * (x[0] &lt; 0.55) * (x[1] &lt; 0.7) * 10.&#39;</span><span class="p">,</span>
+                                 <span class="n">element</span><span class="o">=</span><span class="n">df</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="s1">&#39;DG&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">())</span>
+    <span class="n">neumann_data</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">Expression</span><span class="p">(</span><span class="s1">&#39;(x[0] &gt; 0.45) * (x[0] &lt; 0.55) * 1000.&#39;</span><span class="p">,</span>
+                                 <span class="n">element</span><span class="o">=</span><span class="n">df</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="s1">&#39;DG&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">())</span>
+
+    <span class="c1"># assemble matrices and vectors</span>
+    <span class="n">l2_mat</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">df</span><span class="o">.</span><span class="n">dx</span><span class="p">)</span>
+    <span class="n">l2_0_mat</span> <span class="o">=</span> <span class="n">l2_mat</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">h1_mat</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">nabla_grad</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">df</span><span class="o">.</span><span class="n">nabla_grad</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="o">*</span> <span class="n">df</span><span class="o">.</span><span class="n">dx</span><span class="p">)</span>
+    <span class="n">h1_0_mat</span> <span class="o">=</span> <span class="n">h1_mat</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">mat0</span> <span class="o">=</span> <span class="n">h1_mat</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">mat0</span><span class="o">.</span><span class="n">zero</span><span class="p">()</span>
+    <span class="n">bottom_mat</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">bottom_diffusion</span> <span class="o">*</span> <span class="n">df</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">nabla_grad</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">df</span><span class="o">.</span><span class="n">nabla_grad</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="o">*</span> <span class="n">df</span><span class="o">.</span><span class="n">dx</span><span class="p">)</span>
+    <span class="n">top_mat</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">top_diffusion</span> <span class="o">*</span> <span class="n">df</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">nabla_grad</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">df</span><span class="o">.</span><span class="n">nabla_grad</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="o">*</span> <span class="n">df</span><span class="o">.</span><span class="n">dx</span><span class="p">)</span>
+    <span class="n">u0</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">initial_data</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span><span class="o">.</span><span class="n">vector</span><span class="p">()</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">neumann_data</span> <span class="o">*</span> <span class="n">v</span> <span class="o">*</span> <span class="n">df</span><span class="o">.</span><span class="n">ds</span><span class="p">)</span>
+
+    <span class="c1"># boundary treatment</span>
+    <span class="k">def</span> <span class="nf">dirichlet_boundary</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">on_boundary</span><span class="p">):</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="mf">1e-14</span>
+        <span class="k">return</span> <span class="n">on_boundary</span> <span class="ow">and</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">tol</span> <span class="ow">or</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">tol</span> <span class="ow">or</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">)</span>
+
+    <span class="n">bc</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">DirichletBC</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">Constant</span><span class="p">(</span><span class="mf">0.</span><span class="p">),</span> <span class="n">dirichlet_boundary</span><span class="p">)</span>
+    <span class="n">bc</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">l2_0_mat</span><span class="p">)</span>
+    <span class="n">bc</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">h1_0_mat</span><span class="p">)</span>
+    <span class="n">bc</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">mat0</span><span class="p">)</span>
+    <span class="n">bc</span><span class="o">.</span><span class="n">zero</span><span class="p">(</span><span class="n">bottom_mat</span><span class="p">)</span>
+    <span class="n">bc</span><span class="o">.</span><span class="n">zero</span><span class="p">(</span><span class="n">top_mat</span><span class="p">)</span>
+    <span class="n">bc</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="n">bc</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">u0</span><span class="p">)</span>
+
+    <span class="c1"># wrap everything as a pyMOR model</span>
+    <span class="c1">##################################</span>
+
+    <span class="kn">from</span> <span class="nn">pymor.bindings.fenics</span> <span class="kn">import</span> <span class="n">FenicsVectorSpace</span><span class="p">,</span> <span class="n">FenicsMatrixOperator</span><span class="p">,</span> <span class="n">FenicsVisualizer</span>
+
+    <span class="n">fom</span> <span class="o">=</span> <span class="n">InstationaryModel</span><span class="p">(</span>
+        <span class="n">T</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span>
+
+        <span class="n">initial_data</span><span class="o">=</span><span class="n">FenicsVectorSpace</span><span class="p">(</span><span class="n">V</span><span class="p">)</span><span class="o">.</span><span class="n">make_array</span><span class="p">([</span><span class="n">u0</span><span class="p">]),</span>
+
+        <span class="n">operator</span><span class="o">=</span><span class="n">LincombOperator</span><span class="p">([</span><span class="n">FenicsMatrixOperator</span><span class="p">(</span><span class="n">mat0</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+                                  <span class="n">FenicsMatrixOperator</span><span class="p">(</span><span class="n">h1_0_mat</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+                                  <span class="n">FenicsMatrixOperator</span><span class="p">(</span><span class="n">bottom_mat</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+                                  <span class="n">FenicsMatrixOperator</span><span class="p">(</span><span class="n">top_mat</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">)],</span>
+                                 <span class="p">[</span><span class="mf">1.</span><span class="p">,</span>
+                                  <span class="mf">1.</span><span class="p">,</span>
+                                  <span class="mf">100.</span> <span class="o">-</span> <span class="mf">1.</span><span class="p">,</span>
+                                  <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;top - 1.&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;top&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">})]),</span>
+
+        <span class="n">rhs</span><span class="o">=</span><span class="n">VectorOperator</span><span class="p">(</span><span class="n">FenicsVectorSpace</span><span class="p">(</span><span class="n">V</span><span class="p">)</span><span class="o">.</span><span class="n">make_array</span><span class="p">([</span><span class="n">f</span><span class="p">])),</span>
+
+        <span class="n">mass</span><span class="o">=</span><span class="n">FenicsMatrixOperator</span><span class="p">(</span><span class="n">l2_0_mat</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;l2&#39;</span><span class="p">),</span>
+
+        <span class="n">products</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;l2&#39;</span><span class="p">:</span> <span class="n">FenicsMatrixOperator</span><span class="p">(</span><span class="n">l2_mat</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;l2&#39;</span><span class="p">),</span>
+                  <span class="s1">&#39;l2_0&#39;</span><span class="p">:</span> <span class="n">FenicsMatrixOperator</span><span class="p">(</span><span class="n">l2_0_mat</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;l2_0&#39;</span><span class="p">),</span>
+                  <span class="s1">&#39;h1&#39;</span><span class="p">:</span> <span class="n">FenicsMatrixOperator</span><span class="p">(</span><span class="n">h1_mat</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;h1&#39;</span><span class="p">),</span>
+                  <span class="s1">&#39;h1_0_semi&#39;</span><span class="p">:</span> <span class="n">FenicsMatrixOperator</span><span class="p">(</span><span class="n">h1_0_mat</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;h1_0_semi&#39;</span><span class="p">)},</span>
+
+        <span class="n">time_stepper</span><span class="o">=</span><span class="n">ImplicitEulerTimeStepper</span><span class="p">(</span><span class="n">nt</span><span class="o">=</span><span class="n">NT</span><span class="p">),</span>
+
+        <span class="n">parameter_space</span><span class="o">=</span><span class="n">CubicParameterSpace</span><span class="p">({</span><span class="s1">&#39;top&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span> <span class="n">minimum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">maximum</span><span class="o">=</span><span class="mf">100.</span><span class="p">),</span>
+
+        <span class="n">visualizer</span><span class="o">=</span><span class="n">FenicsVisualizer</span><span class="p">(</span><span class="n">FenicsVectorSpace</span><span class="p">(</span><span class="n">V</span><span class="p">))</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">fom</span>
+
+
+<span class="c1">####################################################################################################</span>
+<span class="c1"># Reduction algorithms                                                                             #</span>
+<span class="c1">####################################################################################################</span>
+
+
+<div class="viewcode-block" id="reduce_greedy"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic_mor.reduce_greedy">[docs]</a><span class="k">def</span> <span class="nf">reduce_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">snapshots</span><span class="p">,</span> <span class="n">basis_size</span><span class="p">):</span>
+
+    <span class="n">training_set</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_uniformly</span><span class="p">(</span><span class="n">snapshots</span><span class="p">)</span>
+    <span class="n">pool</span> <span class="o">=</span> <span class="n">new_parallel_pool</span><span class="p">()</span>
+
+    <span class="n">greedy_data</span> <span class="o">=</span> <span class="n">rb_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">training_set</span><span class="p">,</span> <span class="n">max_extensions</span><span class="o">=</span><span class="n">basis_size</span><span class="p">,</span> <span class="n">pool</span><span class="o">=</span><span class="n">pool</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">greedy_data</span><span class="p">[</span><span class="s1">&#39;rom&#39;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="reduce_adaptive_greedy"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic_mor.reduce_adaptive_greedy">[docs]</a><span class="k">def</span> <span class="nf">reduce_adaptive_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">validation_mus</span><span class="p">,</span> <span class="n">basis_size</span><span class="p">):</span>
+
+    <span class="n">pool</span> <span class="o">=</span> <span class="n">new_parallel_pool</span><span class="p">()</span>
+
+    <span class="n">greedy_data</span> <span class="o">=</span> <span class="n">rb_adaptive_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">validation_mus</span><span class="o">=</span><span class="n">validation_mus</span><span class="p">,</span>
+                                     <span class="n">max_extensions</span><span class="o">=</span><span class="n">basis_size</span><span class="p">,</span> <span class="n">pool</span><span class="o">=</span><span class="n">pool</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">greedy_data</span><span class="p">[</span><span class="s1">&#39;rom&#39;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="reduce_pod"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic_mor.reduce_pod">[docs]</a><span class="k">def</span> <span class="nf">reduce_pod</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">snapshots</span><span class="p">,</span> <span class="n">basis_size</span><span class="p">):</span>
+
+    <span class="n">training_set</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_uniformly</span><span class="p">(</span><span class="n">snapshots</span><span class="p">)</span>
+
+    <span class="n">snapshots</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">training_set</span><span class="p">:</span>
+        <span class="n">snapshots</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">))</span>
+
+    <span class="n">basis</span><span class="p">,</span> <span class="n">singular_values</span> <span class="o">=</span> <span class="n">pod</span><span class="p">(</span><span class="n">snapshots</span><span class="p">,</span> <span class="n">modes</span><span class="o">=</span><span class="n">basis_size</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_product</span><span class="p">)</span>
+    <span class="n">reductor</span><span class="o">.</span><span class="n">extend_basis</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;trivial&#39;</span><span class="p">)</span>
+
+    <span class="n">rom</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">rom</span></div>
+
+
+<span class="c1">####################################################################################################</span>
+<span class="c1"># Main script                                                                                      #</span>
+<span class="c1">####################################################################################################</span>
+
+<div class="viewcode-block" id="main"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic_mor.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">BACKEND</span><span class="p">,</span> <span class="n">ALG</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">,</span> <span class="n">TEST</span><span class="p">):</span>
+    <span class="c1"># discretize</span>
+    <span class="c1">############</span>
+    <span class="k">if</span> <span class="n">BACKEND</span> <span class="o">==</span> <span class="s1">&#39;pymor&#39;</span><span class="p">:</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="n">discretize_pymor</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">BACKEND</span> <span class="o">==</span> <span class="s1">&#39;fenics&#39;</span><span class="p">:</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="n">discretize_fenics</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="c1"># select reduction algorithm with error estimator</span>
+    <span class="c1">#################################################</span>
+    <span class="n">coercivity_estimator</span> <span class="o">=</span> <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;1.&#39;</span><span class="p">,</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">)</span>
+    <span class="n">reductor</span> <span class="o">=</span> <span class="n">ParabolicRBReductor</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_product</span><span class="p">,</span> <span class="n">coercivity_estimator</span><span class="o">=</span><span class="n">coercivity_estimator</span><span class="p">)</span>
+
+    <span class="c1"># generate reduced model</span>
+    <span class="c1">########################</span>
+    <span class="k">if</span> <span class="n">ALG</span> <span class="o">==</span> <span class="s1">&#39;greedy&#39;</span><span class="p">:</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="n">reduce_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">ALG</span> <span class="o">==</span> <span class="s1">&#39;adaptive_greedy&#39;</span><span class="p">:</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="n">reduce_adaptive_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">ALG</span> <span class="o">==</span> <span class="s1">&#39;pod&#39;</span><span class="p">:</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="n">reduce_pod</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="c1"># evaluate the reduction error</span>
+    <span class="c1">##############################</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">reduction_error_analysis</span><span class="p">(</span>
+        <span class="n">rom</span><span class="p">,</span> <span class="n">fom</span><span class="o">=</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="o">=</span><span class="n">reductor</span><span class="p">,</span> <span class="n">estimator</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">error_norms</span><span class="o">=</span><span class="p">[</span><span class="k">lambda</span> <span class="n">U</span><span class="p">:</span> <span class="n">DT</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_norm</span><span class="p">(</span><span class="n">U</span><span class="p">)[</span><span class="mi">1</span><span class="p">:]</span><span class="o">**</span><span class="mi">2</span><span class="p">))],</span>
+        <span class="n">error_norm_names</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;l^2-h^1&#39;</span><span class="p">],</span>
+        <span class="n">condition</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">test_mus</span><span class="o">=</span><span class="n">TEST</span><span class="p">,</span> <span class="n">random_seed</span><span class="o">=</span><span class="mi">999</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="c1"># show results</span>
+    <span class="c1">##############</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;summary&#39;</span><span class="p">])</span>
+    <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;figure&#39;</span><span class="p">])</span>
+
+    <span class="c1"># write results to disk</span>
+    <span class="c1">#######################</span>
+    <span class="kn">from</span> <span class="nn">pymor.core.pickle</span> <span class="kn">import</span> <span class="n">dump</span>
+    <span class="n">dump</span><span class="p">(</span><span class="n">rom</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;reduced_model.out&#39;</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">))</span>
+    <span class="n">results</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;figure&#39;</span><span class="p">)</span>  <span class="c1"># matplotlib figures cannot be serialized</span>
+    <span class="n">dump</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;results.out&#39;</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">))</span>
+
+    <span class="c1"># visualize reduction error for worst-approximated mu</span>
+    <span class="c1">#####################################################</span>
+    <span class="n">mumax</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;max_error_mus&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mumax</span><span class="p">)</span>
+    <span class="n">U_RB</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mumax</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">BACKEND</span> <span class="o">==</span> <span class="s1">&#39;fenics&#39;</span><span class="p">:</span>  <span class="c1"># right now the fenics visualizer does not support time trajectories</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">U_RB</span> <span class="o">=</span> <span class="n">U_RB</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">U_RB</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">((</span><span class="n">U</span><span class="p">,</span> <span class="n">U_RB</span><span class="p">,</span> <span class="n">U</span> <span class="o">-</span> <span class="n">U_RB</span><span class="p">),</span> <span class="n">legend</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;Detailed Solution&#39;</span><span class="p">,</span> <span class="s1">&#39;Reduced Solution&#39;</span><span class="p">,</span> <span class="s1">&#39;Error&#39;</span><span class="p">),</span>
+                <span class="n">separate_colorbars</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">results</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">sys</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">6</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">BACKEND</span><span class="p">,</span> <span class="n">ALG</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">,</span> <span class="n">TEST</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="n">BACKEND</span><span class="p">,</span> <span class="n">ALG</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">,</span> <span class="n">TEST</span> <span class="o">=</span> <span class="n">BACKEND</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="n">ALG</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="nb">int</span><span class="p">(</span><span class="n">SNAPSHOTS</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">RBSIZE</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">TEST</span><span class="p">)</span>
+    <span class="n">main</span><span class="p">(</span><span class="n">BACKEND</span><span class="p">,</span> <span class="n">ALG</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">,</span> <span class="n">TEST</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,417 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.discretizers.cg &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.discretizers.cg</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.timestepping</span> <span class="kn">import</span> <span class="n">ExplicitEulerTimeStepper</span><span class="p">,</span> <span class="n">ImplicitEulerTimeStepper</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.preassemble</span> <span class="kn">import</span> <span class="n">preassemble</span> <span class="k">as</span> <span class="n">preassemble_</span>
+<span class="kn">from</span> <span class="nn">pymor.analyticalproblems.elliptic</span> <span class="kn">import</span> <span class="n">StationaryProblem</span>
+<span class="kn">from</span> <span class="nn">pymor.analyticalproblems.instationary</span> <span class="kn">import</span> <span class="n">InstationaryProblem</span>
+<span class="kn">from</span> <span class="nn">pymor.models.basic</span> <span class="kn">import</span> <span class="n">StationaryModel</span><span class="p">,</span> <span class="n">InstationaryModel</span>
+<span class="kn">from</span> <span class="nn">pymor.domaindiscretizers.default</span> <span class="kn">import</span> <span class="n">discretize_domain_default</span>
+<span class="kn">from</span> <span class="nn">pymor.functions.basic</span> <span class="kn">import</span> <span class="n">ConstantFunction</span><span class="p">,</span> <span class="n">LincombFunction</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.boundaryinfos</span> <span class="kn">import</span> <span class="n">EmptyBoundaryInfo</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.referenceelements</span> <span class="kn">import</span> <span class="n">line</span><span class="p">,</span> <span class="n">triangle</span><span class="p">,</span> <span class="n">square</span>
+<span class="kn">from</span> <span class="nn">pymor.gui.visualizers</span> <span class="kn">import</span> <span class="n">PatchVisualizer</span><span class="p">,</span> <span class="n">OnedVisualizer</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.cg</span> <span class="kn">import</span> <span class="p">(</span><span class="n">DiffusionOperatorP1</span><span class="p">,</span> <span class="n">DiffusionOperatorQ1</span><span class="p">,</span>
+                                <span class="n">AdvectionOperatorP1</span><span class="p">,</span> <span class="n">AdvectionOperatorQ1</span><span class="p">,</span>
+                                <span class="n">L2ProductP1</span><span class="p">,</span> <span class="n">L2ProductQ1</span><span class="p">,</span>
+                                <span class="n">L2ProductFunctionalP1</span><span class="p">,</span> <span class="n">L2ProductFunctionalQ1</span><span class="p">,</span>
+                                <span class="n">BoundaryL2ProductFunctional</span><span class="p">,</span>
+                                <span class="n">BoundaryDirichletFunctional</span><span class="p">,</span> <span class="n">RobinBoundaryOperator</span><span class="p">,</span> <span class="n">InterpolationOperator</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">LincombOperator</span>
+
+
+<div class="viewcode-block" id="discretize_stationary_cg"><a class="viewcode-back" href="../../../generated/pymor.discretizers.html#pymor.discretizers.cg.discretize_stationary_cg">[docs]</a><span class="k">def</span> <span class="nf">discretize_stationary_cg</span><span class="p">(</span><span class="n">analytical_problem</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">domain_discretizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                             <span class="n">grid_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">boundary_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                             <span class="n">preassemble</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Discretizes a |StationaryProblem| using finite elements.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    analytical_problem</span>
+<span class="sd">        The |StationaryProblem| to discretize.</span>
+<span class="sd">    diameter</span>
+<span class="sd">        If not `None`, `diameter` is passed as an argument to the `domain_discretizer`.</span>
+<span class="sd">    domain_discretizer</span>
+<span class="sd">        Discretizer to be used for discretizing the analytical domain. This has</span>
+<span class="sd">        to be a function `domain_discretizer(domain_description, diameter, ...)`.</span>
+<span class="sd">        If `None`, |discretize_domain_default| is used.</span>
+<span class="sd">    grid_type</span>
+<span class="sd">        If not `None`, this parameter is forwarded to `domain_discretizer` to specify</span>
+<span class="sd">        the type of the generated |Grid|.</span>
+<span class="sd">    grid</span>
+<span class="sd">        Instead of using a domain discretizer, the |Grid| can also be passed directly</span>
+<span class="sd">        using this parameter.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        A |BoundaryInfo| specifying the boundary types of the grid boundary entities.</span>
+<span class="sd">        Must be provided if `grid` is specified.</span>
+<span class="sd">    preassemble</span>
+<span class="sd">        If `True`, preassemble all operators in the resulting |Model|.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    m</span>
+<span class="sd">        The |Model| that has been generated.</span>
+<span class="sd">    data</span>
+<span class="sd">        Dictionary with the following entries:</span>
+
+<span class="sd">            :grid:           The generated |Grid|.</span>
+<span class="sd">            :boundary_info:  The generated |BoundaryInfo|.</span>
+<span class="sd">            :unassembled_m:  In case `preassemble` is `True`, the generated |Model|</span>
+<span class="sd">                             before preassembling operators.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">analytical_problem</span><span class="p">,</span> <span class="n">StationaryProblem</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">grid</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">boundary_info</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="k">assert</span> <span class="n">boundary_info</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="k">assert</span> <span class="n">grid</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">domain_discretizer</span> <span class="ow">is</span> <span class="kc">None</span>
+    <span class="k">assert</span> <span class="n">grid_type</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">grid</span> <span class="ow">is</span> <span class="kc">None</span>
+
+    <span class="n">p</span> <span class="o">=</span> <span class="n">analytical_problem</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">nonlinear_advection</span>
+            <span class="o">==</span> <span class="n">p</span><span class="o">.</span><span class="n">nonlinear_advection_derivative</span>
+            <span class="o">==</span> <span class="n">p</span><span class="o">.</span><span class="n">nonlinear_reaction</span>
+            <span class="o">==</span> <span class="n">p</span><span class="o">.</span><span class="n">nonlinear_reaction_derivative</span>
+            <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">if</span> <span class="n">grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">domain_discretizer</span> <span class="o">=</span> <span class="n">domain_discretizer</span> <span class="ow">or</span> <span class="n">discretize_domain_default</span>
+        <span class="k">if</span> <span class="n">grid_type</span><span class="p">:</span>
+            <span class="n">domain_discretizer</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">domain_discretizer</span><span class="p">,</span> <span class="n">grid_type</span><span class="o">=</span><span class="n">grid_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">diameter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span> <span class="o">=</span> <span class="n">domain_discretizer</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">domain</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span> <span class="o">=</span> <span class="n">domain_discretizer</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="n">diameter</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span> <span class="ow">in</span> <span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">triangle</span><span class="p">,</span> <span class="n">square</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span> <span class="ow">is</span> <span class="n">square</span><span class="p">:</span>
+        <span class="n">DiffusionOperator</span> <span class="o">=</span> <span class="n">DiffusionOperatorQ1</span>
+        <span class="n">AdvectionOperator</span> <span class="o">=</span> <span class="n">AdvectionOperatorQ1</span>
+        <span class="n">ReactionOperator</span>  <span class="o">=</span> <span class="n">L2ProductQ1</span>
+        <span class="n">L2Functional</span> <span class="o">=</span> <span class="n">L2ProductFunctionalQ1</span>
+        <span class="n">BoundaryL2Functional</span> <span class="o">=</span> <span class="n">BoundaryL2ProductFunctional</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">DiffusionOperator</span> <span class="o">=</span> <span class="n">DiffusionOperatorP1</span>
+        <span class="n">AdvectionOperator</span> <span class="o">=</span> <span class="n">AdvectionOperatorP1</span>
+        <span class="n">ReactionOperator</span>  <span class="o">=</span> <span class="n">L2ProductP1</span>
+        <span class="n">L2Functional</span> <span class="o">=</span> <span class="n">L2ProductFunctionalP1</span>
+        <span class="n">BoundaryL2Functional</span> <span class="o">=</span> <span class="n">BoundaryL2ProductFunctional</span>
+
+    <span class="n">Li</span> <span class="o">=</span> <span class="p">[</span><span class="n">DiffusionOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">diffusion_constant</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;boundary_part&#39;</span><span class="p">)]</span>
+    <span class="n">coefficients</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.</span><span class="p">]</span>
+
+    <span class="c1"># diffusion part</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">diffusion</span><span class="p">,</span> <span class="n">LincombFunction</span><span class="p">):</span>
+        <span class="n">Li</span> <span class="o">+=</span> <span class="p">[</span><span class="n">DiffusionOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">diffusion_function</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="n">dirichlet_clear_diag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                 <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;diffusion_</span><span class="si">{i}</span><span class="s1">&#39;</span><span class="p">)</span>
+               <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">df</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">diffusion</span><span class="o">.</span><span class="n">functions</span><span class="p">)]</span>
+        <span class="n">coefficients</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">diffusion</span><span class="o">.</span><span class="n">coefficients</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">p</span><span class="o">.</span><span class="n">diffusion</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">Li</span> <span class="o">+=</span> <span class="p">[</span><span class="n">DiffusionOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">diffusion_function</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">diffusion</span><span class="p">,</span>
+                                 <span class="n">dirichlet_clear_diag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;diffusion&#39;</span><span class="p">)]</span>
+        <span class="n">coefficients</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">1.</span><span class="p">)</span>
+
+    <span class="c1"># advection part</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">advection</span><span class="p">,</span> <span class="n">LincombFunction</span><span class="p">):</span>
+        <span class="n">Li</span> <span class="o">+=</span> <span class="p">[</span><span class="n">AdvectionOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">advection_function</span><span class="o">=</span><span class="n">af</span><span class="p">,</span> <span class="n">dirichlet_clear_diag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                 <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;advection_</span><span class="si">{i}</span><span class="s1">&#39;</span><span class="p">)</span>
+               <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">af</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">advection</span><span class="o">.</span><span class="n">functions</span><span class="p">)]</span>
+        <span class="n">coefficients</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">advection</span><span class="o">.</span><span class="n">coefficients</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">p</span><span class="o">.</span><span class="n">advection</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">Li</span> <span class="o">+=</span> <span class="p">[</span><span class="n">AdvectionOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">advection_function</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">advection</span><span class="p">,</span>
+                                 <span class="n">dirichlet_clear_diag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;advection&#39;</span><span class="p">)]</span>
+        <span class="n">coefficients</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">1.</span><span class="p">)</span>
+
+    <span class="c1"># reaction part</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">reaction</span><span class="p">,</span> <span class="n">LincombFunction</span><span class="p">):</span>
+        <span class="n">Li</span> <span class="o">+=</span> <span class="p">[</span><span class="n">ReactionOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">coefficient_function</span><span class="o">=</span><span class="n">rf</span><span class="p">,</span> <span class="n">dirichlet_clear_diag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;reaction_</span><span class="si">{i}</span><span class="s1">&#39;</span><span class="p">)</span>
+               <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">rf</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">reaction</span><span class="o">.</span><span class="n">functions</span><span class="p">)]</span>
+        <span class="n">coefficients</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">reaction</span><span class="o">.</span><span class="n">coefficients</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">p</span><span class="o">.</span><span class="n">reaction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">Li</span> <span class="o">+=</span> <span class="p">[</span><span class="n">ReactionOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">coefficient_function</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">reaction</span><span class="p">,</span>
+                                <span class="n">dirichlet_clear_diag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;reaction&#39;</span><span class="p">)]</span>
+        <span class="n">coefficients</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">1.</span><span class="p">)</span>
+
+    <span class="c1"># robin boundaries</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">robin_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">LincombFunction</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">rd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">functions</span><span class="p">):</span>
+                <span class="n">robin_tuple</span> <span class="o">=</span> <span class="p">(</span><span class="n">rd</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">Li</span> <span class="o">+=</span> <span class="p">[</span><span class="n">RobinBoundaryOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">robin_data</span><span class="o">=</span><span class="n">robin_tuple</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;robin_</span><span class="si">{i}</span><span class="s1">&#39;</span><span class="p">)]</span>
+            <span class="n">coefficients</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coefficients</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">Li</span> <span class="o">+=</span> <span class="p">[</span><span class="n">RobinBoundaryOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">robin_data</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;robin&#39;</span><span class="p">)]</span>
+            <span class="n">coefficients</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">1.</span><span class="p">)</span>
+
+    <span class="n">L</span> <span class="o">=</span> <span class="n">LincombOperator</span><span class="p">(</span><span class="n">operators</span><span class="o">=</span><span class="n">Li</span><span class="p">,</span> <span class="n">coefficients</span><span class="o">=</span><span class="n">coefficients</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;ellipticOperator&#39;</span><span class="p">)</span>
+
+    <span class="c1"># right-hand side</span>
+    <span class="n">rhs</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">rhs</span> <span class="ow">or</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+    <span class="n">Fi</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">coefficients_F</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">LincombFunction</span><span class="p">):</span>
+        <span class="n">Fi</span> <span class="o">+=</span> <span class="p">[</span><span class="n">L2Functional</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">rh</span><span class="p">,</span> <span class="n">dirichlet_clear_dofs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">boundary_info</span><span class="o">=</span><span class="n">boundary_info</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;rhs_</span><span class="si">{i}</span><span class="s1">&#39;</span><span class="p">)</span>
+               <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">rh</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">functions</span><span class="p">)]</span>
+        <span class="n">coefficients_F</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">coefficients</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">Fi</span> <span class="o">+=</span> <span class="p">[</span><span class="n">L2Functional</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">dirichlet_clear_dofs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">boundary_info</span><span class="o">=</span><span class="n">boundary_info</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;rhs&#39;</span><span class="p">)]</span>
+        <span class="n">coefficients_F</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">1.</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">neumann_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">boundary_info</span><span class="o">.</span><span class="n">has_neumann</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">neumann_data</span><span class="p">,</span> <span class="n">LincombFunction</span><span class="p">):</span>
+            <span class="n">Fi</span> <span class="o">+=</span> <span class="p">[</span><span class="n">BoundaryL2Functional</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="o">-</span><span class="n">ne</span><span class="p">,</span> <span class="n">boundary_info</span><span class="o">=</span><span class="n">boundary_info</span><span class="p">,</span>
+                                      <span class="n">boundary_type</span><span class="o">=</span><span class="s1">&#39;neumann&#39;</span><span class="p">,</span> <span class="n">dirichlet_clear_dofs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;neumann_</span><span class="si">{i}</span><span class="s1">&#39;</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ne</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">neumann_data</span><span class="o">.</span><span class="n">functions</span><span class="p">)]</span>
+            <span class="n">coefficients_F</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">neumann_data</span><span class="o">.</span><span class="n">coefficients</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">Fi</span> <span class="o">+=</span> <span class="p">[</span><span class="n">BoundaryL2Functional</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="o">-</span><span class="n">p</span><span class="o">.</span><span class="n">neumann_data</span><span class="p">,</span> <span class="n">boundary_info</span><span class="o">=</span><span class="n">boundary_info</span><span class="p">,</span>
+                                      <span class="n">boundary_type</span><span class="o">=</span><span class="s1">&#39;neumann&#39;</span><span class="p">,</span> <span class="n">dirichlet_clear_dofs</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
+            <span class="n">coefficients_F</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">1.</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">robin_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">boundary_info</span><span class="o">.</span><span class="n">has_robin</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">LincombFunction</span><span class="p">):</span>
+            <span class="n">Fi</span> <span class="o">+=</span> <span class="p">[</span><span class="n">BoundaryL2Functional</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">rob</span> <span class="o">*</span> <span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">boundary_info</span><span class="o">=</span><span class="n">boundary_info</span><span class="p">,</span>
+                                      <span class="n">boundary_type</span><span class="o">=</span><span class="s1">&#39;robin&#39;</span><span class="p">,</span> <span class="n">dirichlet_clear_dofs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;robin_</span><span class="si">{i}</span><span class="s1">&#39;</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">rob</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">functions</span><span class="p">)]</span>
+            <span class="n">coefficients_F</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coefficients</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">Fi</span> <span class="o">+=</span> <span class="p">[</span><span class="n">BoundaryL2Functional</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">p</span><span class="o">.</span><span class="n">robin_data</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">boundary_info</span><span class="o">=</span><span class="n">boundary_info</span><span class="p">,</span>
+                                      <span class="n">boundary_type</span><span class="o">=</span><span class="s1">&#39;robin&#39;</span><span class="p">,</span> <span class="n">dirichlet_clear_dofs</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
+            <span class="n">coefficients_F</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">1.</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">dirichlet_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">boundary_info</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">dirichlet_data</span><span class="p">,</span> <span class="n">LincombFunction</span><span class="p">):</span>
+            <span class="n">Fi</span> <span class="o">+=</span> <span class="p">[</span><span class="n">BoundaryDirichletFunctional</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">di</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;dirichlet</span><span class="si">{i}</span><span class="s1">&#39;</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">di</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">dirichlet_data</span><span class="o">.</span><span class="n">functions</span><span class="p">)]</span>
+            <span class="n">coefficients_F</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">dirichlet_data</span><span class="o">.</span><span class="n">coefficients</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">Fi</span> <span class="o">+=</span> <span class="p">[</span><span class="n">BoundaryDirichletFunctional</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">dirichlet_data</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">)]</span>
+            <span class="n">coefficients_F</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">1.</span><span class="p">)</span>
+
+    <span class="n">F</span> <span class="o">=</span> <span class="n">LincombOperator</span><span class="p">(</span><span class="n">operators</span><span class="o">=</span><span class="n">Fi</span><span class="p">,</span> <span class="n">coefficients</span><span class="o">=</span><span class="n">coefficients_F</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;rhsOperator&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span> <span class="ow">in</span> <span class="p">(</span><span class="n">triangle</span><span class="p">,</span> <span class="n">square</span><span class="p">):</span>
+        <span class="n">visualizer</span> <span class="o">=</span> <span class="n">PatchVisualizer</span><span class="p">(</span><span class="n">grid</span><span class="o">=</span><span class="n">grid</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="n">grid</span><span class="o">.</span><span class="n">bounding_box</span><span class="p">(),</span> <span class="n">codim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span> <span class="ow">is</span> <span class="n">line</span><span class="p">:</span>
+        <span class="n">visualizer</span> <span class="o">=</span> <span class="n">OnedVisualizer</span><span class="p">(</span><span class="n">grid</span><span class="o">=</span><span class="n">grid</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">visualizer</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">Prod</span> <span class="o">=</span> <span class="n">L2ProductQ1</span> <span class="k">if</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span> <span class="ow">is</span> <span class="n">square</span> <span class="k">else</span> <span class="n">L2ProductP1</span>
+    <span class="n">empty_bi</span> <span class="o">=</span> <span class="n">EmptyBoundaryInfo</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="n">l2_product</span> <span class="o">=</span> <span class="n">Prod</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">empty_bi</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;l2&#39;</span><span class="p">)</span>
+    <span class="n">l2_0_product</span> <span class="o">=</span> <span class="n">Prod</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">dirichlet_clear_columns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;l2_0&#39;</span><span class="p">)</span>
+    <span class="n">h1_semi_product</span> <span class="o">=</span> <span class="n">DiffusionOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">empty_bi</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;h1_semi&#39;</span><span class="p">)</span>
+    <span class="n">h1_0_semi_product</span> <span class="o">=</span> <span class="n">DiffusionOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">dirichlet_clear_columns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;h1_0_semi&#39;</span><span class="p">)</span>
+    <span class="n">products</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;h1&#39;</span><span class="p">:</span> <span class="n">l2_product</span> <span class="o">+</span> <span class="n">h1_semi_product</span><span class="p">,</span>
+                <span class="s1">&#39;h1_semi&#39;</span><span class="p">:</span> <span class="n">h1_semi_product</span><span class="p">,</span>
+                <span class="s1">&#39;l2&#39;</span><span class="p">:</span> <span class="n">l2_product</span><span class="p">,</span>
+                <span class="s1">&#39;h1_0&#39;</span><span class="p">:</span> <span class="n">l2_0_product</span> <span class="o">+</span> <span class="n">h1_0_semi_product</span><span class="p">,</span>
+                <span class="s1">&#39;h1_0_semi&#39;</span><span class="p">:</span> <span class="n">h1_0_semi_product</span><span class="p">,</span>
+                <span class="s1">&#39;l2_0&#39;</span><span class="p">:</span> <span class="n">l2_0_product</span><span class="p">}</span>
+
+    <span class="c1"># assemble additionals output functionals</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">outputs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;l2&#39;</span><span class="p">,</span> <span class="s1">&#39;l2_boundary&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">outputs</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="n">outputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">L2Functional</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dirichlet_clear_dofs</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">H</span> <span class="k">if</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;l2&#39;</span> <span class="k">else</span>
+                   <span class="n">BoundaryL2Functional</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dirichlet_clear_dofs</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">H</span>
+                   <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">outputs</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">outputs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">pymor.operators.block</span> <span class="kn">import</span> <span class="n">BlockColumnOperator</span>
+            <span class="n">output_functional</span> <span class="o">=</span> <span class="n">BlockColumnOperator</span><span class="p">(</span><span class="n">outputs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">output_functional</span> <span class="o">=</span> <span class="n">outputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">output_functional</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">parameter_space</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">parameter_space</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s1">&#39;parameter_space&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="n">m</span>  <span class="o">=</span> <span class="n">StationaryModel</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">output_functional</span><span class="o">=</span><span class="n">output_functional</span><span class="p">,</span> <span class="n">products</span><span class="o">=</span><span class="n">products</span><span class="p">,</span> <span class="n">visualizer</span><span class="o">=</span><span class="n">visualizer</span><span class="p">,</span>
+                         <span class="n">parameter_space</span><span class="o">=</span><span class="n">parameter_space</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{p.name}</span><span class="s1">_CG&#39;</span><span class="p">)</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;grid&#39;</span><span class="p">:</span> <span class="n">grid</span><span class="p">,</span> <span class="s1">&#39;boundary_info&#39;</span><span class="p">:</span> <span class="n">boundary_info</span><span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">preassemble</span><span class="p">:</span>
+        <span class="n">data</span><span class="p">[</span><span class="s1">&#39;unassembled_m&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">preassemble_</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">m</span><span class="p">,</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="discretize_instationary_cg"><a class="viewcode-back" href="../../../generated/pymor.discretizers.html#pymor.discretizers.cg.discretize_instationary_cg">[docs]</a><span class="k">def</span> <span class="nf">discretize_instationary_cg</span><span class="p">(</span><span class="n">analytical_problem</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">domain_discretizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">grid_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                               <span class="n">grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">boundary_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">time_stepper</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nt</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                               <span class="n">preassemble</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Discretizes an |InstationaryProblem| with a |StationaryProblem| as stationary part</span>
+<span class="sd">    using finite elements.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    analytical_problem</span>
+<span class="sd">        The |InstationaryProblem| to discretize.</span>
+<span class="sd">    diameter</span>
+<span class="sd">        If not `None`, `diameter` is passed as an argument to the `domain_discretizer`.</span>
+<span class="sd">    domain_discretizer</span>
+<span class="sd">        Discretizer to be used for discretizing the analytical domain. This has</span>
+<span class="sd">        to be a function `domain_discretizer(domain_description, diameter, ...)`.</span>
+<span class="sd">        If `None`, |discretize_domain_default| is used.</span>
+<span class="sd">    grid_type</span>
+<span class="sd">        If not `None`, this parameter is forwarded to `domain_discretizer` to specify</span>
+<span class="sd">        the type of the generated |Grid|.</span>
+<span class="sd">    grid</span>
+<span class="sd">        Instead of using a domain discretizer, the |Grid| can also be passed directly</span>
+<span class="sd">        using this parameter.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        A |BoundaryInfo| specifying the boundary types of the grid boundary entities.</span>
+<span class="sd">        Must be provided if `grid` is specified.</span>
+<span class="sd">    num_values</span>
+<span class="sd">        The number of returned vectors of the solution trajectory. If `None`, each</span>
+<span class="sd">        intermediate vector that is calculated is returned.</span>
+<span class="sd">    time_stepper</span>
+<span class="sd">        The :class:`time-stepper &lt;pymor.algorithms.timestepping.TimeStepperInterface&gt;`</span>
+<span class="sd">        to be used by :class:`~pymor.models.basic.InstationaryModel.solve`.</span>
+<span class="sd">    nt</span>
+<span class="sd">        If `time_stepper` is not specified, the number of time steps for implicit</span>
+<span class="sd">        Euler time stepping.</span>
+<span class="sd">    preassemble</span>
+<span class="sd">        If `True`, preassemble all operators in the resulting |Model|.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    m</span>
+<span class="sd">        The |Model| that has been generated.</span>
+<span class="sd">    data</span>
+<span class="sd">        Dictionary with the following entries:</span>
+
+<span class="sd">            :grid:           The generated |Grid|.</span>
+<span class="sd">            :boundary_info:  The generated |BoundaryInfo|.</span>
+<span class="sd">            :unassembled_m:  In case `preassemble` is `True`, the generated |Model|</span>
+<span class="sd">                             before preassembling operators.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">analytical_problem</span><span class="p">,</span> <span class="n">InstationaryProblem</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">analytical_problem</span><span class="o">.</span><span class="n">stationary_part</span><span class="p">,</span> <span class="n">StationaryProblem</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">grid</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">boundary_info</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="k">assert</span> <span class="n">boundary_info</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="k">assert</span> <span class="n">grid</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">domain_discretizer</span> <span class="ow">is</span> <span class="kc">None</span>
+    <span class="k">assert</span> <span class="p">(</span><span class="n">time_stepper</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="n">nt</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">p</span> <span class="o">=</span> <span class="n">analytical_problem</span>
+
+    <span class="n">m</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">discretize_stationary_cg</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">stationary_part</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="n">diameter</span><span class="p">,</span> <span class="n">domain_discretizer</span><span class="o">=</span><span class="n">domain_discretizer</span><span class="p">,</span>
+                                       <span class="n">grid_type</span><span class="o">=</span><span class="n">grid_type</span><span class="p">,</span> <span class="n">grid</span><span class="o">=</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="o">=</span><span class="n">boundary_info</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">initial_data</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">InterpolationOperator</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">],</span> <span class="n">p</span><span class="o">.</span><span class="n">initial_data</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">initial_data</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">I</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">time_stepper</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">stationary_part</span><span class="o">.</span><span class="n">diffusion</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">time_stepper</span> <span class="o">=</span> <span class="n">ExplicitEulerTimeStepper</span><span class="p">(</span><span class="n">nt</span><span class="o">=</span><span class="n">nt</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">time_stepper</span> <span class="o">=</span> <span class="n">ImplicitEulerTimeStepper</span><span class="p">(</span><span class="n">nt</span><span class="o">=</span><span class="n">nt</span><span class="p">)</span>
+
+    <span class="n">mass</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">l2_0_product</span>
+
+    <span class="n">m</span> <span class="o">=</span> <span class="n">InstationaryModel</span><span class="p">(</span><span class="n">operator</span><span class="o">=</span><span class="n">m</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="o">=</span><span class="n">m</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="n">mass</span><span class="p">,</span> <span class="n">initial_data</span><span class="o">=</span><span class="n">I</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+                          <span class="n">products</span><span class="o">=</span><span class="n">m</span><span class="o">.</span><span class="n">products</span><span class="p">,</span>
+                          <span class="n">output_functional</span><span class="o">=</span><span class="n">m</span><span class="o">.</span><span class="n">output_functional</span><span class="p">,</span>
+                          <span class="n">time_stepper</span><span class="o">=</span><span class="n">time_stepper</span><span class="p">,</span>
+                          <span class="n">parameter_space</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">parameter_space</span><span class="p">,</span>
+                          <span class="n">visualizer</span><span class="o">=</span><span class="n">m</span><span class="o">.</span><span class="n">visualizer</span><span class="p">,</span>
+                          <span class="n">num_values</span><span class="o">=</span><span class="n">num_values</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{p.name}</span><span class="s1">_CG&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">preassemble</span><span class="p">:</span>
+        <span class="n">data</span><span class="p">[</span><span class="s1">&#39;unassembled_m&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">preassemble_</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">m</span><span class="p">,</span> <span class="n">data</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

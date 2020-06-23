@@ -1,0 +1,216 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.reductors.parabolic &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.reductors.parabolic</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">ImmutableInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.basic</span> <span class="kn">import</span> <span class="n">InstationaryRBReductor</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.residual</span> <span class="kn">import</span> <span class="n">ResidualReductor</span><span class="p">,</span> <span class="n">ImplicitEulerResidualReductor</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">IdentityOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.timestepping</span> <span class="kn">import</span> <span class="n">ImplicitEulerTimeStepper</span>
+
+
+<div class="viewcode-block" id="ParabolicRBReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.parabolic.ParabolicRBReductor">[docs]</a><span class="k">class</span> <span class="nc">ParabolicRBReductor</span><span class="p">(</span><span class="n">InstationaryRBReductor</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Reduced Basis Reductor for parabolic equations.</span>
+
+<span class="sd">    This reductor uses :class:`~pymor.reductors.basic.InstationaryRBReductor` for the actual</span>
+<span class="sd">    RB-projection. The only addition is the assembly of an error estimator which</span>
+<span class="sd">    bounds the discrete l2-in time / energy-in space error similar to [GP05]_, [HO08]_</span>
+<span class="sd">    as follows:</span>
+
+<span class="sd">    .. math::</span>
+<span class="sd">        \left[ C_a^{-1}(\mu)\|e_N(\mu)\|^2 + \sum_{n=1}^{N} \Delta t\|e_n(\mu)\|^2_e \right]^{1/2}</span>
+<span class="sd">            \leq \left[ C_a^{-2}(\mu)\Delta t \sum_{n=1}^{N}\|\mathcal{R}^n(u_n(\mu), \mu)\|^2_{e,-1}</span>
+<span class="sd">                        + C_a^{-1}(\mu)\|e_0\|^2 \right]^{1/2}</span>
+
+<span class="sd">    Here, :math:`\|\cdot\|` denotes the norm induced by the problem&#39;s mass matrix</span>
+<span class="sd">    (e.g. the L^2-norm) and :math:`\|\cdot\|_e` is an arbitrary energy norm w.r.t.</span>
+<span class="sd">    which the space operator :math:`A(\mu)` is coercive, and :math:`C_a(\mu)` is a</span>
+<span class="sd">    lower bound for its coercivity constant. Finally, :math:`\mathcal{R}^n` denotes</span>
+<span class="sd">    the implicit Euler timestepping residual for the (fixed) time step size :math:`\Delta t`,</span>
+
+<span class="sd">    .. math::</span>
+<span class="sd">        \mathcal{R}^n(u_n(\mu), \mu) :=</span>
+<span class="sd">            f - M \frac{u_{n}(\mu) - u_{n-1}(\mu)}{\Delta t} - A(u_n(\mu), \mu),</span>
+
+<span class="sd">    where :math:`M` denotes the mass operator and :math:`f` the source term.</span>
+<span class="sd">    The dual norm of the residual is computed using the numerically stable projection</span>
+<span class="sd">    from [BEOR14]_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The |InstationaryModel| which is to be reduced.</span>
+<span class="sd">    RB</span>
+<span class="sd">        |VectorArray| containing the reduced basis on which to project.</span>
+<span class="sd">    product</span>
+<span class="sd">        The energy inner product |Operator| w.r.t. which the reduction error is</span>
+<span class="sd">        estimated and `RB` is orthonormalized.</span>
+<span class="sd">    coercivity_estimator</span>
+<span class="sd">        `None` or a |Parameterfunctional| returning a lower bound :math:`C_a(\mu)`</span>
+<span class="sd">        for the coercivity constant of `fom.operator` w.r.t. `product`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">RB</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coercivity_estimator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">check_orthonormality</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">check_tol</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">time_stepper</span><span class="p">,</span> <span class="n">ImplicitEulerTimeStepper</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="k">if</span> <span class="n">fom</span><span class="o">.</span><span class="n">mass</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">fom</span><span class="o">.</span><span class="n">mass</span><span class="o">.</span><span class="n">parametric</span> <span class="ow">and</span> <span class="s1">&#39;_t&#39;</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">mass</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span>
+                         <span class="n">check_orthonormality</span><span class="o">=</span><span class="n">check_orthonormality</span><span class="p">,</span> <span class="n">check_tol</span><span class="o">=</span><span class="n">check_tol</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span> <span class="o">=</span> <span class="n">coercivity_estimator</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">residual_reductor</span> <span class="o">=</span> <span class="n">ImplicitEulerResidualReductor</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">],</span>
+            <span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span>
+            <span class="n">fom</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span>
+            <span class="n">fom</span><span class="o">.</span><span class="n">T</span> <span class="o">/</span> <span class="n">fom</span><span class="o">.</span><span class="n">time_stepper</span><span class="o">.</span><span class="n">nt</span><span class="p">,</span>
+            <span class="n">rhs</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span>
+            <span class="n">product</span><span class="o">=</span><span class="n">product</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_residual_reductor</span> <span class="o">=</span> <span class="n">ResidualReductor</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">],</span>
+            <span class="n">IdentityOperator</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="p">),</span>
+            <span class="n">fom</span><span class="o">.</span><span class="n">initial_data</span><span class="p">,</span>
+            <span class="n">product</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">l2_product</span><span class="p">,</span>
+            <span class="n">riesz_representatives</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">assemble_estimator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">()</span>
+        <span class="n">initial_residual</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_residual_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">()</span>
+
+        <span class="n">estimator</span> <span class="o">=</span> <span class="n">ParabolicRBEstimator</span><span class="p">(</span><span class="n">residual</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_reductor</span><span class="o">.</span><span class="n">residual_range_dims</span><span class="p">,</span>
+                                         <span class="n">initial_residual</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_residual_reductor</span><span class="o">.</span><span class="n">residual_range_dims</span><span class="p">,</span>
+                                         <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">estimator</span>
+
+    <span class="k">def</span> <span class="nf">assemble_estimator_for_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">restricted_to_subbasis</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">],</span> <span class="n">m</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ParabolicRBEstimator"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.parabolic.ParabolicRBEstimator">[docs]</a><span class="k">class</span> <span class="nc">ParabolicRBEstimator</span><span class="p">(</span><span class="n">ImmutableInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Instantiated by :class:`ParabolicRBReductor`.</span>
+
+<span class="sd">    Not to be used directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">residual</span><span class="p">,</span> <span class="n">residual_range_dims</span><span class="p">,</span> <span class="n">initial_residual</span><span class="p">,</span> <span class="n">initial_residual_range_dims</span><span class="p">,</span>
+                 <span class="n">coercivity_estimator</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">estimate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">return_error_sequence</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">T</span> <span class="o">/</span> <span class="n">m</span><span class="o">.</span><span class="n">time_stepper</span><span class="o">.</span><span class="n">nt</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span> <span class="k">else</span> <span class="mf">1.</span>
+
+        <span class="n">est</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">))</span>
+        <span class="n">est</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span><span class="o">/</span><span class="n">C</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_residual</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">l2_norm2</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;_t&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">time_stepper</span><span class="o">.</span><span class="n">nt</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">t</span> <span class="o">+=</span> <span class="n">dt</span>
+                <span class="n">mu</span><span class="p">[</span><span class="s1">&#39;_t&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span>
+                <span class="n">est</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="n">n</span><span class="p">],</span> <span class="n">U</span><span class="p">[</span><span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">l2_norm2</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">est</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">U</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">l2_norm2</span><span class="p">()</span>
+        <span class="n">est</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">*=</span> <span class="p">(</span><span class="n">dt</span><span class="o">/</span><span class="n">C</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">est</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">est</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">est</span> <span class="k">if</span> <span class="n">return_error_sequence</span> <span class="k">else</span> <span class="n">est</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">restricted_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range_dims</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_residual_range_dims</span><span class="p">:</span>
+            <span class="n">residual_range_dims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_range_dims</span><span class="p">[:</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">residual</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual</span><span class="o">.</span><span class="n">projected_to_subbasis</span><span class="p">(</span><span class="n">residual_range_dims</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">dim</span><span class="p">)</span>
+            <span class="n">initial_residual_range_dims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_residual_range_dims</span><span class="p">[:</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">initial_residual</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_residual</span><span class="o">.</span><span class="n">projected_to_subbasis</span><span class="p">(</span><span class="n">initial_residual_range_dims</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">dim</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">ParabolicRBEstimator</span><span class="p">(</span><span class="n">residual</span><span class="p">,</span> <span class="n">residual_range_dims</span><span class="p">,</span>
+                                        <span class="n">initial_residual</span><span class="p">,</span> <span class="n">initial_residual_range_dims</span><span class="p">,</span>
+                                        <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Cannot efficiently reduce to subbasis&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">ParabolicRBEstimator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">residual</span><span class="o">.</span><span class="n">projected_to_subbasis</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="kc">None</span><span class="p">,</span>
+                                        <span class="bp">self</span><span class="o">.</span><span class="n">initial_residual</span><span class="o">.</span><span class="n">projected_to_subbasis</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="kc">None</span><span class="p">,</span>
+                                        <span class="bp">self</span><span class="o">.</span><span class="n">coercivity_estimator</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

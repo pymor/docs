@@ -1,0 +1,561 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.reductors.basic &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.reductors.basic</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.basic</span> <span class="kn">import</span> <span class="n">almost_equal</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.gram_schmidt</span> <span class="kn">import</span> <span class="n">gram_schmidt</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.pod</span> <span class="kn">import</span> <span class="n">pod</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.projection</span> <span class="kn">import</span> <span class="n">project</span><span class="p">,</span> <span class="n">project_to_subbasis</span>
+<span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
+<span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">ExtensionError</span><span class="p">,</span> <span class="n">AccuracyError</span>
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">BasicInterface</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">pymor.models.basic</span> <span class="kn">import</span> <span class="n">StationaryModel</span><span class="p">,</span> <span class="n">InstationaryModel</span>
+<span class="kn">from</span> <span class="nn">pymor.models.iosys</span> <span class="kn">import</span> <span class="n">LTIModel</span><span class="p">,</span> <span class="n">SecondOrderModel</span><span class="p">,</span> <span class="n">LinearDelayModel</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">Concatenation</span><span class="p">,</span> <span class="n">InverseOperator</span>
+
+
+<div class="viewcode-block" id="ProjectionBasedReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.basic.ProjectionBasedReductor">[docs]</a><span class="k">class</span> <span class="nc">ProjectionBasedReductor</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generic projection based reductor.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full order |Model| to reduce.</span>
+<span class="sd">    bases</span>
+<span class="sd">        A dict of |VectorArrays| of basis vectors.</span>
+<span class="sd">    products</span>
+<span class="sd">        A dict of inner product |Operators| w.r.t. which the corresponding bases are</span>
+<span class="sd">        orthonormalized. A value of `None` corresponds to orthonormalization of the</span>
+<span class="sd">        basis w.r.t. the Euclidean inner product.</span>
+<span class="sd">    check_orthonormality</span>
+<span class="sd">        If `True`, check if bases which have a corresponding entry in the `products`</span>
+<span class="sd">        dict are orthonormal w.r.t. the given inner product. After each</span>
+<span class="sd">        :meth:`basis extension &lt;extend_basis&gt;`, orthonormality is checked again.</span>
+<span class="sd">    check_tol</span>
+<span class="sd">        If `check_orthonormality` is `True`, the numerical tolerance with which the checks</span>
+<span class="sd">        are performed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;check_orthonormality&#39;</span><span class="p">,</span> <span class="s1">&#39;check_tol&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">bases</span><span class="p">,</span> <span class="n">products</span><span class="o">=</span><span class="p">{},</span> <span class="n">check_orthonormality</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">check_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">products</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="n">bases</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="n">bases</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">bases</span><span class="p">)</span>
+        <span class="n">products</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">products</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">check_orthonormality</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">basis</span> <span class="ow">in</span> <span class="n">bases</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_check_orthonormality</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">dims</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dims</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">Number</span><span class="p">):</span>
+            <span class="n">dims</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">dims</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">}</span>
+        <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">dims</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Must specify dimensions for {set(self.bases.keys())}&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dims</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">d</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Reduced state dimension must be larger than zero </span><span class="si">{k}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">d</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="n">k</span><span class="p">]):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Specified reduced state dimension larger than reduced basis </span><span class="si">{k}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="n">b</span><span class="p">]</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom_dims</span><span class="p">[</span><span class="n">b</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduce</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom_dims</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="k">if</span> <span class="n">dims</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom_dims</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduce_to_subbasis</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Operator projection ...&#39;</span><span class="p">):</span>
+            <span class="n">projected_operators</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_operators</span><span class="p">()</span>
+
+        <span class="c1"># ensure that no logging output is generated for estimator assembly in case there is</span>
+        <span class="c1"># no estimator to assemble</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_estimator</span><span class="o">.</span><span class="vm">__func__</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">ProjectionBasedReductor</span><span class="o">.</span><span class="n">assemble_estimator</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Assembling error estimator ...&#39;</span><span class="p">):</span>
+                <span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_estimator</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">estimator</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Building ROM ...&#39;</span><span class="p">):</span>
+            <span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_rom</span><span class="p">(</span><span class="n">projected_operators</span><span class="p">,</span> <span class="n">estimator</span><span class="p">)</span>
+            <span class="n">rom</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{self.fom.name}</span><span class="s1">_reduced&#39;</span><span class="p">)</span>
+            <span class="n">rom</span><span class="o">.</span><span class="n">disable_logging</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">rom</span>
+
+    <span class="k">def</span> <span class="nf">_reduce_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">):</span>
+        <span class="n">projected_operators</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_operators_to_subbasis</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span>
+        <span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_estimator_for_subbasis</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_rom</span><span class="p">(</span><span class="n">projected_operators</span><span class="p">,</span> <span class="n">estimator</span><span class="p">)</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{self.fom.name}</span><span class="s1">_reduced&#39;</span><span class="p">)</span>
+        <span class="n">rom</span><span class="o">.</span><span class="n">disable_logging</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">rom</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">project_operators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">assemble_estimator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">build_rom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">projected_operators</span><span class="p">,</span> <span class="n">estimator</span><span class="p">):</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">project_operators_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">assemble_estimator_for_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="ProjectionBasedReductor.reconstruct"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.basic.ProjectionBasedReductor.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">basis</span><span class="o">=</span><span class="s1">&#39;RB&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reconstruct high-dimensional vector from reduced vector `u`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="n">basis</span><span class="p">][:</span><span class="n">u</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span></div>
+
+    <span class="k">def</span> <span class="nf">extend_basis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">basis</span><span class="o">=</span><span class="s1">&#39;RB&#39;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;gram_schmidt&#39;</span><span class="p">,</span> <span class="n">pod_modes</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">pod_orthonormalize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">copy_U</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">basis_length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="n">basis</span><span class="p">])</span>
+
+        <span class="n">extend_basis</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="n">basis</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">basis</span><span class="p">),</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">pod_modes</span><span class="o">=</span><span class="n">pod_modes</span><span class="p">,</span>
+                     <span class="n">pod_orthonormalize</span><span class="o">=</span><span class="n">pod_orthonormalize</span><span class="p">,</span>
+                     <span class="n">copy_U</span><span class="o">=</span><span class="n">copy_U</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_orthonormality</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">basis_length</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_check_orthonormality</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">basis</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_orthonormality</span> <span class="ow">or</span> <span class="n">basis</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">U</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="n">basis</span><span class="p">]</span>
+        <span class="n">product</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">error_matrix</span> <span class="o">=</span> <span class="n">U</span><span class="p">[</span><span class="n">offset</span><span class="p">:]</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">product</span><span class="p">)</span>
+        <span class="n">error_matrix</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">offset</span><span class="p">:]</span> <span class="o">-=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">-</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">error_matrix</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">error_matrix</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">err</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_tol</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">AccuracyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;result not orthogonal (max err=</span><span class="si">{err}</span><span class="s2">)&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="StationaryRBReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.basic.StationaryRBReductor">[docs]</a><span class="k">class</span> <span class="nc">StationaryRBReductor</span><span class="p">(</span><span class="n">ProjectionBasedReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Galerkin projection of a |StationaryModel|.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full order |Model| to reduce.</span>
+<span class="sd">    RB</span>
+<span class="sd">        The basis of the reduced space onto which to project. If `None` an empty basis is used.</span>
+<span class="sd">    product</span>
+<span class="sd">        Inner product |Operator| w.r.t. which `RB` is orthonormalized. If `None`, the Euclidean</span>
+<span class="sd">        inner product is used.</span>
+<span class="sd">    check_orthonormality</span>
+<span class="sd">        See :class:`ProjectionBasedReductor`.</span>
+<span class="sd">    check_tol</span>
+<span class="sd">        See :class:`ProjectionBasedReductor`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">RB</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">check_orthonormality</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">check_tol</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">StationaryModel</span><span class="p">)</span>
+        <span class="n">RB</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span> <span class="k">if</span> <span class="n">RB</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">RB</span>
+        <span class="k">assert</span> <span class="n">RB</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;RB&#39;</span><span class="p">:</span> <span class="n">RB</span><span class="p">},</span> <span class="p">{</span><span class="s1">&#39;RB&#39;</span><span class="p">:</span> <span class="n">product</span><span class="p">},</span>
+                         <span class="n">check_orthonormality</span><span class="o">=</span><span class="n">check_orthonormality</span><span class="p">,</span> <span class="n">check_tol</span><span class="o">=</span><span class="n">check_tol</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">project_operators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span>
+        <span class="n">RB</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">]</span>
+        <span class="n">projected_operators</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;operator&#39;</span><span class="p">:</span>          <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="n">RB</span><span class="p">),</span>
+            <span class="s1">&#39;rhs&#39;</span><span class="p">:</span>               <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="s1">&#39;products&#39;</span><span class="p">:</span>          <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="n">RB</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">products</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="s1">&#39;output_functional&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">output_functional</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">RB</span><span class="p">)</span> <span class="k">if</span> <span class="n">fom</span><span class="o">.</span><span class="n">output_functional</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">projected_operators</span>
+
+    <span class="k">def</span> <span class="nf">project_operators_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">):</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="n">dims</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">]</span>
+        <span class="n">projected_operators</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;operator&#39;</span><span class="p">:</span>          <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span>
+            <span class="s1">&#39;rhs&#39;</span><span class="p">:</span>               <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="s1">&#39;products&#39;</span><span class="p">:</span>          <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">rom</span><span class="o">.</span><span class="n">products</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="s1">&#39;output_functional&#39;</span><span class="p">:</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">output_functional</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span> <span class="k">if</span> <span class="n">rom</span><span class="o">.</span><span class="n">output_functional</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">projected_operators</span>
+
+    <span class="k">def</span> <span class="nf">build_rom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">projected_operators</span><span class="p">,</span> <span class="n">estimator</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">StationaryModel</span><span class="p">(</span><span class="n">parameter_space</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="p">,</span> <span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span> <span class="o">**</span><span class="n">projected_operators</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="InstationaryRBReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.basic.InstationaryRBReductor">[docs]</a><span class="k">class</span> <span class="nc">InstationaryRBReductor</span><span class="p">(</span><span class="n">ProjectionBasedReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Galerkin projection of an |InstationaryModel|.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full order |Model| to reduce.</span>
+<span class="sd">    RB</span>
+<span class="sd">        The basis of the reduced space onto which to project. If `None` an empty basis is used.</span>
+<span class="sd">    product</span>
+<span class="sd">        Inner product |Operator| w.r.t. which `RB` is orthonormalized. If `None`, the</span>
+<span class="sd">        the Euclidean inner product is used.</span>
+<span class="sd">    initial_data_product</span>
+<span class="sd">        Inner product |Operator| w.r.t. which the `initial_data` of `fom` is orthogonally projected.</span>
+<span class="sd">        If `None`, the Euclidean inner product is used.</span>
+<span class="sd">    product_is_mass</span>
+<span class="sd">        If `True`, no mass matrix for the reduced |Model| is assembled.  Set to `True` if `RB` is</span>
+<span class="sd">        orthonormal w.r.t. the `mass` matrix of `fom`.</span>
+<span class="sd">    check_orthonormality</span>
+<span class="sd">        See :class:`ProjectionBasedReductor`.</span>
+<span class="sd">    check_tol</span>
+<span class="sd">        See :class:`ProjectionBasedReductor`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">RB</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">initial_data_product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">product_is_mass</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">check_orthonormality</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">check_tol</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">InstationaryModel</span><span class="p">)</span>
+        <span class="n">RB</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span> <span class="k">if</span> <span class="n">RB</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">RB</span>
+        <span class="k">assert</span> <span class="n">RB</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;RB&#39;</span><span class="p">:</span> <span class="n">RB</span><span class="p">},</span> <span class="p">{</span><span class="s1">&#39;RB&#39;</span><span class="p">:</span> <span class="n">product</span><span class="p">},</span>
+                         <span class="n">check_orthonormality</span><span class="o">=</span><span class="n">check_orthonormality</span><span class="p">,</span> <span class="n">check_tol</span><span class="o">=</span><span class="n">check_tol</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_data_product</span> <span class="o">=</span> <span class="n">initial_data_product</span> <span class="ow">or</span> <span class="n">product</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">product_is_mass</span> <span class="o">=</span> <span class="n">product_is_mass</span>
+
+    <span class="k">def</span> <span class="nf">project_operators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span>
+        <span class="n">RB</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">]</span>
+        <span class="n">product</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_data_product</span> <span class="o">!=</span> <span class="n">product</span><span class="p">:</span>
+            <span class="c1"># TODO there should be functionality for this somewhere else</span>
+            <span class="n">projection_matrix</span> <span class="o">=</span> <span class="n">RB</span><span class="o">.</span><span class="n">gramian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_data_product</span><span class="p">)</span>
+            <span class="n">projection_op</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">projection_matrix</span><span class="p">)</span>
+            <span class="n">inverse_projection_op</span> <span class="o">=</span> <span class="n">InverseOperator</span><span class="p">(</span><span class="n">projection_op</span><span class="p">,</span> <span class="s1">&#39;inverse_projection_op&#39;</span><span class="p">)</span>
+            <span class="n">pid</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">initial_data</span><span class="p">,</span> <span class="n">range_basis</span><span class="o">=</span><span class="n">RB</span><span class="p">,</span> <span class="n">source_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_data_product</span><span class="p">)</span>
+            <span class="n">projected_initial_data</span> <span class="o">=</span> <span class="n">Concatenation</span><span class="p">([</span><span class="n">inverse_projection_op</span><span class="p">,</span> <span class="n">pid</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">projected_initial_data</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">initial_data</span><span class="p">,</span> <span class="n">range_basis</span><span class="o">=</span><span class="n">RB</span><span class="p">,</span> <span class="n">source_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                             <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">)</span>
+
+        <span class="n">projected_operators</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;mass&#39;</span><span class="p">:</span>              <span class="kc">None</span> <span class="k">if</span> <span class="n">fom</span><span class="o">.</span><span class="n">mass</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">product_is_mass</span> <span class="k">else</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="n">RB</span><span class="p">),</span>
+            <span class="s1">&#39;operator&#39;</span><span class="p">:</span>          <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="n">RB</span><span class="p">),</span>
+            <span class="s1">&#39;rhs&#39;</span><span class="p">:</span>               <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">fom</span><span class="o">.</span><span class="n">rhs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;initial_data&#39;</span><span class="p">:</span>      <span class="n">projected_initial_data</span><span class="p">,</span>
+            <span class="s1">&#39;products&#39;</span><span class="p">:</span>          <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">RB</span><span class="p">,</span> <span class="n">RB</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">products</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="s1">&#39;output_functional&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">output_functional</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">RB</span><span class="p">)</span> <span class="k">if</span> <span class="n">fom</span><span class="o">.</span><span class="n">output_functional</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">projected_operators</span>
+
+    <span class="k">def</span> <span class="nf">project_operators_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">):</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="n">dims</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">]</span>
+        <span class="n">product</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span><span class="p">[</span><span class="s1">&#39;RB&#39;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_data_product</span> <span class="o">!=</span> <span class="n">product</span><span class="p">:</span>
+            <span class="c1"># TODO there should be functionality for this somewhere else</span>
+            <span class="n">pop</span> <span class="o">=</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">initial_data</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dim_range</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">dim_source</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">inverse_projection_op</span> <span class="o">=</span> <span class="n">InverseOperator</span><span class="p">(</span>
+                <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">initial_data</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">dim_range</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">dim_source</span><span class="o">=</span><span class="n">dim</span><span class="p">),</span>
+                <span class="n">name</span><span class="o">=</span><span class="s1">&#39;inverse_projection_op&#39;</span>
+            <span class="p">)</span>
+            <span class="n">projected_initial_data</span> <span class="o">=</span> <span class="n">Concatenation</span><span class="p">([</span><span class="n">inverse_projection_op</span><span class="p">,</span> <span class="n">pop</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">projected_initial_data</span> <span class="o">=</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">initial_data</span><span class="p">,</span> <span class="n">dim_range</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">dim_source</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="n">projected_operators</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;mass&#39;</span><span class="p">:</span>              <span class="p">(</span><span class="kc">None</span> <span class="k">if</span> <span class="n">rom</span><span class="o">.</span><span class="n">mass</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">product_is_mass</span> <span class="k">else</span>
+                                  <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">)),</span>
+            <span class="s1">&#39;operator&#39;</span><span class="p">:</span>          <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span>
+            <span class="s1">&#39;rhs&#39;</span><span class="p">:</span>               <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">rom</span><span class="o">.</span><span class="n">rhs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;initial_data&#39;</span><span class="p">:</span>      <span class="n">projected_initial_data</span><span class="p">,</span>
+            <span class="s1">&#39;products&#39;</span><span class="p">:</span>          <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">rom</span><span class="o">.</span><span class="n">products</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="s1">&#39;output_functional&#39;</span><span class="p">:</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">output_functional</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span> <span class="k">if</span> <span class="n">rom</span><span class="o">.</span><span class="n">output_functional</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">projected_operators</span>
+
+    <span class="k">def</span> <span class="nf">build_rom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">projected_operators</span><span class="p">,</span> <span class="n">estimator</span><span class="p">):</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span>
+        <span class="k">return</span> <span class="n">InstationaryModel</span><span class="p">(</span><span class="n">T</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">time_stepper</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">time_stepper</span><span class="p">,</span> <span class="n">num_values</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">num_values</span><span class="p">,</span>
+                                 <span class="n">parameter_space</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">parameter_space</span><span class="p">,</span> <span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span> <span class="o">**</span><span class="n">projected_operators</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LTIPGReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.basic.LTIPGReductor">[docs]</a><span class="k">class</span> <span class="nc">LTIPGReductor</span><span class="p">(</span><span class="n">ProjectionBasedReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Petrov-Galerkin projection of an |LTIModel|.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full order |Model| to reduce.</span>
+<span class="sd">    W</span>
+<span class="sd">        The basis of the test space.</span>
+<span class="sd">    V</span>
+<span class="sd">        The basis of the ansatz space.</span>
+<span class="sd">    E_biorthonormal</span>
+<span class="sd">        If `True`, no `E` matrix will be assembled for the reduced |Model|.</span>
+<span class="sd">        Set to `True` if `W` and `V` are biorthonormal w.r.t. `fom.E`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">E_biorthonormal</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">LTIModel</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;W&#39;</span><span class="p">:</span> <span class="n">W</span><span class="p">,</span> <span class="s1">&#39;V&#39;</span><span class="p">:</span> <span class="n">V</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">E_biorthonormal</span> <span class="o">=</span> <span class="n">E_biorthonormal</span>
+
+    <span class="k">def</span> <span class="nf">project_operators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span>
+        <span class="n">W</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;W&#39;</span><span class="p">]</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;V&#39;</span><span class="p">]</span>
+        <span class="n">projected_operators</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;A&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+                               <span class="s1">&#39;B&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">B</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                               <span class="s1">&#39;C&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">C</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+                               <span class="s1">&#39;D&#39;</span><span class="p">:</span> <span class="n">fom</span><span class="o">.</span><span class="n">D</span><span class="p">,</span>
+                               <span class="s1">&#39;E&#39;</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">E_biorthonormal</span> <span class="k">else</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">V</span><span class="p">)}</span>
+        <span class="k">return</span> <span class="n">projected_operators</span>
+
+    <span class="k">def</span> <span class="nf">project_operators_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">dims</span><span class="p">[</span><span class="s1">&#39;W&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">dims</span><span class="p">[</span><span class="s1">&#39;V&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="n">dims</span><span class="p">[</span><span class="s1">&#39;V&#39;</span><span class="p">]</span>
+        <span class="n">projected_operators</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;A&#39;</span><span class="p">:</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span>
+                               <span class="s1">&#39;B&#39;</span><span class="p">:</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">B</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                               <span class="s1">&#39;C&#39;</span><span class="p">:</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">C</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span>
+                               <span class="s1">&#39;D&#39;</span><span class="p">:</span> <span class="n">rom</span><span class="o">.</span><span class="n">D</span><span class="p">,</span>
+                               <span class="s1">&#39;E&#39;</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">E_biorthonormal</span> <span class="k">else</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">E</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">)}</span>
+        <span class="k">return</span> <span class="n">projected_operators</span>
+
+    <span class="k">def</span> <span class="nf">build_rom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">projected_operators</span><span class="p">,</span> <span class="n">estimator</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">LTIModel</span><span class="p">(</span><span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span> <span class="o">**</span><span class="n">projected_operators</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">extend_basis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+<div class="viewcode-block" id="LTIPGReductor.reconstruct"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.basic.LTIPGReductor.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">basis</span><span class="o">=</span><span class="s1">&#39;V&#39;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="SOLTIPGReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.basic.SOLTIPGReductor">[docs]</a><span class="k">class</span> <span class="nc">SOLTIPGReductor</span><span class="p">(</span><span class="n">ProjectionBasedReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Petrov-Galerkin projection of an |SecondOrderModel|.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full order |Model| to reduce.</span>
+<span class="sd">    W</span>
+<span class="sd">        The basis of the test space.</span>
+<span class="sd">    V</span>
+<span class="sd">        The basis of the ansatz space.</span>
+<span class="sd">    E_biorthonormal</span>
+<span class="sd">        If `True`, no `E` matrix will be assembled for the reduced |Model|.</span>
+<span class="sd">        Set to `True` if `W` and `V` are biorthonormal w.r.t. `fom.E`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">M_biorthonormal</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">SecondOrderModel</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;W&#39;</span><span class="p">:</span> <span class="n">W</span><span class="p">,</span> <span class="s1">&#39;V&#39;</span><span class="p">:</span> <span class="n">V</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">M_biorthonormal</span> <span class="o">=</span> <span class="n">M_biorthonormal</span>
+
+    <span class="k">def</span> <span class="nf">project_operators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span>
+        <span class="n">W</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;W&#39;</span><span class="p">]</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;V&#39;</span><span class="p">]</span>
+        <span class="n">projected_operators</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;M&#39;</span><span class="p">:</span>  <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">M_biorthonormal</span> <span class="k">else</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">M</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+                               <span class="s1">&#39;E&#39;</span><span class="p">:</span>  <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+                               <span class="s1">&#39;K&#39;</span><span class="p">:</span>  <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">K</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+                               <span class="s1">&#39;B&#39;</span><span class="p">:</span>  <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">B</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                               <span class="s1">&#39;Cp&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">Cp</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+                               <span class="s1">&#39;Cv&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">Cv</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+                               <span class="s1">&#39;D&#39;</span><span class="p">:</span>  <span class="n">fom</span><span class="o">.</span><span class="n">D</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">projected_operators</span>
+
+    <span class="k">def</span> <span class="nf">project_operators_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">dims</span><span class="p">[</span><span class="s1">&#39;W&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">dims</span><span class="p">[</span><span class="s1">&#39;V&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="n">dims</span><span class="p">[</span><span class="s1">&#39;V&#39;</span><span class="p">]</span>
+        <span class="n">projected_operators</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;M&#39;</span><span class="p">:</span>  <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">M_biorthonormal</span> <span class="k">else</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">M</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span>
+                               <span class="s1">&#39;E&#39;</span><span class="p">:</span>  <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">E</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span>
+                               <span class="s1">&#39;K&#39;</span><span class="p">:</span>  <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">K</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span>
+                               <span class="s1">&#39;B&#39;</span><span class="p">:</span>  <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">B</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                               <span class="s1">&#39;Cp&#39;</span><span class="p">:</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">C</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span>
+                               <span class="s1">&#39;Cv&#39;</span><span class="p">:</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">C</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span>
+                               <span class="s1">&#39;D&#39;</span><span class="p">:</span>  <span class="n">rom</span><span class="o">.</span><span class="n">D</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">projected_operators</span>
+
+    <span class="k">def</span> <span class="nf">build_rom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">projected_operators</span><span class="p">,</span> <span class="n">estimator</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">SecondOrderModel</span><span class="p">(</span><span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span> <span class="o">**</span><span class="n">projected_operators</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">extend_basis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+<div class="viewcode-block" id="SOLTIPGReductor.reconstruct"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.basic.SOLTIPGReductor.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">basis</span><span class="o">=</span><span class="s1">&#39;V&#39;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="DelayLTIPGReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.basic.DelayLTIPGReductor">[docs]</a><span class="k">class</span> <span class="nc">DelayLTIPGReductor</span><span class="p">(</span><span class="n">ProjectionBasedReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Petrov-Galerkin projection of an |LinearDelayModel|.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full order |Model| to reduce.</span>
+<span class="sd">    W</span>
+<span class="sd">        The basis of the test space.</span>
+<span class="sd">    V</span>
+<span class="sd">        The basis of the ansatz space.</span>
+<span class="sd">    E_biorthonormal</span>
+<span class="sd">        If `True`, no `E` matrix will be assembled for the reduced |Model|.</span>
+<span class="sd">        Set to `True` if `W` and `V` are biorthonormal w.r.t. `fom.E`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">E_biorthonormal</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">LinearDelayModel</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;W&#39;</span><span class="p">:</span> <span class="n">W</span><span class="p">,</span> <span class="s1">&#39;V&#39;</span><span class="p">:</span> <span class="n">V</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">E_biorthonormal</span> <span class="o">=</span> <span class="n">E_biorthonormal</span>
+
+    <span class="k">def</span> <span class="nf">project_operators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span>
+        <span class="n">W</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;W&#39;</span><span class="p">]</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bases</span><span class="p">[</span><span class="s1">&#39;V&#39;</span><span class="p">]</span>
+        <span class="n">projected_operators</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;A&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+                               <span class="s1">&#39;Ad&#39;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">project</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">fom</span><span class="o">.</span><span class="n">Ad</span><span class="p">),</span>
+                               <span class="s1">&#39;B&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">B</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                               <span class="s1">&#39;C&#39;</span><span class="p">:</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">C</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+                               <span class="s1">&#39;D&#39;</span><span class="p">:</span> <span class="n">fom</span><span class="o">.</span><span class="n">D</span><span class="p">,</span>
+                               <span class="s1">&#39;E&#39;</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">E_biorthonormal</span> <span class="k">else</span> <span class="n">project</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">V</span><span class="p">)}</span>
+        <span class="k">return</span> <span class="n">projected_operators</span>
+
+    <span class="k">def</span> <span class="nf">project_operators_to_subbasis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">dims</span><span class="p">[</span><span class="s1">&#39;W&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">dims</span><span class="p">[</span><span class="s1">&#39;V&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_rom</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="n">dims</span><span class="p">[</span><span class="s1">&#39;V&#39;</span><span class="p">]</span>
+        <span class="n">projected_operators</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;A&#39;</span><span class="p">:</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span>
+                               <span class="s1">&#39;Ad&#39;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">rom</span><span class="o">.</span><span class="n">Ad</span><span class="p">),</span>
+                               <span class="s1">&#39;B&#39;</span><span class="p">:</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">B</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                               <span class="s1">&#39;C&#39;</span><span class="p">:</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">C</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span>
+                               <span class="s1">&#39;D&#39;</span><span class="p">:</span> <span class="n">rom</span><span class="o">.</span><span class="n">D</span><span class="p">,</span>
+                               <span class="s1">&#39;E&#39;</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">E_biorthonormal</span> <span class="k">else</span> <span class="n">project_to_subbasis</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">E</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">)}</span>
+        <span class="k">return</span> <span class="n">projected_operators</span>
+
+    <span class="k">def</span> <span class="nf">build_rom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">projected_operators</span><span class="p">,</span> <span class="n">estimator</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">LinearDelayModel</span><span class="p">(</span><span class="n">tau</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">tau</span><span class="p">,</span> <span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span> <span class="o">**</span><span class="n">projected_operators</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">extend_basis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+<div class="viewcode-block" id="DelayLTIPGReductor.reconstruct"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.basic.DelayLTIPGReductor.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">basis</span><span class="o">=</span><span class="s1">&#39;V&#39;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="extend_basis"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.basic.extend_basis">[docs]</a><span class="k">def</span> <span class="nf">extend_basis</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">basis</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;gram_schmidt&#39;</span><span class="p">,</span> <span class="n">pod_modes</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">pod_orthonormalize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">copy_U</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;trivial&#39;</span><span class="p">,</span> <span class="s1">&#39;gram_schmidt&#39;</span><span class="p">,</span> <span class="s1">&#39;pod&#39;</span><span class="p">)</span>
+
+    <span class="n">basis_length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;trivial&#39;</span><span class="p">:</span>
+        <span class="n">remove</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">almost_equal</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">basis</span><span class="p">)):</span>
+                <span class="n">remove</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="n">basis</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">U</span><span class="p">[[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">))</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">remove</span><span class="p">]],</span>
+                     <span class="n">remove_from_other</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="n">copy_U</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;gram_schmidt&#39;</span><span class="p">:</span>
+        <span class="n">basis</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">remove_from_other</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="n">copy_U</span><span class="p">))</span>
+        <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">basis_length</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;pod&#39;</span><span class="p">:</span>
+        <span class="n">U_proj_err</span> <span class="o">=</span> <span class="n">U</span> <span class="o">-</span> <span class="n">basis</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">product</span><span class="p">))</span>
+
+        <span class="n">basis</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pod</span><span class="p">(</span><span class="n">U_proj_err</span><span class="p">,</span> <span class="n">modes</span><span class="o">=</span><span class="n">pod_modes</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span> <span class="n">orth_tol</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">pod_orthonormalize</span><span class="p">:</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">basis_length</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">basis_length</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ExtensionError</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

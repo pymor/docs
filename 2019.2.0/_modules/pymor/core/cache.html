@@ -1,0 +1,444 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.core.cache &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.core.cache</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;This module provides the caching facilities of pyMOR.</span>
+
+<span class="sd">Any class that wishes to provide cached method calls should derive from</span>
+<span class="sd">:class:`CacheableInterface`. Methods which are to be cached can then</span>
+<span class="sd">be marked using the :class:`cached` decorator.</span>
+
+<span class="sd">To ensure consistency, :class:`CacheableInterface` derives from</span>
+<span class="sd">|ImmutableInterface|: The return value of a cached method call should</span>
+<span class="sd">only depend on its arguments as well as the immutable state of the class</span>
+<span class="sd">instance.</span>
+
+<span class="sd">Making this assumption, the keys for cache lookup are created from</span>
+<span class="sd">the following data:</span>
+
+<span class="sd">    1. the instance&#39;s |state id| in case of a :attr:`~CacheRegion.persistent`</span>
+<span class="sd">       :class:`CacheRegion`, else the instance&#39;s</span>
+<span class="sd">       :attr:`~pymor.core.interfaces.BasicInterface.uid`,</span>
+<span class="sd">    2. the method&#39;s `__name__`,</span>
+<span class="sd">    3. the |state id| of the arguments,</span>
+<span class="sd">    4. the |state id| of pyMOR&#39;s global |defaults|.</span>
+
+<span class="sd">Note that instances of |ImmutableInterface| are allowed to have mutable</span>
+<span class="sd">private attributes. It is the implementors responsibility not to break things.</span>
+<span class="sd">(See this :ref:`warning &lt;ImmutableInterfaceWarning&gt;`.)</span>
+
+<span class="sd">Backends for storage of cached return values derive from :class:`CacheRegion`.</span>
+<span class="sd">Currently two backends are provided for memory-based and disk-based caching</span>
+<span class="sd">(:class:`MemoryRegion` and :class:`DiskRegion`). The available regions</span>
+<span class="sd">are stored in the module level `cache_regions` dict. The user can add</span>
+<span class="sd">additional regions (e.g. multiple disk cache regions) as required.</span>
+<span class="sd">:attr:`CacheableInterface.cache_region` specifies a key of the `cache_regions` dict</span>
+<span class="sd">to select a cache region which should be used by the instance.</span>
+<span class="sd">(Setting :attr:`~CacheableInterface.cache_region` to `None` or `&#39;none&#39;` disables caching.)</span>
+
+<span class="sd">By default, a &#39;memory&#39;, a &#39;disk&#39; and a &#39;persistent&#39; cache region are configured. The</span>
+<span class="sd">paths and maximum sizes of the disk regions, as well as the maximum number of keys of</span>
+<span class="sd">the memory cache region can be configured via the</span>
+<span class="sd">`pymor.core.cache.default_regions.disk_path`,</span>
+<span class="sd">`pymor.core.cache.default_regions.disk_max_size`,</span>
+<span class="sd">`pymor.core.cache.default_regions.persistent_path`,</span>
+<span class="sd">`pymor.core.cache.default_regions.persistent_max_size` and</span>
+<span class="sd">`pymor.core.cache.default_regions.memory_max_keys` |defaults|.</span>
+
+<span class="sd">There two ways to disable and enable caching in pyMOR:</span>
+
+<span class="sd">    1. Calling :func:`disable_caching` (:func:`enable_caching`), to disable</span>
+<span class="sd">       (enable) caching globally.</span>
+<span class="sd">    2. Calling :meth:`CacheableInterface.disable_caching`</span>
+<span class="sd">       (:meth:`CacheableInterface.enable_caching`) to disable (enable) caching</span>
+<span class="sd">       for a given instance.</span>
+
+<span class="sd">Caching of a method is only active if caching has been enabled both globally</span>
+<span class="sd">(enabled by default) and on instance level. For debugging purposes, it is moreover</span>
+<span class="sd">possible to set the environment variable `PYMOR_CACHE_DISABLE=1` which overrides</span>
+<span class="sd">any call to :func:`enable_caching`.</span>
+
+<span class="sd">A cache region can be emptied using :meth:`CacheRegion.clear`. The function</span>
+<span class="sd">:func:`clear_caches` clears each cache region registered in `cache_regions`.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">atexit</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">getpass</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">from</span> <span class="nn">types</span> <span class="kn">import</span> <span class="n">MethodType</span>
+<span class="kn">import</span> <span class="nn">diskcache</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span><span class="p">,</span> <span class="n">defaults_sid</span>
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">ImmutableInterface</span><span class="p">,</span> <span class="n">generate_sid</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+
+<div class="viewcode-block" id="cleanup_non_persisten_regions"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.cleanup_non_persisten_regions">[docs]</a><span class="nd">@atexit</span><span class="o">.</span><span class="n">register</span>
+<span class="k">def</span> <span class="nf">cleanup_non_persisten_regions</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">region</span> <span class="ow">in</span> <span class="n">cache_regions</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">region</span><span class="o">.</span><span class="n">persistent</span><span class="p">:</span>
+            <span class="n">region</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+
+
+<span class="k">def</span> <span class="nf">_safe_filename</span><span class="p">(</span><span class="n">old_name</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">old_name</span> <span class="k">if</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">isalnum</span><span class="p">()</span> <span class="ow">or</span> <span class="n">x</span> <span class="ow">in</span> <span class="s1">&#39;._- &#39;</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="CacheRegion"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.CacheRegion">[docs]</a><span class="k">class</span> <span class="nc">CacheRegion</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Base class for all pyMOR cache regions.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    persistent</span>
+<span class="sd">        If `True`, cache entries are kept between multiple</span>
+<span class="sd">        program runs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">persistent</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="CacheRegion.get"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.CacheRegion.get">[docs]</a>    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return cache entry for given key.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        key</span>
+<span class="sd">            The key for the cache entry.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        `(True, entry)`</span>
+<span class="sd">            in case the `key` has been found in the cache region.</span>
+<span class="sd">        `(False, None)`</span>
+<span class="sd">            in case the `key` is not present in the cache region.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="CacheRegion.set"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.CacheRegion.set">[docs]</a>    <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set cache entry for `key` to given `value`.</span>
+
+<span class="sd">        This method is usually called only once for</span>
+<span class="sd">        any given `key` (with the exemption of issues</span>
+<span class="sd">        due to concurrency).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="CacheRegion.clear"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.CacheRegion.clear">[docs]</a>    <span class="k">def</span> <span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Clear the entire cache region.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div></div>
+
+
+<div class="viewcode-block" id="MemoryRegion"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.MemoryRegion">[docs]</a><span class="k">class</span> <span class="nc">MemoryRegion</span><span class="p">(</span><span class="n">CacheRegion</span><span class="p">):</span>
+
+    <span class="n">NO_VALUE</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_keys</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_keys</span> <span class="o">=</span> <span class="n">max_keys</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+
+<div class="viewcode-block" id="MemoryRegion.get"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.MemoryRegion.get">[docs]</a>    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">NO_VALUE</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">NO_VALUE</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">pymor.vectorarrays.interfaces</span> <span class="kn">import</span> <span class="n">VectorArrayInterface</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">):</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="MemoryRegion.set"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.MemoryRegion.set">[docs]</a>    <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.core.cache.MemoryRegion&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Key already present in cache region, ignoring.&#39;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_keys</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">popitem</span><span class="p">(</span><span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">value</span><span class="o">.</span><span class="n">setflags</span><span class="p">(</span><span class="n">write</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="MemoryRegion.clear"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.MemoryRegion.clear">[docs]</a>    <span class="k">def</span> <span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="DiskRegion"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.DiskRegion">[docs]</a><span class="k">class</span> <span class="nc">DiskRegion</span><span class="p">(</span><span class="n">CacheRegion</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">max_size</span><span class="p">,</span> <span class="n">persistent</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="n">path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_size</span> <span class="o">=</span> <span class="n">max_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">persistent</span> <span class="o">=</span> <span class="n">persistent</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">diskcache</span><span class="o">.</span><span class="n">Cache</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="s1">&#39;size_limit&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">max_size</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">persistent</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+<div class="viewcode-block" id="DiskRegion.get"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.DiskRegion.get">[docs]</a>    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="n">has_key</span> <span class="o">=</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span>
+        <span class="k">return</span> <span class="n">has_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DiskRegion.set"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.DiskRegion.set">[docs]</a>    <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="n">has_key</span> <span class="o">=</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span>
+        <span class="k">if</span> <span class="n">has_key</span><span class="p">:</span>
+            <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.core.cache.DiskRegion&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Key already present in cache region, ignoring.&#39;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DiskRegion.clear"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.DiskRegion.clear">[docs]</a>    <span class="k">def</span> <span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="default_regions"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.default_regions">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;disk_path&#39;</span><span class="p">,</span> <span class="s1">&#39;disk_max_size&#39;</span><span class="p">,</span> <span class="s1">&#39;persistent_path&#39;</span><span class="p">,</span> <span class="s1">&#39;persistent_max_size&#39;</span><span class="p">,</span> <span class="s1">&#39;memory_max_keys&#39;</span><span class="p">,</span>
+          <span class="n">sid_ignore</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;disk_path&#39;</span><span class="p">,</span> <span class="s1">&#39;disk_max_size&#39;</span><span class="p">,</span> <span class="s1">&#39;persistent_path&#39;</span><span class="p">,</span> <span class="s1">&#39;persistent_max_size&#39;</span><span class="p">,</span> <span class="s1">&#39;memory_max_keys&#39;</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">default_regions</span><span class="p">(</span><span class="n">disk_path</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">gettempdir</span><span class="p">(),</span> <span class="s1">&#39;pymor.cache.&#39;</span> <span class="o">+</span> <span class="n">getpass</span><span class="o">.</span><span class="n">getuser</span><span class="p">()),</span>
+                    <span class="n">disk_max_size</span><span class="o">=</span><span class="mi">1024</span> <span class="o">**</span> <span class="mi">3</span><span class="p">,</span>
+                    <span class="n">persistent_path</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">gettempdir</span><span class="p">(),</span> <span class="s1">&#39;pymor.persistent.cache.&#39;</span> <span class="o">+</span> <span class="n">getpass</span><span class="o">.</span><span class="n">getuser</span><span class="p">()),</span>
+                    <span class="n">persistent_max_size</span><span class="o">=</span><span class="mi">1024</span> <span class="o">**</span> <span class="mi">3</span><span class="p">,</span>
+                    <span class="n">memory_max_keys</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+
+    <span class="n">parse_size_string</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">size</span><span class="p">:</span> \
+        <span class="nb">int</span><span class="p">(</span><span class="n">size</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="mi">1024</span> <span class="k">if</span> <span class="n">size</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;K&#39;</span> <span class="k">else</span> \
+        <span class="nb">int</span><span class="p">(</span><span class="n">size</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">**</span> <span class="mi">2</span> <span class="k">if</span> <span class="n">size</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;M&#39;</span> <span class="k">else</span> \
+        <span class="nb">int</span><span class="p">(</span><span class="n">size</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">**</span> <span class="mi">3</span> <span class="k">if</span> <span class="n">size</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;G&#39;</span> <span class="k">else</span> \
+        <span class="nb">int</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">disk_max_size</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">disk_max_size</span> <span class="o">=</span> <span class="n">parse_size_string</span><span class="p">(</span><span class="n">disk_max_size</span><span class="p">)</span>
+
+    <span class="n">cache_regions</span><span class="p">[</span><span class="s1">&#39;disk&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DiskRegion</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">disk_path</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="n">disk_max_size</span><span class="p">,</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">cache_regions</span><span class="p">[</span><span class="s1">&#39;persistent&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DiskRegion</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">persistent_path</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="n">persistent_max_size</span><span class="p">,</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">cache_regions</span><span class="p">[</span><span class="s1">&#39;memory&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">MemoryRegion</span><span class="p">(</span><span class="n">memory_max_keys</span><span class="p">)</span></div>
+
+
+<span class="n">cache_regions</span> <span class="o">=</span> <span class="p">{}</span>
+
+<span class="n">_caching_disabled</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;PYMOR_CACHE_DISABLE&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span>
+<span class="k">if</span> <span class="n">_caching_disabled</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+    <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.core.cache&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;caching globally disabled by environment&#39;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="enable_caching"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.enable_caching">[docs]</a><span class="k">def</span> <span class="nf">enable_caching</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Globally enable caching.&quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_caching_disabled</span>
+    <span class="n">_caching_disabled</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;PYMOR_CACHE_DISABLE&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="disable_caching"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.disable_caching">[docs]</a><span class="k">def</span> <span class="nf">disable_caching</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Globally disable caching.&quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_caching_disabled</span>
+    <span class="n">_caching_disabled</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="clear_caches"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.clear_caches">[docs]</a><span class="k">def</span> <span class="nf">clear_caches</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Clear all cache regions.&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">cache_regions</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="n">r</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="CacheableInterface"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.CacheableInterface">[docs]</a><span class="k">class</span> <span class="nc">CacheableInterface</span><span class="p">(</span><span class="n">ImmutableInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for anything that wants to use our built-in caching.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    cache_region</span>
+<span class="sd">        Name of the :class:`CacheRegion` to use. Must correspond to a key in</span>
+<span class="sd">        the :attr:`cache_regions` dict. If `None` or `&#39;none&#39;`, caching</span>
+<span class="sd">        is disabled.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sid_ignore</span> <span class="o">=</span> <span class="n">ImmutableInterface</span><span class="o">.</span><span class="n">sid_ignore</span> <span class="o">|</span> <span class="p">{</span><span class="s1">&#39;cache_region&#39;</span><span class="p">}</span>
+
+    <span class="n">cache_region</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="CacheableInterface.disable_caching"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.CacheableInterface.disable_caching">[docs]</a>    <span class="k">def</span> <span class="nf">disable_caching</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Disable caching for this instance.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;cache_region&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="CacheableInterface.enable_caching"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.CacheableInterface.enable_caching">[docs]</a>    <span class="k">def</span> <span class="nf">enable_caching</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">region</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Enable caching for this instance.</span>
+
+<span class="sd">        When setting the object&#39;s cache region to a :attr:`~CacheRegion.persistent`</span>
+<span class="sd">        :class:`CacheRegion`, the object&#39;s |state id| will be computed.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        region</span>
+<span class="sd">            Name of the `CacheRegion` to use. Must correspond to a key in</span>
+<span class="sd">            the :attr:`cache_regions` dict. If `None` or `&#39;none&#39;`, caching</span>
+<span class="sd">            is disabled.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">region</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;none&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;cache_region&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;cache_region&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">region</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">cache_regions</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">r</span> <span class="ow">and</span> <span class="n">r</span><span class="o">.</span><span class="n">persistent</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">generate_sid</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="CacheableInterface.cached_method_call"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.CacheableInterface.cached_method_call">[docs]</a>    <span class="k">def</span> <span class="nf">cached_method_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Call a given `method` and cache the return value.</span>
+
+<span class="sd">        This method can be used as an alternative to the :func:`cached`</span>
+<span class="sd">        decorator.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        method</span>
+<span class="sd">            The method that is to be called. This has to be a method</span>
+<span class="sd">            of `self`.</span>
+<span class="sd">        args</span>
+<span class="sd">            Positional arguments for `method`.</span>
+<span class="sd">        kwargs</span>
+<span class="sd">            Keyword arguments for `method`</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        The (possibly cached) return value of `method(*args, **kwargs)`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="n">MethodType</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">_caching_disabled</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_region</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">method</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">params</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">method</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">v</span><span class="o">.</span><span class="n">VAR_POSITIONAL</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="n">argnames</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">1</span><span class="p">:]</span>  <span class="c1"># first argument is self</span>
+        <span class="n">defaults</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">default</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">v</span><span class="o">.</span><span class="n">empty</span><span class="p">}</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cached_method_call</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">argnames</span><span class="p">,</span> <span class="n">defaults</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_cached_method_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">pass_self</span><span class="p">,</span> <span class="n">argnames</span><span class="p">,</span> <span class="n">defaults</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">cache_regions</span><span class="p">:</span>
+                <span class="n">default_regions</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">region</span> <span class="o">=</span> <span class="n">cache_regions</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_region</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;No cache region &quot;</span><span class="si">{self.cache_region}</span><span class="s1">&quot; found&#39;</span><span class="p">)</span>
+
+            <span class="c1"># compute id for self</span>
+            <span class="k">if</span> <span class="n">region</span><span class="o">.</span><span class="n">persistent</span><span class="p">:</span>
+                <span class="n">self_id</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;sid&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">self_id</span><span class="p">:</span>     <span class="c1"># this can happen when cache_region is already set by the class to</span>
+                                    <span class="c1"># a persistent region</span>
+                    <span class="n">self_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_sid</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">self_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span>
+
+            <span class="c1"># ensure that passing a value as positional or keyword argument does not matter</span>
+            <span class="n">kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">argnames</span><span class="p">,</span> <span class="n">args</span><span class="p">))</span>
+
+            <span class="c1"># ensure the values of optional parameters enter the cache key</span>
+            <span class="k">if</span> <span class="n">defaults</span><span class="p">:</span>
+                <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">defaults</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+            <span class="n">key</span> <span class="o">=</span> <span class="n">generate_sid</span><span class="p">((</span><span class="n">method</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">self_id</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">,</span> <span class="n">defaults_sid</span><span class="p">()))</span>
+            <span class="n">found</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">region</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">found</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">value</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;creating new cache entry for </span><span class="si">{self.__class__.__name__}</span><span class="s1">.</span><span class="si">{method.__name__}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="k">if</span> <span class="n">pass_self</span> <span class="k">else</span> <span class="n">method</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="n">region</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="cached"><a class="viewcode-back" href="../../../generated/pymor.core.html#pymor.core.cache.cached">[docs]</a><span class="k">def</span> <span class="nf">cached</span><span class="p">(</span><span class="n">function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Decorator to make a method of `CacheableInterface` actually cached.&quot;&quot;&quot;</span>
+
+    <span class="n">params</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">function</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">v</span><span class="o">.</span><span class="n">VAR_POSITIONAL</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+    <span class="n">argnames</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">1</span><span class="p">:]</span>  <span class="c1"># first argument is self</span>
+    <span class="n">defaults</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">default</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">v</span><span class="o">.</span><span class="n">empty</span><span class="p">}</span>
+
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">function</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">_caching_disabled</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_region</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cached_method_call</span><span class="p">(</span><span class="n">function</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">argnames</span><span class="p">,</span> <span class="n">defaults</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">wrapper</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

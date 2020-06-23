@@ -1,0 +1,316 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.parameters.functionals &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.parameters.functionals</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.parameters.interfaces</span> <span class="kn">import</span> <span class="n">ParameterFunctionalInterface</span>
+
+
+<div class="viewcode-block" id="ProjectionParameterFunctional"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ProjectionParameterFunctional">[docs]</a><span class="k">class</span> <span class="nc">ProjectionParameterFunctional</span><span class="p">(</span><span class="n">ParameterFunctionalInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|ParameterFunctional| returning a component of the given parameter.</span>
+
+<span class="sd">    For given parameter `mu`, this functional evaluates to ::</span>
+
+<span class="sd">        mu[component_name][index]</span>
+
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    component_name</span>
+<span class="sd">        The name of the parameter component to return.</span>
+<span class="sd">    component_shape</span>
+<span class="sd">        The shape of the parameter component.</span>
+<span class="sd">    index</span>
+<span class="sd">        See above.</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the functional.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component_name</span><span class="p">,</span> <span class="n">component_shape</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="p">(),</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">component_shape</span><span class="p">,</span> <span class="n">Number</span><span class="p">):</span>
+            <span class="n">component_shape</span> <span class="o">=</span> <span class="p">()</span> <span class="k">if</span> <span class="n">component_shape</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="n">component_shape</span><span class="p">,)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">index</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">component_shape</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">component_shape</span> <span class="ow">or</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="n">component_shape</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">({</span><span class="n">component_name</span><span class="p">:</span> <span class="n">component_shape</span><span class="p">})</span>
+
+<div class="viewcode-block" id="ProjectionParameterFunctional.evaluate"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ProjectionParameterFunctional.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mu</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">component_name</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ProjectionParameterFunctional.d_mu"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ProjectionParameterFunctional.d_mu">[docs]</a>    <span class="k">def</span> <span class="nf">d_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="p">()):</span>
+        <span class="n">check</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_and_parse_input</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">check</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">component</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">component_name</span> <span class="ow">and</span> <span class="n">index</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">ConstantParameterFunctional</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_d_mu&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ConstantParameterFunctional</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_d_mu&#39;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="GenericParameterFunctional"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.GenericParameterFunctional">[docs]</a><span class="k">class</span> <span class="nc">GenericParameterFunctional</span><span class="p">(</span><span class="n">ParameterFunctionalInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A wrapper making an arbitrary Python function a |ParameterFunctional|</span>
+
+<span class="sd">    Note that a GenericParameterFunctional can only be :mod:`pickled &lt;pymor.core.pickle&gt;`</span>
+<span class="sd">    if the function it is wrapping can be pickled. For this reason, it is usually</span>
+<span class="sd">    preferable to use :class:`ExpressionParameterFunctional` instead of</span>
+<span class="sd">    :class:`GenericParameterFunctional`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mapping</span>
+<span class="sd">        The function to wrap. The function has signature `mapping(mu)`.</span>
+<span class="sd">    parameter_type</span>
+<span class="sd">        The |ParameterType| of the |Parameters| the functional expects.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the functional.</span>
+<span class="sd">    derivative_mappings</span>
+<span class="sd">        A dict containing all partial derivatives of each component and index in the</span>
+<span class="sd">        |ParameterType| with the signature `derivative_mappings[component][index](mu)`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">parameter_type</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">derivative_mappings</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">parameter_type</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GenericParameterFunctional.evaluate"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.GenericParameterFunctional.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="c1"># ensure that we return a number not an array</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">value</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="GenericParameterFunctional.d_mu"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.GenericParameterFunctional.d_mu">[docs]</a>    <span class="k">def</span> <span class="nf">d_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="p">()):</span>
+        <span class="n">check</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_and_parse_input</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">check</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">derivative_mappings</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;You must provide a dict of expressions for all </span><span class="se">\</span>
+<span class="s1">                                  partial derivatives in self.parameter_type&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">component</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">derivative_mappings</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">GenericParameterFunctional</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">derivative_mappings</span><span class="p">[</span><span class="n">component</span><span class="p">][</span><span class="n">index</span><span class="p">],</span>
+                                                      <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_d_mu&#39;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;derivative mappings does not contain item </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">component</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">ConstantParameterFunctional</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_d_mu&#39;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="ExpressionParameterFunctional"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ExpressionParameterFunctional">[docs]</a><span class="k">class</span> <span class="nc">ExpressionParameterFunctional</span><span class="p">(</span><span class="n">GenericParameterFunctional</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Turns a Python expression given as a string into a |ParameterFunctional|.</span>
+
+<span class="sd">    Some |NumPy| arithmetic functions like `sin`, `log`, `min` are supported.</span>
+<span class="sd">    For a full list see the `functions` class attribute.</span>
+
+<span class="sd">    .. warning::</span>
+<span class="sd">       :meth:`eval` is used to evaluate the given expression.</span>
+<span class="sd">       Using this class with expression strings from untrusted sources will cause</span>
+<span class="sd">       mayhem and destruction!</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    expression</span>
+<span class="sd">        A Python expression in the parameter components of the given `parameter_type`.</span>
+<span class="sd">    parameter_type</span>
+<span class="sd">        The |ParameterType| of the |Parameters| the functional expects.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the functional.</span>
+
+<span class="sd">    derivative_expressions</span>
+<span class="sd">        A dict containing a Python expression for the partial derivatives of each</span>
+<span class="sd">        parameter component.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">functions</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">np</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="s1">&#39;cos&#39;</span><span class="p">,</span> <span class="s1">&#39;tan&#39;</span><span class="p">,</span> <span class="s1">&#39;arcsin&#39;</span><span class="p">,</span> <span class="s1">&#39;arccos&#39;</span><span class="p">,</span> <span class="s1">&#39;arctan&#39;</span><span class="p">,</span> <span class="s1">&#39;arctan2&#39;</span><span class="p">,</span>
+                                             <span class="s1">&#39;sinh&#39;</span><span class="p">,</span> <span class="s1">&#39;cosh&#39;</span><span class="p">,</span> <span class="s1">&#39;tanh&#39;</span><span class="p">,</span> <span class="s1">&#39;arcsinh&#39;</span><span class="p">,</span> <span class="s1">&#39;arccosh&#39;</span><span class="p">,</span> <span class="s1">&#39;arctanh&#39;</span><span class="p">,</span>
+                                             <span class="s1">&#39;exp&#39;</span><span class="p">,</span> <span class="s1">&#39;exp2&#39;</span><span class="p">,</span> <span class="s1">&#39;log&#39;</span><span class="p">,</span> <span class="s1">&#39;log2&#39;</span><span class="p">,</span> <span class="s1">&#39;log10&#39;</span><span class="p">,</span> <span class="s1">&#39;sqrt&#39;</span><span class="p">,</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
+                                             <span class="s1">&#39;min&#39;</span><span class="p">,</span> <span class="s1">&#39;minimum&#39;</span><span class="p">,</span> <span class="s1">&#39;max&#39;</span><span class="p">,</span> <span class="s1">&#39;maximum&#39;</span><span class="p">,</span> <span class="s1">&#39;pi&#39;</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">,</span>
+                                             <span class="s1">&#39;sum&#39;</span><span class="p">,</span> <span class="s1">&#39;prod&#39;</span><span class="p">,</span> <span class="s1">&#39;abs&#39;</span><span class="p">,</span> <span class="s1">&#39;sign&#39;</span><span class="p">,</span> <span class="s1">&#39;zeros&#39;</span><span class="p">,</span> <span class="s1">&#39;ones&#39;</span><span class="p">}}</span>
+    <span class="n">functions</span><span class="p">[</span><span class="s1">&#39;norm&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span>
+    <span class="n">functions</span><span class="p">[</span><span class="s1">&#39;polar&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span>
+    <span class="n">functions</span><span class="p">[</span><span class="s1">&#39;np&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expression</span><span class="p">,</span> <span class="n">parameter_type</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">derivative_expressions</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expression</span> <span class="o">=</span> <span class="n">expression</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="s1">&#39;&lt;expression&gt;&#39;</span><span class="p">,</span> <span class="s1">&#39;eval&#39;</span><span class="p">)</span>
+        <span class="n">functions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">functions</span>
+
+        <span class="k">def</span> <span class="nf">get_lambda</span><span class="p">(</span><span class="n">exp_code</span><span class="p">):</span>
+            <span class="k">return</span> <span class="k">lambda</span> <span class="n">mu</span><span class="p">:</span> <span class="nb">eval</span><span class="p">(</span><span class="n">exp_code</span><span class="p">,</span> <span class="n">functions</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+
+        <span class="n">exp_mapping</span> <span class="o">=</span> <span class="n">get_lambda</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">derivative_expressions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">derivative_mappings</span> <span class="o">=</span> <span class="n">derivative_expressions</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">for</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span><span class="n">exp</span><span class="p">)</span> <span class="ow">in</span> <span class="n">derivative_mappings</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">exp_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">exp</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">exp</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">nditer</span><span class="p">(</span><span class="n">exp_array</span><span class="p">,</span> <span class="n">op_flags</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;readwrite&#39;</span><span class="p">],</span> <span class="n">flags</span><span class="o">=</span> <span class="p">[</span><span class="s1">&#39;refs_ok&#39;</span><span class="p">]):</span>
+                    <span class="n">exp_code</span> <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exp</span><span class="p">),</span> <span class="s1">&#39;&lt;expression&gt;&#39;</span><span class="p">,</span> <span class="s1">&#39;eval&#39;</span><span class="p">)</span>
+                    <span class="n">mapping</span> <span class="o">=</span> <span class="n">get_lambda</span><span class="p">(</span><span class="n">exp_code</span><span class="p">)</span>
+                    <span class="n">exp</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">mapping</span>
+                <span class="n">derivative_mappings</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">exp_array</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">derivative_mappings</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">exp_mapping</span><span class="p">,</span> <span class="n">parameter_type</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">derivative_mappings</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+<div class="viewcode-block" id="ExpressionParameterFunctional.__reduce__"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ExpressionParameterFunctional.__reduce__">[docs]</a>    <span class="k">def</span> <span class="nf">__reduce__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">ExpressionParameterFunctional</span><span class="p">,</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expression</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_name&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">derivative_expressions</span><span class="p">))</span></div></div>
+
+
+<div class="viewcode-block" id="ProductParameterFunctional"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ProductParameterFunctional">[docs]</a><span class="k">class</span> <span class="nc">ProductParameterFunctional</span><span class="p">(</span><span class="n">ParameterFunctionalInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Forms the product of a list of |ParameterFunctionals| or numbers.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    factors</span>
+<span class="sd">        A list of |ParameterFunctionals| or numbers.</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the functional.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factors</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">factors</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="p">(</span><span class="n">ParameterFunctionalInterface</span><span class="p">,</span> <span class="n">Number</span><span class="p">))</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">factors</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">factors</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">ParameterFunctionalInterface</span><span class="p">)))</span>
+
+<div class="viewcode-block" id="ProductParameterFunctional.evaluate"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ProductParameterFunctional.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">f</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="s1">&#39;evaluate&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">])</span><span class="o">.</span><span class="n">prod</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="ProductParameterFunctional.d_mu"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ProductParameterFunctional.d_mu">[docs]</a>    <span class="k">def</span> <span class="nf">d_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="p">()):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div></div>
+
+<div class="viewcode-block" id="ConjugateParameterFunctional"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ConjugateParameterFunctional">[docs]</a><span class="k">class</span> <span class="nc">ConjugateParameterFunctional</span><span class="p">(</span><span class="n">ParameterFunctionalInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Conjugate of a given |ParameterFunctional|</span>
+
+<span class="sd">    Evaluates a given |ParameterFunctional| and returns the complex</span>
+<span class="sd">    conjugate of the value.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    functional</span>
+<span class="sd">        The |ParameterFunctional| of which the complex conjuate is</span>
+<span class="sd">        taken.</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the functional.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">functional</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">functional</span> <span class="o">=</span> <span class="n">functional</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{functional.name}</span><span class="s1">_conj&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">functional</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ConjugateParameterFunctional.evaluate"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ConjugateParameterFunctional.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">mu</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="ConjugateParameterFunctional.d_mu"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ConjugateParameterFunctional.d_mu">[docs]</a>    <span class="k">def</span> <span class="nf">d_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="p">()):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div></div>
+
+
+<div class="viewcode-block" id="ConstantParameterFunctional"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ConstantParameterFunctional">[docs]</a><span class="k">class</span> <span class="nc">ConstantParameterFunctional</span><span class="p">(</span><span class="n">ParameterFunctionalInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|ParameterFunctional| returning a constant value for each parameter.</span>
+
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    constant_value</span>
+<span class="sd">        value of the functional</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the functional.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constant_value</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constant_value</span> <span class="o">=</span> <span class="n">constant_value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+<div class="viewcode-block" id="ConstantParameterFunctional.evaluate"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ConstantParameterFunctional.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">constant_value</span></div>
+
+<div class="viewcode-block" id="ConstantParameterFunctional.d_mu"><a class="viewcode-back" href="../../../generated/pymor.parameters.html#pymor.parameters.functionals.ConstantParameterFunctional.d_mu">[docs]</a>    <span class="k">def</span> <span class="nf">d_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="p">()):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">constant_value</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_d_mu&#39;</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

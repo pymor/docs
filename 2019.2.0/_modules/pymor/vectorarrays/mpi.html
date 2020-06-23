@@ -1,0 +1,494 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.vectorarrays.mpi &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.vectorarrays.mpi</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;Wrapper classes for building MPI distributed |VectorArrays|.</span>
+
+<span class="sd">This module contains several wrapper classes which allow to</span>
+<span class="sd">transform single rank |VectorArrays| into MPI distributed</span>
+<span class="sd">|VectorArrays| which can be used on rank 0 like ordinary</span>
+<span class="sd">|VectorArrays|.</span>
+
+<span class="sd">The implementations are based on the event loop provided</span>
+<span class="sd">by :mod:`pymor.tools.mpi`.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.tools</span> <span class="kn">import</span> <span class="n">mpi</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.interfaces</span> <span class="kn">import</span> <span class="n">VectorArrayInterface</span><span class="p">,</span> <span class="n">VectorSpaceInterface</span>
+
+
+<div class="viewcode-block" id="MPIVectorArray"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray">[docs]</a><span class="k">class</span> <span class="nc">MPIVectorArray</span><span class="p">(</span><span class="n">VectorArrayInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;MPI distributed |VectorArray|.</span>
+
+<span class="sd">    Given a local |VectorArray| on each MPI rank, this wrapper class</span>
+<span class="sd">    uses the event loop from :mod:`pymor.tools.mpi` to build a global</span>
+<span class="sd">    MPI distributed vector array from these local arrays.</span>
+
+<span class="sd">    Instances of `MPIVectorArray` can be used on rank 0 like any</span>
+<span class="sd">    other (non-distributed) |VectorArray|.</span>
+
+<span class="sd">    Note, however, that the implementation of the local VectorArrays</span>
+<span class="sd">    needs to be MPI aware. For instance, `cls.dot` must perform the</span>
+<span class="sd">    needed MPI communication to sum up the local inner products and</span>
+<span class="sd">    return the sums on rank 0.</span>
+
+<span class="sd">    Default implementations for all communication requiring</span>
+<span class="sd">    interface methods are provided by :class:`MPIVectorArrayAutoComm`</span>
+<span class="sd">    (also see :class:`MPIVectorArrayNoComm`).</span>
+
+<span class="sd">    Note that resource cleanup is handled by :meth:`object.__del__`.</span>
+<span class="sd">    Please be aware of the peculiarities of destructors in Python!</span>
+
+<span class="sd">    The associated |VectorSpace| is :class:`MPIVectorSpace`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj_id</span><span class="p">,</span> <span class="n">space</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span> <span class="o">=</span> <span class="n">obj_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">space</span> <span class="o">=</span> <span class="n">space</span>
+
+<div class="viewcode-block" id="MPIVectorArray.__len__"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.__len__">[docs]</a>    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;__len__&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.__getitem__"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.__getitem__">[docs]</a>    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ind</span><span class="p">):</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call_manage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;__getitem__&#39;</span><span class="p">,</span> <span class="n">ind</span><span class="p">),</span>
+                       <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">)</span>
+        <span class="n">U</span><span class="o">.</span><span class="n">is_view</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">U</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.__delitem__"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.__delitem__">[docs]</a>    <span class="k">def</span> <span class="fm">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ind</span><span class="p">):</span>
+        <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;__delitem__&#39;</span><span class="p">,</span> <span class="n">ind</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.copy"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call_manage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;copy&#39;</span><span class="p">,</span> <span class="n">deep</span><span class="o">=</span><span class="n">deep</span><span class="p">),</span>
+                          <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.append"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.append">[docs]</a>    <span class="k">def</span> <span class="nf">append</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">remove_from_other</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;append&#39;</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">remove_from_other</span><span class="o">=</span><span class="n">remove_from_other</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.scal"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.scal">[docs]</a>    <span class="k">def</span> <span class="nf">scal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+        <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;scal&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.axpy"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.axpy">[docs]</a>    <span class="k">def</span> <span class="nf">axpy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIVectorArray_axpy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">obj_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.dot"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.dot">[docs]</a>    <span class="k">def</span> <span class="nf">dot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;dot&#39;</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">obj_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.pairwise_dot"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.pairwise_dot">[docs]</a>    <span class="k">def</span> <span class="nf">pairwise_dot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;pairwise_dot&#39;</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">obj_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.lincomb"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.lincomb">[docs]</a>    <span class="k">def</span> <span class="nf">lincomb</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call_manage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;lincomb&#39;</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">),</span>
+                          <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.l1_norm"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.l1_norm">[docs]</a>    <span class="k">def</span> <span class="nf">l1_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;l1_norm&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.l2_norm"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.l2_norm">[docs]</a>    <span class="k">def</span> <span class="nf">l2_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;l2_norm&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.l2_norm2"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.l2_norm2">[docs]</a>    <span class="k">def</span> <span class="nf">l2_norm2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;l2_norm2&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.dofs"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.dofs">[docs]</a>    <span class="k">def</span> <span class="nf">dofs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dof_indices</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;dofs&#39;</span><span class="p">,</span> <span class="n">dof_indices</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArray.amax"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArray.amax">[docs]</a>    <span class="k">def</span> <span class="nf">amax</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;amax&#39;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">remove_object</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MPIVectorSpace"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorSpace">[docs]</a><span class="k">class</span> <span class="nc">MPIVectorSpace</span><span class="p">(</span><span class="n">VectorSpaceInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|VectorSpace| of :class:`MPIVectorArrays &lt;MPIVectorArray&gt;`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    local_spaces</span>
+<span class="sd">        `tuple` of the different |VectorSpaces| of the local</span>
+<span class="sd">        |VectorArrays| on the MPI ranks.</span>
+<span class="sd">        Alternatively, the length of `local_spaces` may be 1, in which</span>
+<span class="sd">        case the same |VectorSpace| is assumed for all ranks.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">array_type</span> <span class="o">=</span> <span class="n">MPIVectorArray</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_spaces</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_spaces</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="ow">is</span> <span class="n">RegisteredLocalSpace</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">_local_space_registry</span><span class="p">[</span><span class="n">local_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">local_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span>
+
+<div class="viewcode-block" id="MPIVectorSpace.make_array"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorSpace.make_array">[docs]</a>    <span class="k">def</span> <span class="nf">make_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create array from rank-local |VectorArray| instances.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        obj_id</span>
+<span class="sd">            :class:`~pymor.tools.mpi.ObjectId` of the MPI distributed</span>
+<span class="sd">            instances of `cls` wrapped by this array.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        The newly created :class:`MPIVectorArray`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIVectorSpace_check_local_spaces</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">local_spaces</span><span class="p">,</span> <span class="n">obj_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">array_type</span><span class="p">(</span><span class="n">obj_id</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorSpace.zeros"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorSpace.zeros">[docs]</a>    <span class="k">def</span> <span class="nf">zeros</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">reserve</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">array_type</span><span class="p">(</span>
+            <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIVectorSpace_zeros</span><span class="p">,</span>
+                     <span class="bp">self</span><span class="o">.</span><span class="n">local_spaces</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">count</span><span class="p">,</span> <span class="n">reserve</span><span class="o">=</span><span class="n">reserve</span><span class="p">),</span>
+            <span class="bp">self</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIVectorSpace_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_spaces</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MPIVectorSpace.__eq__"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorSpace.__eq__">[docs]</a>    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">is</span> <span class="n">MPIVectorSpace</span> <span class="ow">and</span> \
+            <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_spaces</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">local_spaces</span><span class="p">)</span> <span class="ow">and</span> \
+            <span class="nb">all</span><span class="p">(</span><span class="n">ls</span> <span class="o">==</span> <span class="n">ols</span> <span class="k">for</span> <span class="n">ls</span><span class="p">,</span> <span class="n">ols</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_spaces</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">local_spaces</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="MPIVectorSpace.__repr__"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorSpace.__repr__">[docs]</a>    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{self.__class__}</span><span class="s1">(</span><span class="si">{self.local_spaces}</span><span class="s1">, </span><span class="si">{self.id}</span><span class="s1">)&#39;</span></div></div>
+
+
+<div class="viewcode-block" id="RegisteredLocalSpace"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.RegisteredLocalSpace">[docs]</a><span class="k">class</span> <span class="nc">RegisteredLocalSpace</span><span class="p">(</span><span class="nb">int</span><span class="p">):</span>
+
+<div class="viewcode-block" id="RegisteredLocalSpace.__repr__"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.RegisteredLocalSpace.__repr__">[docs]</a>    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{_local_space_registry[self]}</span><span class="s1"> (id: {int(self)})&#39;</span></div></div>
+
+
+<span class="n">_local_space_registry</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">_local_space_to_id</span> <span class="o">=</span> <span class="p">{}</span>
+
+
+<span class="k">def</span> <span class="nf">_register_local_space</span><span class="p">(</span><span class="n">local_space</span><span class="p">):</span>
+    <span class="n">local_space_id</span> <span class="o">=</span> <span class="n">_local_space_to_id</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">local_space</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">local_space_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">local_space_id</span> <span class="o">=</span> <span class="n">RegisteredLocalSpace</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">_local_space_registry</span><span class="p">))</span>
+        <span class="n">_local_space_registry</span><span class="p">[</span><span class="n">local_space_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">local_space</span>
+        <span class="n">_local_space_to_id</span><span class="p">[</span><span class="n">local_space</span><span class="p">]</span> <span class="o">=</span> <span class="n">local_space_id</span>
+    <span class="k">return</span> <span class="n">local_space_id</span>
+
+
+<span class="k">def</span> <span class="nf">_get_local_space</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">):</span>
+    <span class="n">local_space</span> <span class="o">=</span> <span class="n">local_spaces</span><span class="p">[</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">local_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">local_space</span><span class="p">)</span> <span class="ow">is</span> <span class="n">RegisteredLocalSpace</span><span class="p">:</span>
+        <span class="n">local_space</span> <span class="o">=</span> <span class="n">_local_space_registry</span><span class="p">[</span><span class="n">local_space</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">local_space</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIVectorSpace_zeros</span><span class="p">(</span><span class="n">local_spaces</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span> <span class="n">count</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">reserve</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="n">local_space</span> <span class="o">=</span> <span class="n">_get_local_space</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">)</span>
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">local_space</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="n">count</span><span class="p">,</span> <span class="n">reserve</span><span class="o">=</span><span class="n">reserve</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">manage_object</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIVectorSpace_dim</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">):</span>
+    <span class="n">local_space</span> <span class="o">=</span> <span class="n">_get_local_space</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">local_space</span><span class="o">.</span><span class="n">dim</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIVectorSpace_check_local_spaces</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">,</span> <span class="n">obj_id</span><span class="p">):</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="n">obj_id</span><span class="p">)</span>
+    <span class="n">local_space</span> <span class="o">=</span> <span class="n">_get_local_space</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">)</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">U</span> <span class="ow">in</span> <span class="n">local_space</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIVectorArray_axpy</span><span class="p">(</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">x_obj_id</span><span class="p">):</span>
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="n">obj_id</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="n">x_obj_id</span><span class="p">)</span>
+    <span class="n">obj</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="MPIVectorArrayNoComm"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayNoComm">[docs]</a><span class="k">class</span> <span class="nc">MPIVectorArrayNoComm</span><span class="p">(</span><span class="n">MPIVectorArray</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;MPI distributed |VectorArray|.</span>
+
+<span class="sd">    This is a subclass of :class:`MPIVectorArray` which</span>
+<span class="sd">    overrides all communication requiring interface methods</span>
+<span class="sd">    to raise `NotImplementedError`.</span>
+
+<span class="sd">    This is mainly useful as a security measure when wrapping</span>
+<span class="sd">    arrays for which simply calling the respective method</span>
+<span class="sd">    on the wrapped arrays would lead to wrong results and</span>
+<span class="sd">    :class:`MPIVectorArrayAutoComm` cannot be used either</span>
+<span class="sd">    (for instance in the presence of shared DOFs).</span>
+
+<span class="sd">    The associated |VectorSpace| is :class:`MPIVectorSpaceNoComm`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="MPIVectorArrayNoComm.dot"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayNoComm.dot">[docs]</a>    <span class="k">def</span> <span class="nf">dot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MPIVectorArrayNoComm.pairwise_dot"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayNoComm.pairwise_dot">[docs]</a>    <span class="k">def</span> <span class="nf">pairwise_dot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MPIVectorArrayNoComm.l1_norm"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayNoComm.l1_norm">[docs]</a>    <span class="k">def</span> <span class="nf">l1_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MPIVectorArrayNoComm.l2_norm"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayNoComm.l2_norm">[docs]</a>    <span class="k">def</span> <span class="nf">l2_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MPIVectorArrayNoComm.l2_norm2"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayNoComm.l2_norm2">[docs]</a>    <span class="k">def</span> <span class="nf">l2_norm2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MPIVectorArrayNoComm.dofs"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayNoComm.dofs">[docs]</a>    <span class="k">def</span> <span class="nf">dofs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dof_indices</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MPIVectorArrayNoComm.amax"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayNoComm.amax">[docs]</a>    <span class="k">def</span> <span class="nf">amax</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div></div>
+
+
+<div class="viewcode-block" id="MPIVectorSpaceNoComm"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorSpaceNoComm">[docs]</a><span class="k">class</span> <span class="nc">MPIVectorSpaceNoComm</span><span class="p">(</span><span class="n">MPIVectorSpace</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|VectorSpace| for :class:`MPIVectorArrayNoComm`.&quot;&quot;&quot;</span>
+
+    <span class="n">array_type</span> <span class="o">=</span> <span class="n">MPIVectorArrayNoComm</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="MPIVectorArrayAutoComm"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayAutoComm">[docs]</a><span class="k">class</span> <span class="nc">MPIVectorArrayAutoComm</span><span class="p">(</span><span class="n">MPIVectorArray</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;MPI distributed |VectorArray|.</span>
+
+<span class="sd">    This is a subclass of :class:`MPIVectorArray` which</span>
+<span class="sd">    provides default implementations for all communication</span>
+<span class="sd">    requiring interface methods for the case when the</span>
+<span class="sd">    wrapped array is not MPI aware.</span>
+
+<span class="sd">    Note, however, that depending on the model</span>
+<span class="sd">    these default implementations might lead to wrong results</span>
+<span class="sd">    (for instance in the presence of shared DOFs).</span>
+
+<span class="sd">    The associated |VectorSpace| is :class:`MPIVectorSpaceAutoComm`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="MPIVectorArrayAutoComm.dot"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayAutoComm.dot">[docs]</a>    <span class="k">def</span> <span class="nf">dot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIVectorArrayAutoComm_dot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">obj_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArrayAutoComm.pairwise_dot"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayAutoComm.pairwise_dot">[docs]</a>    <span class="k">def</span> <span class="nf">pairwise_dot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIVectorArrayAutoComm_pairwise_dot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">obj_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArrayAutoComm.l1_norm"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayAutoComm.l1_norm">[docs]</a>    <span class="k">def</span> <span class="nf">l1_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIVectorArrayAutoComm_l1_norm</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArrayAutoComm.l2_norm"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayAutoComm.l2_norm">[docs]</a>    <span class="k">def</span> <span class="nf">l2_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIVectorArrayAutoComm_l2_norm</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArrayAutoComm.l2_norm2"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayAutoComm.l2_norm2">[docs]</a>    <span class="k">def</span> <span class="nf">l2_norm2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIVectorArrayAutoComm_l2_norm2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArrayAutoComm.dofs"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayAutoComm.dofs">[docs]</a>    <span class="k">def</span> <span class="nf">dofs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dof_indices</span><span class="p">):</span>
+        <span class="n">offsets</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_offsets&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">offsets</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="o">.</span><span class="n">_get_dims</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">dof_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dof_indices</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIVectorArrayAutoComm_dofs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">offsets</span><span class="p">,</span> <span class="n">dof_indices</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIVectorArrayAutoComm.amax"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorArrayAutoComm.amax">[docs]</a>    <span class="k">def</span> <span class="nf">amax</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">offsets</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_offsets&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">offsets</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="o">.</span><span class="n">_get_dims</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">inds</span><span class="p">,</span> <span class="n">vals</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIVectorArrayAutoComm_amax</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">)</span>
+        <span class="n">inds</span> <span class="o">+=</span> <span class="n">offsets</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+        <span class="n">max_inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># np.choose does not work due to</span>
+        <span class="c1"># https://github.com/numpy/numpy/issues/3259</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">inds</span><span class="p">[</span><span class="n">max_inds</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">max_inds</span><span class="p">))]),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">vals</span><span class="p">[</span><span class="n">max_inds</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">max_inds</span><span class="p">))]))</span></div></div>
+
+
+<div class="viewcode-block" id="MPIVectorSpaceAutoComm"><a class="viewcode-back" href="../../../generated/pymor.vectorarrays.html#pymor.vectorarrays.mpi.MPIVectorSpaceAutoComm">[docs]</a><span class="k">class</span> <span class="nc">MPIVectorSpaceAutoComm</span><span class="p">(</span><span class="n">MPIVectorSpace</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|VectorSpace| for :class:`MPIVectorArrayAutoComm`.&quot;&quot;&quot;</span>
+
+    <span class="n">array_type</span> <span class="o">=</span> <span class="n">MPIVectorArrayAutoComm</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_dim&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_dims</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">dim</span>
+
+    <span class="k">def</span> <span class="nf">_get_dims</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIVectorSpaceAutoComm_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_spaces</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_offsets</span> <span class="o">=</span> <span class="n">offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(([</span><span class="mi">0</span><span class="p">],</span> <span class="n">dims</span><span class="p">)))[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span> <span class="o">=</span> <span class="n">dim</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dim</span><span class="p">,</span> <span class="n">offsets</span></div>
+
+
+<span class="k">def</span> <span class="nf">_MPIVectorSpaceAutoComm_dim</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">):</span>
+    <span class="n">local_space</span> <span class="o">=</span> <span class="n">_get_local_space</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">)</span>
+    <span class="n">dims</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">local_space</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">dims</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIVectorArrayAutoComm_dot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="bp">self</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    <span class="n">other</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+    <span class="n">local_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">local_results</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">mpi</span><span class="o">.</span><span class="n">size</span><span class="p">,)</span> <span class="o">+</span> <span class="n">local_results</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">mpi</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">Gather</span><span class="p">(</span><span class="n">local_results</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIVectorArrayAutoComm_pairwise_dot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="bp">self</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    <span class="n">other</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+    <span class="n">local_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pairwise_dot</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">local_results</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">mpi</span><span class="o">.</span><span class="n">size</span><span class="p">,)</span> <span class="o">+</span> <span class="n">local_results</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">mpi</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">Gather</span><span class="p">(</span><span class="n">local_results</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIVectorArrayAutoComm_l1_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="bp">self</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    <span class="n">local_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">l1_norm</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">local_results</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">mpi</span><span class="o">.</span><span class="n">size</span><span class="p">,)</span> <span class="o">+</span> <span class="n">local_results</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">mpi</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">Gather</span><span class="p">(</span><span class="n">local_results</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIVectorArrayAutoComm_l2_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="bp">self</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    <span class="n">local_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">l2_norm2</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">local_results</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">mpi</span><span class="o">.</span><span class="n">size</span><span class="p">,)</span> <span class="o">+</span> <span class="n">local_results</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">mpi</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">Gather</span><span class="p">(</span><span class="n">local_results</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIVectorArrayAutoComm_l2_norm2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="bp">self</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    <span class="n">local_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">l2_norm2</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">local_results</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">mpi</span><span class="o">.</span><span class="n">size</span><span class="p">,)</span> <span class="o">+</span> <span class="n">local_results</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">mpi</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">Gather</span><span class="p">(</span><span class="n">local_results</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIVectorArrayAutoComm_dofs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">offsets</span><span class="p">,</span> <span class="n">dof_indices</span><span class="p">):</span>
+    <span class="bp">self</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    <span class="n">offset</span> <span class="o">=</span> <span class="n">offsets</span><span class="p">[</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">]</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
+    <span class="n">my_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">dof_indices</span> <span class="o">&gt;=</span> <span class="n">offset</span><span class="p">,</span> <span class="n">dof_indices</span> <span class="o">&lt;</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">dim</span><span class="p">)</span>
+    <span class="n">local_results</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">dof_indices</span><span class="p">)))</span>
+    <span class="n">local_results</span><span class="p">[:,</span> <span class="n">my_indices</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dofs</span><span class="p">(</span><span class="n">dof_indices</span><span class="p">[</span><span class="n">my_indices</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">local_results</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">mpi</span><span class="o">.</span><span class="n">size</span><span class="p">,)</span> <span class="o">+</span> <span class="n">local_results</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">mpi</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">Gather</span><span class="p">(</span><span class="n">local_results</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIVectorArrayAutoComm_amax</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="bp">self</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    <span class="n">local_inds</span><span class="p">,</span> <span class="n">local_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">amax</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">local_inds</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+    <span class="k">assert</span> <span class="n">local_vals</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+    <span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">mpi</span><span class="o">.</span><span class="n">size</span><span class="p">,)</span> <span class="o">+</span> <span class="n">local_inds</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">mpi</span><span class="o">.</span><span class="n">size</span><span class="p">,)</span> <span class="o">+</span> <span class="n">local_inds</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">mpi</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">Gather</span><span class="p">(</span><span class="n">local_inds</span><span class="p">,</span> <span class="n">inds</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">mpi</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">Gather</span><span class="p">(</span><span class="n">local_vals</span><span class="p">,</span> <span class="n">vals</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">inds</span><span class="p">,</span> <span class="n">vals</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

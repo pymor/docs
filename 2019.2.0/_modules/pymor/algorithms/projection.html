@@ -1,0 +1,403 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.projection &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.projection</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.rules</span> <span class="kn">import</span> <span class="n">RuleTable</span><span class="p">,</span> <span class="n">match_class</span><span class="p">,</span> <span class="n">match_generic</span><span class="p">,</span> <span class="n">match_always</span>
+<span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">RuleNotMatchingError</span><span class="p">,</span> <span class="n">NoMatchingRuleError</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.basic</span> <span class="kn">import</span> <span class="n">ProjectedOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.block</span> <span class="kn">import</span> <span class="n">BlockOperatorBase</span><span class="p">,</span> <span class="n">BlockRowOperator</span><span class="p">,</span> <span class="n">BlockColumnOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="p">(</span><span class="n">LincombOperator</span><span class="p">,</span> <span class="n">Concatenation</span><span class="p">,</span> <span class="n">ConstantOperator</span><span class="p">,</span>
+                                           <span class="n">ZeroOperator</span><span class="p">,</span> <span class="n">AffineOperator</span><span class="p">,</span> <span class="n">AdjointOperator</span><span class="p">,</span> <span class="n">SelectionOperator</span><span class="p">,</span>
+                                           <span class="n">IdentityOperator</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.ei</span> <span class="kn">import</span> <span class="n">EmpiricalInterpolatedOperator</span><span class="p">,</span> <span class="n">ProjectedEmpiciralInterpolatedOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.interfaces</span> <span class="kn">import</span> <span class="n">OperatorInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.numpy</span> <span class="kn">import</span> <span class="n">NumpyVectorSpace</span>
+
+
+<div class="viewcode-block" id="project"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.projection.project">[docs]</a><span class="k">def</span> <span class="nf">project</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Petrov-Galerkin projection of a given |Operator|.</span>
+
+<span class="sd">    Given an inner product `( ⋅, ⋅)`, source vectors `b_1, ..., b_N`</span>
+<span class="sd">    and range vectors `c_1, ..., c_M`, the projection `op_proj` of `op`</span>
+<span class="sd">    is defined by ::</span>
+
+<span class="sd">        [ op_proj(e_j) ]_i = ( c_i, op(b_j) )</span>
+
+<span class="sd">    for all i,j, where `e_j` denotes the j-th canonical basis vector of R^N.</span>
+
+<span class="sd">    In particular, if the `c_i` are orthonormal w.r.t. the given product,</span>
+<span class="sd">    then `op_proj` is the coordinate representation w.r.t. the `b_i/c_i` bases</span>
+<span class="sd">    of the restriction of `op` to `span(b_i)` concatenated with the</span>
+<span class="sd">    orthogonal projection onto `span(c_i)`.</span>
+
+<span class="sd">    From another point of view, if `op` is viewed as a bilinear form</span>
+<span class="sd">    (see :meth:`apply2`) and `( ⋅, ⋅ )` is the Euclidean inner</span>
+<span class="sd">    product, then `op_proj` represents the matrix of the bilinear form restricted</span>
+<span class="sd">    to `span(b_i) / span(c_i)` (w.r.t. the `b_i/c_i` bases).</span>
+
+<span class="sd">    How the projection is realized will depend on the given |Operator|.</span>
+<span class="sd">    While a projected |NumpyMatrixOperator| will</span>
+<span class="sd">    again be a |NumpyMatrixOperator|, only a generic</span>
+<span class="sd">    :class:`~pymor.operators.basic.ProjectedOperator` can be returned</span>
+<span class="sd">    in general. The exact algorithm is specified in :class:`ProjectRules`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    range_basis</span>
+<span class="sd">        The vectors `c_1, ..., c_M` as a |VectorArray|. If `None`, no</span>
+<span class="sd">        projection in the range space is performed.</span>
+<span class="sd">    source_basis</span>
+<span class="sd">        The vectors `b_1, ..., b_N` as a |VectorArray| or `None`. If `None`,</span>
+<span class="sd">        no restriction of the source space is performed.</span>
+<span class="sd">    product</span>
+<span class="sd">        An |Operator| representing the inner product.  If `None`, the</span>
+<span class="sd">        Euclidean inner product is chosen.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    The projected |Operator| `op_proj`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">source_basis</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">source_basis</span> <span class="ow">in</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span>
+    <span class="k">assert</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">range_basis</span> <span class="ow">in</span> <span class="n">op</span><span class="o">.</span><span class="n">range</span>
+    <span class="k">assert</span> <span class="n">product</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">product</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">product</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">op</span><span class="o">.</span><span class="n">range</span>
+
+    <span class="n">rb</span> <span class="o">=</span> <span class="n">product</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">range_basis</span><span class="p">)</span> <span class="k">if</span> <span class="n">product</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">range_basis</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ProjectRules</span><span class="p">(</span><span class="n">rb</span><span class="p">,</span> <span class="n">source_basis</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">NoMatchingRuleError</span><span class="p">:</span>
+        <span class="n">op</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Using inefficient generic projection operator&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ProjectedOperator</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span><span class="p">,</span> <span class="n">product</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ProjectRules"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.projection.ProjectRules">[docs]</a><span class="k">class</span> <span class="nc">ProjectRules</span><span class="p">(</span><span class="n">RuleTable</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|RuleTable| for the :func:`project` algorithm.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">use_caching</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+    <span class="nd">@match_always</span>
+    <span class="k">def</span> <span class="nf">action_no_bases</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">op</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RuleNotMatchingError</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">ZeroOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_ZeroOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span>
+        <span class="k">if</span> <span class="n">source_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+            <span class="k">return</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">range_basis</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">source_basis</span><span class="p">))),</span>
+                                       <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_source</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">source_basis</span><span class="p">))</span> <span class="k">if</span> <span class="n">source_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span>
+            <span class="n">new_range</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">range_basis</span><span class="p">))</span> <span class="k">if</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">op</span><span class="o">.</span><span class="n">range</span>
+            <span class="k">return</span> <span class="n">ZeroOperator</span><span class="p">(</span><span class="n">new_range</span><span class="p">,</span> <span class="n">new_source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">ConstantOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_ConstantOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span>
+        <span class="k">if</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">projected_value</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">range_basis</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">projected_value</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="n">source_basis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ConstantOperator</span><span class="p">(</span><span class="n">projected_value</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ConstantOperator</span><span class="p">(</span><span class="n">projected_value</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">source_basis</span><span class="p">)),</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="nd">@match_generic</span><span class="p">(</span><span class="k">lambda</span> <span class="n">op</span><span class="p">:</span> <span class="n">op</span><span class="o">.</span><span class="n">linear</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">parametric</span><span class="p">,</span> <span class="s1">&#39;linear and not parametric&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_apply_basis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span>
+        <span class="k">if</span> <span class="n">source_basis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">V</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">range_basis</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">RuleNotMatchingError</span><span class="p">(</span><span class="s1">&#39;apply_adjoint not implemented&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">):</span>
+                <span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+                <span class="k">return</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">source_id</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">VectorArrayOperator</span>
+                <span class="k">return</span> <span class="n">VectorArrayOperator</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">adjoint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">V</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">source_basis</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">):</span>
+                    <span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+                    <span class="k">return</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">VectorArrayOperator</span>
+                    <span class="k">return</span> <span class="n">VectorArrayOperator</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">adjoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+                <span class="k">return</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">Concatenation</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_Concatenation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span>
+        <span class="n">last</span><span class="p">,</span> <span class="n">first</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">source_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">first</span><span class="o">.</span><span class="n">linear</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">first</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="n">V</span> <span class="o">=</span> <span class="n">first</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">source_basis</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">project</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">operators</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="n">range_basis</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">last</span><span class="o">.</span><span class="n">linear</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">last</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="n">V</span> <span class="o">=</span> <span class="n">last</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">range_basis</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">project</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">operators</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="mi">1</span><span class="p">:]),</span> <span class="n">V</span><span class="p">,</span> <span class="n">source_basis</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">projected_first</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">source_basis</span><span class="p">)</span>
+            <span class="n">projected_last</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">last</span><span class="p">,</span> <span class="n">range_basis</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Concatenation</span><span class="p">((</span><span class="n">projected_last</span><span class="p">,)</span> <span class="o">+</span> <span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">projected_first</span><span class="p">,),</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">AdjointOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_AdjointOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span>
+        <span class="k">if</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">source_product</span><span class="p">:</span>
+                <span class="n">range_basis</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">source_product</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">range_basis</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">source_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">op</span><span class="o">.</span><span class="n">range_product</span><span class="p">:</span>
+            <span class="n">source_basis</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">range_product</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">source_basis</span><span class="p">)</span>
+
+        <span class="n">operator</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">source_basis</span><span class="p">,</span> <span class="n">range_basis</span><span class="p">)</span>
+        <span class="n">range_product</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">range_product</span> <span class="k">if</span> <span class="n">source_basis</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">source_product</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">source_product</span> <span class="k">if</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">AdjointOperator</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">source_product</span><span class="o">=</span><span class="n">source_product</span><span class="p">,</span> <span class="n">range_product</span><span class="o">=</span><span class="n">range_product</span><span class="p">,</span>
+                               <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">EmpiricalInterpolatedOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_EmpiricalInterpolatedOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">interpolation_dofs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">ZeroOperator</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="s1">&#39;restricted_operator&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">source_basis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RuleNotMatchingError</span><span class="p">(</span><span class="s1">&#39;Has no restricted operator or source_basis is None&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">projected_collateral_basis</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">collateral_basis</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">range_basis</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">projected_collateral_basis</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">collateral_basis</span>
+
+        <span class="k">return</span> <span class="n">ProjectedEmpiciralInterpolatedOperator</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">restricted_operator</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">interpolation_matrix</span><span class="p">,</span>
+                                                      <span class="n">NumpyVectorSpace</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">source_basis</span><span class="o">.</span><span class="n">dofs</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">source_dofs</span><span class="p">)),</span>
+                                                      <span class="n">projected_collateral_basis</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">triangular</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">AffineOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_AffineOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">affine_shift</span> <span class="o">+</span> <span class="n">op</span><span class="o">.</span><span class="n">linear_part</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">LincombOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_LincombOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">replace_children</span><span class="p">(</span><span class="n">op</span><span class="p">)</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">SelectionOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_SelectionOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">replace_children</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">BlockOperatorBase</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_BlockOperatorBase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">blocked_range</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">range_bases</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="o">.</span><span class="n">_blocks</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">range_bases</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">subspaces</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">range_bases</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">blocked_source</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">source_bases</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span><span class="o">.</span><span class="n">_blocks</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">source_bases</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">subspaces</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">source_bases</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span><span class="p">]</span>
+
+        <span class="n">projected_ops</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">project</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">blocks</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">],</span> <span class="n">rb</span><span class="p">,</span> <span class="n">sb</span><span class="p">)</span>
+                                   <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">sb</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">source_bases</span><span class="p">)]</span>
+                                  <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">rb</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">range_bases</span><span class="p">)])</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">op</span><span class="o">.</span><span class="n">blocked_range</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">BlockColumnOperator</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">projected_ops</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">op</span><span class="o">.</span><span class="n">blocked_source</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">BlockRowOperator</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">projected_ops</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">projected_ops</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="project_to_subbasis"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.projection.project_to_subbasis">[docs]</a><span class="k">def</span> <span class="nf">project_to_subbasis</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">dim_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dim_source</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Project already projected |Operator| to a subbasis.</span>
+
+<span class="sd">    The purpose of this method is to further project an operator that has been</span>
+<span class="sd">    obtained through :meth:`project` to subbases of the original projection bases, i.e. ::</span>
+
+<span class="sd">        project_to_subbasis(project(op, r_basis, s_basis, prod), dim_range, dim_source)</span>
+
+<span class="sd">    should be the same as ::</span>
+
+<span class="sd">        project(op, r_basis[:dim_range], s_basis[:dim_source], prod)</span>
+
+<span class="sd">    For a |NumpyMatrixOperator| this amounts to extracting the upper-left</span>
+<span class="sd">    (dim_range, dim_source) corner of its matrix.</span>
+
+<span class="sd">    The subbasis projection algorithm is specified in :class:`ProjectToSubbasisRules`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dim_range</span>
+<span class="sd">        Dimension of the range subbasis.</span>
+<span class="sd">    dim_source</span>
+<span class="sd">        Dimension of the source subbasis.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    The projected |Operator|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">dim_source</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">)</span> <span class="ow">and</span> <span class="n">dim_source</span> <span class="o">&lt;=</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">dim_range</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">)</span> <span class="ow">and</span> <span class="n">dim_range</span> <span class="o">&lt;=</span> <span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">ProjectToSubbasisRules</span><span class="p">(</span><span class="n">dim_range</span><span class="p">,</span> <span class="n">dim_source</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">op</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ProjectToSubbasisRules"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.projection.ProjectToSubbasisRules">[docs]</a><span class="k">class</span> <span class="nc">ProjectToSubbasisRules</span><span class="p">(</span><span class="n">RuleTable</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|RuleTable| for the :func:`project_to_subbasis` algorithm.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim_range</span><span class="p">,</span> <span class="n">dim_source</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">use_caching</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">LincombOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_recurse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">replace_children</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">NumpyMatrixOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_NumpyMatrixOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="c1"># copy instead of just slicing the matrix to ensure contiguous memory</span>
+        <span class="k">return</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">matrix</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">dim_range</span><span class="p">,</span> <span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">dim_source</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+                                   <span class="n">solver_options</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">solver_options</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">ConstantOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_ConstantOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">dim_range</span><span class="p">,</span> <span class="n">dim_source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim_range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim_source</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span> <span class="k">if</span> <span class="n">dim_source</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="n">dim_source</span><span class="p">)</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">value</span> <span class="k">if</span> <span class="n">dim_range</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[:,</span> <span class="p">:</span><span class="n">dim_range</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">ConstantOperator</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">IdentityOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_IdentityOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">dim_range</span><span class="p">,</span> <span class="n">dim_source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim_range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim_source</span>
+        <span class="k">if</span> <span class="n">dim_range</span> <span class="o">!=</span> <span class="n">dim_source</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RuleNotMatchingError</span><span class="p">(</span><span class="s1">&#39;dim_range and dim_source must be equal.&#39;</span><span class="p">)</span>
+        <span class="n">space</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span> <span class="k">if</span> <span class="n">dim_source</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="n">dim_source</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">IdentityOperator</span><span class="p">(</span><span class="n">space</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">ProjectedEmpiciralInterpolatedOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_ProjectedEmpiciralInterpolatedOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">projected_collateral_basis</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">NumpyVectorSpace</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="n">restricted_operator</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">restricted_operator</span>
+
+        <span class="n">old_pcb</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">projected_collateral_basis</span>
+        <span class="n">projected_collateral_basis</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">old_pcb</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[:,</span> <span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">dim_range</span><span class="p">])</span>
+
+        <span class="n">old_sbd</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">source_basis_dofs</span>
+        <span class="n">source_basis_dofs</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">old_sbd</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[:</span><span class="bp">self</span><span class="o">.</span><span class="n">dim_source</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">ProjectedEmpiciralInterpolatedOperator</span><span class="p">(</span><span class="n">restricted_operator</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">interpolation_matrix</span><span class="p">,</span>
+                                                      <span class="n">source_basis_dofs</span><span class="p">,</span> <span class="n">projected_collateral_basis</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">triangular</span><span class="p">,</span>
+                                                      <span class="n">solver_options</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">solver_options</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">ProjectedOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_ProjectedOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">dim_range</span><span class="p">,</span> <span class="n">dim_source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim_range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim_source</span>
+        <span class="n">source_basis</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">source_basis</span> <span class="k">if</span> <span class="n">dim_source</span> <span class="ow">is</span> <span class="kc">None</span> \
+            <span class="k">else</span> <span class="n">op</span><span class="o">.</span><span class="n">source_basis</span><span class="p">[:</span><span class="n">dim_source</span><span class="p">]</span>
+        <span class="n">range_basis</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">range_basis</span> <span class="k">if</span> <span class="n">dim_range</span> <span class="ow">is</span> <span class="kc">None</span> \
+            <span class="k">else</span> <span class="n">op</span><span class="o">.</span><span class="n">range_basis</span><span class="p">[:</span><span class="n">dim_range</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">ProjectedOperator</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">operator</span><span class="p">,</span> <span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                 <span class="n">solver_options</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">solver_options</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

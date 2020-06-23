@@ -1,0 +1,887 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.operators.fv &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.operators.fv</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot; This module provides some operators for finite volume discretizations.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.sparse</span> <span class="kn">import</span> <span class="n">coo_matrix</span><span class="p">,</span> <span class="n">csc_matrix</span><span class="p">,</span> <span class="n">dia_matrix</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">ImmutableInterface</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">pymor.functions.interfaces</span> <span class="kn">import</span> <span class="n">FunctionInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.interfaces</span> <span class="kn">import</span> <span class="n">AffineGridWithOrthogonalCentersInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.subgrid</span> <span class="kn">import</span> <span class="n">SubGrid</span><span class="p">,</span> <span class="n">make_sub_grid_boundary_info</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.basic</span> <span class="kn">import</span> <span class="n">OperatorBase</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">ComponentProjection</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixBasedOperator</span><span class="p">,</span> <span class="n">NumpyMatrixOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.base</span> <span class="kn">import</span> <span class="n">Parametric</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.inplace</span> <span class="kn">import</span> <span class="n">iadd_masked</span><span class="p">,</span> <span class="n">isub_masked</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.quadratures</span> <span class="kn">import</span> <span class="n">GaussQuadratures</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.numpy</span> <span class="kn">import</span> <span class="n">NumpyVectorSpace</span>
+
+
+<div class="viewcode-block" id="FVVectorSpace"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.FVVectorSpace">[docs]</a><span class="k">def</span> <span class="nf">FVVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="nb">id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NumericalConvectiveFluxInterface"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.NumericalConvectiveFluxInterface">[docs]</a><span class="k">class</span> <span class="nc">NumericalConvectiveFluxInterface</span><span class="p">(</span><span class="n">ImmutableInterface</span><span class="p">,</span> <span class="n">Parametric</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interface for numerical convective fluxes for finite volume schemes.</span>
+
+<span class="sd">    Numerical fluxes defined by this interfaces are functions of</span>
+<span class="sd">    the form `F(U_inner, U_outer, unit_outer_normal, edge_volume, mu)`.</span>
+
+<span class="sd">    The flux evaluation is vectorized and happens in two stages:</span>
+<span class="sd">      1. `evaluate_stage1` receives a |NumPy array| `U` of all values which</span>
+<span class="sd">         appear as `U_inner` or `U_outer` for all edges the flux shall be</span>
+<span class="sd">         evaluated at and returns a `tuple` of |NumPy arrays|</span>
+<span class="sd">         each of the same length as `U`.</span>
+<span class="sd">      2. `evaluate_stage2` receives the reordered `stage1_data` for each</span>
+<span class="sd">         edge as well as the unit outer normal and the volume of the edges.</span>
+
+<span class="sd">         `stage1_data` is given as follows: If `R_l` is `l`-th entry of the</span>
+<span class="sd">         `tuple` returned by `evaluate_stage1`, the `l`-th entry `D_l` of</span>
+<span class="sd">         of the `stage1_data` tuple has the shape `(num_edges, 2) + R_l.shape[1:]`.</span>
+<span class="sd">         If for edge `k` the values `U_inner` and `U_outer` are the `i`-th</span>
+<span class="sd">         and `j`-th value in the `U` array provided to `evaluate_stage1`,</span>
+<span class="sd">         we have ::</span>
+
+<span class="sd">             D_l[k, 0] == R_l[i],    D_l[k, 1] == R_l[j].</span>
+
+<span class="sd">         `evaluate_stage2` returns a |NumPy array| of the flux evaluations</span>
+<span class="sd">         for each edge.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">evaluate_stage1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">pass</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">evaluate_stage2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage1_data</span><span class="p">,</span> <span class="n">unit_outer_normals</span><span class="p">,</span> <span class="n">volumes</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="LaxFriedrichsFlux"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.LaxFriedrichsFlux">[docs]</a><span class="k">class</span> <span class="nc">LaxFriedrichsFlux</span><span class="p">(</span><span class="n">NumericalConvectiveFluxInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Lax-Friedrichs numerical flux.</span>
+
+<span class="sd">    If `f` is the analytical flux, the Lax-Friedrichs flux `F` is given</span>
+<span class="sd">    by::</span>
+
+<span class="sd">      F(U_in, U_out, normal, vol) = vol * [normal⋅(f(U_in) + f(U_out))/2 + (U_in - U_out)/(2*λ)]</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    flux</span>
+<span class="sd">        |Function| defining the analytical flux `f`.</span>
+<span class="sd">    lxf_lambda</span>
+<span class="sd">        The stabilization parameter `λ`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">lxf_lambda</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">flux</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">evaluate_stage1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">U</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">flux</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">evaluate_stage2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage1_data</span><span class="p">,</span> <span class="n">unit_outer_normals</span><span class="p">,</span> <span class="n">volumes</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">U</span><span class="p">,</span> <span class="n">F</span> <span class="o">=</span> <span class="n">stage1_data</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">unit_outer_normals</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.5</span>
+                <span class="o">+</span> <span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">U</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">lxf_lambda</span><span class="p">))</span> <span class="o">*</span> <span class="n">volumes</span></div>
+
+
+<div class="viewcode-block" id="SimplifiedEngquistOsherFlux"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.SimplifiedEngquistOsherFlux">[docs]</a><span class="k">class</span> <span class="nc">SimplifiedEngquistOsherFlux</span><span class="p">(</span><span class="n">NumericalConvectiveFluxInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Engquist-Osher numerical flux. Simplified Implementation for special case.</span>
+
+<span class="sd">    For the definition of the Engquist-Osher flux see :class:`EngquistOsherFlux`.</span>
+<span class="sd">    This class provides a faster and more accurate implementation for the special</span>
+<span class="sd">    case that `f(0) == 0` and the derivative of `f` only changes sign at `0`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    flux</span>
+<span class="sd">        |Function| defining the analytical flux `f`.</span>
+<span class="sd">    flux_derivative</span>
+<span class="sd">        |Function| defining the analytical flux derivative `f&#39;`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">flux_derivative</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">flux</span><span class="p">,</span> <span class="n">flux_derivative</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">evaluate_stage1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">flux</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">mu</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">flux_derivative</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">evaluate_stage2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage1_data</span><span class="p">,</span> <span class="n">unit_outer_normals</span><span class="p">,</span> <span class="n">volumes</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">F_edge</span><span class="p">,</span> <span class="n">F_d_edge</span> <span class="o">=</span> <span class="n">stage1_data</span>
+        <span class="n">unit_outer_normals</span> <span class="o">=</span> <span class="n">unit_outer_normals</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">F_d_edge</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">F_d_edge</span> <span class="o">*</span> <span class="n">unit_outer_normals</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">F_edge</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">F_edge</span> <span class="o">*</span> <span class="n">unit_outer_normals</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">F_edge</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">greater_equal</span><span class="p">(</span><span class="n">F_d_edge</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">),</span> <span class="n">F_edge</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">F_edge</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">less_equal</span><span class="p">(</span><span class="n">F_d_edge</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">),</span> <span class="n">F_edge</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">F_edge</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">F_edge</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">F_edge</span> <span class="o">*=</span> <span class="n">volumes</span>
+        <span class="k">return</span> <span class="n">F_edge</span></div>
+
+
+<div class="viewcode-block" id="EngquistOsherFlux"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.EngquistOsherFlux">[docs]</a><span class="k">class</span> <span class="nc">EngquistOsherFlux</span><span class="p">(</span><span class="n">NumericalConvectiveFluxInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Engquist-Osher numerical flux.</span>
+
+<span class="sd">    If `f` is the analytical flux, and `f&#39;` its derivative, the Engquist-Osher flux is</span>
+<span class="sd">    given by::</span>
+
+<span class="sd">      F(U_in, U_out, normal, vol) = vol * [c^+(U_in, normal)  +  c^-(U_out, normal)]</span>
+
+<span class="sd">                                         U_in</span>
+<span class="sd">      c^+(U_in, normal)  = f(0)⋅normal +  ∫   max(f&#39;(s)⋅normal, 0) ds</span>
+<span class="sd">                                         s=0</span>
+
+<span class="sd">                                        U_out</span>
+<span class="sd">      c^-(U_out, normal) =                ∫   min(f&#39;(s)⋅normal, 0) ds</span>
+<span class="sd">                                         s=0</span>
+
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    flux</span>
+<span class="sd">        |Function| defining the analytical flux `f`.</span>
+<span class="sd">    flux_derivative</span>
+<span class="sd">        |Function| defining the analytical flux derivative `f&#39;`.</span>
+<span class="sd">    gausspoints</span>
+<span class="sd">        Number of Gauss quadrature points to be used for integration.</span>
+<span class="sd">    intervals</span>
+<span class="sd">        Number of subintervals to be used for integration.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">flux_derivative</span><span class="p">,</span> <span class="n">gausspoints</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">intervals</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">flux</span><span class="p">,</span> <span class="n">flux_derivative</span><span class="p">)</span>
+        <span class="n">points</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">GaussQuadratures</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">npoints</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gausspoints</span><span class="p">)</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">points</span> <span class="o">/</span> <span class="n">intervals</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">intervals</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">)[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">intervals</span><span class="p">))</span>
+                  <span class="o">+</span> <span class="n">points</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:])</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">intervals</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">intervals</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">points</span> <span class="o">=</span> <span class="n">points</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span>
+
+    <span class="k">def</span> <span class="nf">evaluate_stage1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">int_els</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">U</span><span class="p">)[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">flux_derivative</span><span class="p">(</span><span class="n">U</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="n">p</span><span class="p">,</span> <span class="n">mu</span><span class="p">)[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">int_els</span> <span class="o">*</span> <span class="n">w</span>
+                               <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">points</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span>
+
+    <span class="k">def</span> <span class="nf">evaluate_stage2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage1_data</span><span class="p">,</span> <span class="n">unit_outer_normals</span><span class="p">,</span> <span class="n">volumes</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">F0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flux</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.</span><span class="p">]]),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="n">unit_outer_normals</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">Fs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">stage1_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">unit_outer_normals</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">Fs</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">Fs</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:],</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">Fs</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">Fs</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:],</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">Fs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">Fs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">F0</span>
+        <span class="n">Fs</span> <span class="o">*=</span> <span class="n">volumes</span>
+        <span class="k">return</span> <span class="n">Fs</span></div>
+
+
+<div class="viewcode-block" id="jacobian_options"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.jacobian_options">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;delta&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">jacobian_options</span><span class="p">(</span><span class="n">delta</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;delta&#39;</span><span class="p">:</span> <span class="n">delta</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="NonlinearAdvectionOperator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.NonlinearAdvectionOperator">[docs]</a><span class="k">class</span> <span class="nc">NonlinearAdvectionOperator</span><span class="p">(</span><span class="n">OperatorBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Nonlinear finite volume advection |Operator|.</span>
+
+<span class="sd">    The operator is of the form ::</span>
+
+<span class="sd">        L(u, mu)(x) = ∇ ⋅ f(u(x), mu)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        |Grid| for which to evaluate the operator.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| determining the Dirichlet and Neumann boundaries.</span>
+<span class="sd">    numerical_flux</span>
+<span class="sd">        The :class:`NumericalConvectiveFlux &lt;NumericalConvectiveFluxInterface&gt;` to use.</span>
+<span class="sd">    dirichlet_data</span>
+<span class="sd">        |Function| providing the Dirichlet boundary values. If `None`, constant-zero</span>
+<span class="sd">        boundary is assumed.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sid_ignore</span> <span class="o">=</span> <span class="n">OperatorBase</span><span class="o">.</span><span class="n">sid_ignore</span> <span class="o">|</span> <span class="p">{</span><span class="s1">&#39;_grid_data&#39;</span><span class="p">}</span>
+
+    <span class="n">linear</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">numerical_flux</span><span class="p">,</span> <span class="n">dirichlet_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">space_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">dirichlet_data</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dirichlet_data</span><span class="p">,</span> <span class="n">FunctionInterface</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">dirichlet_data</span><span class="p">,</span> <span class="n">FunctionInterface</span><span class="p">)</span> <span class="ow">and</span> <span class="n">boundary_info</span><span class="o">.</span><span class="n">has_dirichlet</span>
+                <span class="ow">and</span> <span class="ow">not</span> <span class="n">dirichlet_data</span><span class="o">.</span><span class="n">parametric</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dirichlet_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_data</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="n">boundary_info</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="mi">1</span><span class="p">)])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dirichlet_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dirichlet_values</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dirichlet_values_flux_shaped</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dirichlet_values</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">FVVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">space_id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">numerical_flux</span><span class="p">,</span> <span class="n">dirichlet_data</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">with_numerical_flux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">numerical_flux</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">numerical_flux</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+
+<div class="viewcode-block" id="NonlinearAdvectionOperator.restricted"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.NonlinearAdvectionOperator.restricted">[docs]</a>    <span class="k">def</span> <span class="nf">restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dofs</span><span class="p">):</span>
+        <span class="n">source_dofs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">union1d</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">neighbours</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)[</span><span class="n">dofs</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">dofs</span><span class="p">),</span>
+                                   <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">),</span>
+                                   <span class="n">assume_unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sub_grid</span> <span class="o">=</span> <span class="n">SubGrid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">source_dofs</span><span class="p">)</span>
+        <span class="n">sub_boundary_info</span> <span class="o">=</span> <span class="n">make_sub_grid_boundary_info</span><span class="p">(</span><span class="n">sub_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span><span class="p">)</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">grid</span><span class="o">=</span><span class="n">sub_grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="o">=</span><span class="n">sub_boundary_info</span><span class="p">,</span> <span class="n">space_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{self.name}</span><span class="s1">_restricted&#39;</span><span class="p">)</span>
+        <span class="n">sub_grid_indices</span> <span class="o">=</span> <span class="n">sub_grid</span><span class="o">.</span><span class="n">indices_from_parent_indices</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">proj</span> <span class="o">=</span> <span class="n">ComponentProjection</span><span class="p">(</span><span class="n">sub_grid_indices</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">proj</span> <span class="o">@</span> <span class="n">op</span><span class="p">,</span> <span class="n">sub_grid</span><span class="o">.</span><span class="n">parent_indices</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_fetch_grid_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># pre-fetch all grid-associated data to avoid searching the cache for each operator application</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_grid_data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">SUPE</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">superentities</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                               <span class="n">SUPI</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">superentity_indices</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                               <span class="n">VOLS0</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">volumes</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                               <span class="n">VOLS1</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">volumes</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+                               <span class="n">BOUNDARIES</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">boundaries</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+                               <span class="n">CENTERS</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+                               <span class="n">DIRICHLET_BOUNDARIES</span><span class="o">=</span><span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                               <span class="n">NEUMANN_BOUNDARIES</span><span class="o">=</span><span class="n">bi</span><span class="o">.</span><span class="n">neumann_boundaries</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_neumann</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_grid_data</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">UNIT_OUTER_NORMALS</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">unit_outer_normals</span><span class="p">()[</span><span class="bp">self</span><span class="o">.</span><span class="n">_grid_data</span><span class="p">[</span><span class="s1">&#39;SUPE&#39;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">],</span>
+                                                                         <span class="bp">self</span><span class="o">.</span><span class="n">_grid_data</span><span class="p">[</span><span class="s1">&#39;SUPI&#39;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">]])</span>
+
+<div class="viewcode-block" id="NonlinearAdvectionOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.NonlinearAdvectionOperator.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_grid_data&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_grid_data</span><span class="p">()</span>
+
+        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+        <span class="n">gd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grid_data</span>
+        <span class="n">SUPE</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;SUPE&#39;</span><span class="p">]</span>
+        <span class="n">VOLS0</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;VOLS0&#39;</span><span class="p">]</span>
+        <span class="n">VOLS1</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;VOLS1&#39;</span><span class="p">]</span>
+        <span class="n">BOUNDARIES</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;BOUNDARIES&#39;</span><span class="p">]</span>
+        <span class="n">CENTERS</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;CENTERS&#39;</span><span class="p">]</span>
+        <span class="n">DIRICHLET_BOUNDARIES</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;DIRICHLET_BOUNDARIES&#39;</span><span class="p">]</span>
+        <span class="n">NEUMANN_BOUNDARIES</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;NEUMANN_BOUNDARIES&#39;</span><span class="p">]</span>
+        <span class="n">UNIT_OUTER_NORMALS</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;UNIT_OUTER_NORMALS&#39;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_dirichlet_values&#39;</span><span class="p">):</span>
+                <span class="n">dirichlet_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dirichlet_values</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">dirichlet_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_data</span><span class="p">(</span><span class="n">CENTERS</span><span class="p">[</span><span class="n">DIRICHLET_BOUNDARIES</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">dirichlet_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">DIRICHLET_BOUNDARIES</span><span class="p">)</span>
+            <span class="n">F_dirichlet</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerical_flux</span><span class="o">.</span><span class="n">evaluate_stage1</span><span class="p">(</span><span class="n">dirichlet_values</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">))):</span>
+            <span class="n">Ui</span> <span class="o">=</span> <span class="n">U</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">Ri</span> <span class="o">=</span> <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+            <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerical_flux</span><span class="o">.</span><span class="n">evaluate_stage1</span><span class="p">(</span><span class="n">Ui</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+            <span class="n">F_edge</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="p">[</span><span class="n">SUPE</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">F</span><span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">F_edge</span><span class="p">:</span>
+                <span class="n">f</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">f_d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">F_edge</span><span class="p">,</span> <span class="n">F_dirichlet</span><span class="p">):</span>
+                    <span class="n">f</span><span class="p">[</span><span class="n">DIRICHLET_BOUNDARIES</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">f_d</span>
+
+            <span class="n">NUM_FLUX</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerical_flux</span><span class="o">.</span><span class="n">evaluate_stage2</span><span class="p">(</span><span class="n">F_edge</span><span class="p">,</span> <span class="n">UNIT_OUTER_NORMALS</span><span class="p">,</span> <span class="n">VOLS1</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_neumann</span><span class="p">:</span>
+                <span class="n">NUM_FLUX</span><span class="p">[</span><span class="n">NEUMANN_BOUNDARIES</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+            <span class="n">iadd_masked</span><span class="p">(</span><span class="n">Ri</span><span class="p">,</span> <span class="n">NUM_FLUX</span><span class="p">,</span> <span class="n">SUPE</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+            <span class="n">isub_masked</span><span class="p">(</span><span class="n">Ri</span><span class="p">,</span> <span class="n">NUM_FLUX</span><span class="p">,</span> <span class="n">SUPE</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">R</span> <span class="o">/=</span> <span class="n">VOLS0</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">R</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="NonlinearAdvectionOperator.jacobian"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.NonlinearAdvectionOperator.jacobian">[docs]</a>    <span class="k">def</span> <span class="nf">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_grid_data&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_grid_data</span><span class="p">()</span>
+
+        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+        <span class="n">gd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grid_data</span>
+        <span class="n">SUPE</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;SUPE&#39;</span><span class="p">]</span>
+        <span class="n">VOLS0</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;VOLS0&#39;</span><span class="p">]</span>
+        <span class="n">VOLS1</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;VOLS1&#39;</span><span class="p">]</span>
+        <span class="n">BOUNDARIES</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;BOUNDARIES&#39;</span><span class="p">]</span>
+        <span class="n">CENTERS</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;CENTERS&#39;</span><span class="p">]</span>
+        <span class="n">DIRICHLET_BOUNDARIES</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;DIRICHLET_BOUNDARIES&#39;</span><span class="p">]</span>
+        <span class="n">NEUMANN_BOUNDARIES</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;NEUMANN_BOUNDARIES&#39;</span><span class="p">]</span>
+        <span class="n">UNIT_OUTER_NORMALS</span> <span class="o">=</span> <span class="n">gd</span><span class="p">[</span><span class="s1">&#39;UNIT_OUTER_NORMALS&#39;</span><span class="p">]</span>
+        <span class="n">INNER</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span> <span class="n">BOUNDARIES</span><span class="p">)</span>
+
+        <span class="n">solver_options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="n">solver_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;jacobian_delta&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">solver_options</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">delta</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">delta</span> <span class="o">=</span> <span class="n">jacobian_options</span><span class="p">()[</span><span class="s1">&#39;delta&#39;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_dirichlet_values&#39;</span><span class="p">):</span>
+                <span class="n">dirichlet_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dirichlet_values</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">dirichlet_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_data</span><span class="p">(</span><span class="n">CENTERS</span><span class="p">[</span><span class="n">DIRICHLET_BOUNDARIES</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">dirichlet_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">DIRICHLET_BOUNDARIES</span><span class="p">)</span>
+            <span class="n">F_dirichlet</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerical_flux</span><span class="o">.</span><span class="n">evaluate_stage1</span><span class="p">(</span><span class="n">dirichlet_values</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+
+        <span class="n">UP</span> <span class="o">=</span> <span class="n">U</span> <span class="o">+</span> <span class="n">delta</span>
+        <span class="n">UM</span> <span class="o">=</span> <span class="n">U</span> <span class="o">-</span> <span class="n">delta</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerical_flux</span><span class="o">.</span><span class="n">evaluate_stage1</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+        <span class="n">FP</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerical_flux</span><span class="o">.</span><span class="n">evaluate_stage1</span><span class="p">(</span><span class="n">UP</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+        <span class="n">FM</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerical_flux</span><span class="o">.</span><span class="n">evaluate_stage1</span><span class="p">(</span><span class="n">UM</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">UP</span><span class="p">,</span> <span class="n">UM</span>
+
+        <span class="n">F_edge</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="p">[</span><span class="n">SUPE</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">F</span><span class="p">]</span>
+        <span class="n">FP_edge</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="p">[</span><span class="n">SUPE</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">FP</span><span class="p">]</span>
+        <span class="n">FM_edge</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="p">[</span><span class="n">SUPE</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">FM</span><span class="p">]</span>
+        <span class="k">del</span> <span class="n">F</span><span class="p">,</span> <span class="n">FP</span><span class="p">,</span> <span class="n">FM</span>
+
+        <span class="n">F0P_edge</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">F_edge</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">ff</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">F0P_edge</span><span class="p">,</span> <span class="n">FP_edge</span><span class="p">):</span>
+            <span class="n">f</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">ff</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">f</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">f_d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">F0P_edge</span><span class="p">,</span> <span class="n">F_dirichlet</span><span class="p">):</span>
+                <span class="n">f</span><span class="p">[</span><span class="n">DIRICHLET_BOUNDARIES</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">f_d</span>
+        <span class="n">NUM_FLUX_0P</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerical_flux</span><span class="o">.</span><span class="n">evaluate_stage2</span><span class="p">(</span><span class="n">F0P_edge</span><span class="p">,</span> <span class="n">UNIT_OUTER_NORMALS</span><span class="p">,</span> <span class="n">VOLS1</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">F0P_edge</span>
+
+        <span class="n">F0M_edge</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">F_edge</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">ff</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">F0M_edge</span><span class="p">,</span> <span class="n">FM_edge</span><span class="p">):</span>
+            <span class="n">f</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">ff</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">f</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">f_d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">F0M_edge</span><span class="p">,</span> <span class="n">F_dirichlet</span><span class="p">):</span>
+                <span class="n">f</span><span class="p">[</span><span class="n">DIRICHLET_BOUNDARIES</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">f_d</span>
+        <span class="n">NUM_FLUX_0M</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerical_flux</span><span class="o">.</span><span class="n">evaluate_stage2</span><span class="p">(</span><span class="n">F0M_edge</span><span class="p">,</span> <span class="n">UNIT_OUTER_NORMALS</span><span class="p">,</span> <span class="n">VOLS1</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">F0M_edge</span>
+
+        <span class="n">D_NUM_FLUX_0</span> <span class="o">=</span> <span class="p">(</span><span class="n">NUM_FLUX_0P</span> <span class="o">-</span> <span class="n">NUM_FLUX_0M</span><span class="p">)</span>
+        <span class="n">D_NUM_FLUX_0</span> <span class="o">/=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">delta</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_neumann</span><span class="p">:</span>
+            <span class="n">D_NUM_FLUX_0</span><span class="p">[</span><span class="n">NEUMANN_BOUNDARIES</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">del</span> <span class="n">NUM_FLUX_0P</span><span class="p">,</span> <span class="n">NUM_FLUX_0M</span>
+
+        <span class="n">F1P_edge</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">F_edge</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">ff</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">F1P_edge</span><span class="p">,</span> <span class="n">FP_edge</span><span class="p">):</span>
+            <span class="n">f</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">ff</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">f</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">f_d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">F1P_edge</span><span class="p">,</span> <span class="n">F_dirichlet</span><span class="p">):</span>
+                <span class="n">f</span><span class="p">[</span><span class="n">DIRICHLET_BOUNDARIES</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">f_d</span>
+        <span class="n">NUM_FLUX_1P</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerical_flux</span><span class="o">.</span><span class="n">evaluate_stage2</span><span class="p">(</span><span class="n">F1P_edge</span><span class="p">,</span> <span class="n">UNIT_OUTER_NORMALS</span><span class="p">,</span> <span class="n">VOLS1</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">F1P_edge</span><span class="p">,</span> <span class="n">FP_edge</span>
+
+        <span class="n">F1M_edge</span> <span class="o">=</span> <span class="n">F_edge</span>
+        <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">ff</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">F1M_edge</span><span class="p">,</span> <span class="n">FM_edge</span><span class="p">):</span>
+            <span class="n">f</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">ff</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">f</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">f_d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">F1M_edge</span><span class="p">,</span> <span class="n">F_dirichlet</span><span class="p">):</span>
+                <span class="n">f</span><span class="p">[</span><span class="n">DIRICHLET_BOUNDARIES</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">f_d</span>
+        <span class="n">NUM_FLUX_1M</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerical_flux</span><span class="o">.</span><span class="n">evaluate_stage2</span><span class="p">(</span><span class="n">F1M_edge</span><span class="p">,</span> <span class="n">UNIT_OUTER_NORMALS</span><span class="p">,</span> <span class="n">VOLS1</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">F1M_edge</span><span class="p">,</span> <span class="n">FM_edge</span>
+        <span class="n">D_NUM_FLUX_1</span> <span class="o">=</span> <span class="p">(</span><span class="n">NUM_FLUX_1P</span> <span class="o">-</span> <span class="n">NUM_FLUX_1M</span><span class="p">)</span>
+        <span class="n">D_NUM_FLUX_1</span> <span class="o">/=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">delta</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_neumann</span><span class="p">:</span>
+            <span class="n">D_NUM_FLUX_1</span><span class="p">[</span><span class="n">NEUMANN_BOUNDARIES</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">del</span> <span class="n">NUM_FLUX_1P</span><span class="p">,</span> <span class="n">NUM_FLUX_1M</span>
+
+        <span class="n">I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">SUPE</span><span class="p">[</span><span class="n">INNER</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">INNER</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">INNER</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">INNER</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">,</span> <span class="mi">0</span><span class="p">]])</span>
+        <span class="n">I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">SUPE</span><span class="p">[</span><span class="n">INNER</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">INNER</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">INNER</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">INNER</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">,</span> <span class="mi">0</span><span class="p">]])</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">D_NUM_FLUX_0</span><span class="p">[</span><span class="n">INNER</span><span class="p">],</span> <span class="o">-</span><span class="n">D_NUM_FLUX_0</span><span class="p">[</span><span class="n">INNER</span><span class="p">],</span> <span class="n">D_NUM_FLUX_1</span><span class="p">[</span><span class="n">INNER</span><span class="p">],</span> <span class="o">-</span><span class="n">D_NUM_FLUX_1</span><span class="p">[</span><span class="n">INNER</span><span class="p">],</span>
+                       <span class="n">D_NUM_FLUX_0</span><span class="p">[</span><span class="n">BOUNDARIES</span><span class="p">]])</span>
+
+        <span class="n">A</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">V</span><span class="p">,</span> <span class="p">(</span><span class="n">I0</span><span class="p">,</span> <span class="n">I1</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)))</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">csc_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>   <span class="c1"># See pymor.operators.cg.DiffusionOperatorP1 for why copy() is necessary</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">dia_matrix</span><span class="p">(([</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">VOLS0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),)</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">A</span>
+
+        <span class="k">return</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">source_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">id</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="nonlinear_advection_lax_friedrichs_operator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.nonlinear_advection_lax_friedrichs_operator">[docs]</a><span class="k">def</span> <span class="nf">nonlinear_advection_lax_friedrichs_operator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">lxf_lambda</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+                                                <span class="n">dirichlet_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Instantiate a :class:`NonlinearAdvectionOperator` using :class:`LaxFriedrichsFlux`.&quot;&quot;&quot;</span>
+    <span class="n">num_flux</span> <span class="o">=</span> <span class="n">LaxFriedrichsFlux</span><span class="p">(</span><span class="n">flux</span><span class="p">,</span> <span class="n">lxf_lambda</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">NonlinearAdvectionOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">num_flux</span><span class="p">,</span> <span class="n">dirichlet_data</span><span class="p">,</span> <span class="n">solver_options</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="nonlinear_advection_simplified_engquist_osher_operator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.nonlinear_advection_simplified_engquist_osher_operator">[docs]</a><span class="k">def</span> <span class="nf">nonlinear_advection_simplified_engquist_osher_operator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">flux_derivative</span><span class="p">,</span>
+                                                           <span class="n">dirichlet_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Instantiate a :class:`NonlinearAdvectionOperator` using :class:`SimplifiedEngquistOsherFlux`.&quot;&quot;&quot;</span>
+    <span class="n">num_flux</span> <span class="o">=</span> <span class="n">SimplifiedEngquistOsherFlux</span><span class="p">(</span><span class="n">flux</span><span class="p">,</span> <span class="n">flux_derivative</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">NonlinearAdvectionOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">num_flux</span><span class="p">,</span> <span class="n">dirichlet_data</span><span class="p">,</span> <span class="n">solver_options</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="nonlinear_advection_engquist_osher_operator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.nonlinear_advection_engquist_osher_operator">[docs]</a><span class="k">def</span> <span class="nf">nonlinear_advection_engquist_osher_operator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">flux_derivative</span><span class="p">,</span> <span class="n">gausspoints</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">intervals</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                                                <span class="n">dirichlet_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Instantiate a :class:`NonlinearAdvectionOperator` using :class:`EngquistOsherFlux`.&quot;&quot;&quot;</span>
+    <span class="n">num_flux</span> <span class="o">=</span> <span class="n">EngquistOsherFlux</span><span class="p">(</span><span class="n">flux</span><span class="p">,</span> <span class="n">flux_derivative</span><span class="p">,</span> <span class="n">gausspoints</span><span class="o">=</span><span class="n">gausspoints</span><span class="p">,</span> <span class="n">intervals</span><span class="o">=</span><span class="n">intervals</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">NonlinearAdvectionOperator</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">num_flux</span><span class="p">,</span> <span class="n">dirichlet_data</span><span class="p">,</span> <span class="n">solver_options</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LinearAdvectionLaxFriedrichs"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.LinearAdvectionLaxFriedrichs">[docs]</a><span class="k">class</span> <span class="nc">LinearAdvectionLaxFriedrichs</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Linear advection finite Volume |Operator| using Lax-Friedrichs flux.</span>
+
+<span class="sd">    The operator is of the form ::</span>
+
+<span class="sd">        L(u, mu)(x) = ∇ ⋅ (v(x, mu)⋅u(x))</span>
+
+<span class="sd">    See :class:`LaxFriedrichsFlux` for the definition of the Lax-Friedrichs flux.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        |Grid| over which to assemble the operator.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| determining the Dirichlet and Neumann boundaries.</span>
+<span class="sd">    velocity_field</span>
+<span class="sd">        |Function| defining the velocity field `v`.</span>
+<span class="sd">    lxf_lambda</span>
+<span class="sd">        The stabilization parameter `λ`.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">velocity_field</span><span class="p">,</span> <span class="n">lxf_lambda</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">FVVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">velocity_field</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+        <span class="n">SUPE</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">superentities</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">SUPI</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">superentity_indices</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">SUPE</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="n">edge_volumes</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">volumes</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">boundary_edges</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">boundaries</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">inner_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span> <span class="n">boundary_edges</span><span class="p">)</span>
+        <span class="n">dirichlet_edges</span> <span class="o">=</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_boundaries</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">ndmin</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+        <span class="n">neumann_edges</span> <span class="o">=</span> <span class="n">bi</span><span class="o">.</span><span class="n">neumann_boundaries</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_neumann</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">ndmin</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+        <span class="n">outflow_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">boundary_edges</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">dirichlet_edges</span><span class="p">,</span> <span class="n">neumann_edges</span><span class="p">]))</span>
+        <span class="n">normal_velocities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ei,ei-&gt;e&#39;</span><span class="p">,</span>
+                                      <span class="bp">self</span><span class="o">.</span><span class="n">velocity_field</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">),</span>
+                                      <span class="n">g</span><span class="o">.</span><span class="n">unit_outer_normals</span><span class="p">()[</span><span class="n">SUPE</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">SUPI</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]])</span>
+
+        <span class="n">nv_inner</span> <span class="o">=</span> <span class="n">normal_velocities</span><span class="p">[</span><span class="n">inner_edges</span><span class="p">]</span>
+        <span class="n">l_inner</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">nv_inner</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">lxf_lambda</span><span class="p">)</span>
+        <span class="n">I0_inner</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">SUPE</span><span class="p">[</span><span class="n">inner_edges</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">inner_edges</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">inner_edges</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">inner_edges</span><span class="p">,</span> <span class="mi">1</span><span class="p">]])</span>
+        <span class="n">I1_inner</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">SUPE</span><span class="p">[</span><span class="n">inner_edges</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">inner_edges</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">inner_edges</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">inner_edges</span><span class="p">,</span> <span class="mi">1</span><span class="p">]])</span>
+        <span class="n">V_inner</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">nv_inner</span><span class="p">,</span> <span class="n">nv_inner</span><span class="p">,</span> <span class="o">-</span><span class="n">nv_inner</span><span class="p">,</span> <span class="o">-</span><span class="n">nv_inner</span><span class="p">])</span>
+        <span class="n">V_inner</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">l_inner</span><span class="p">,</span> <span class="o">-</span><span class="n">l_inner</span><span class="p">,</span> <span class="o">-</span><span class="n">l_inner</span><span class="p">,</span> <span class="n">l_inner</span><span class="p">])</span>
+        <span class="n">V_inner</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">edge_volumes</span><span class="p">[</span><span class="n">inner_edges</span><span class="p">],</span> <span class="mi">4</span><span class="p">)</span>
+
+        <span class="n">I_out</span> <span class="o">=</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">outflow_edges</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">V_out</span> <span class="o">=</span> <span class="n">edge_volumes</span><span class="p">[</span><span class="n">outflow_edges</span><span class="p">]</span> <span class="o">*</span> <span class="n">normal_velocities</span><span class="p">[</span><span class="n">outflow_edges</span><span class="p">]</span>
+
+        <span class="n">I_dir</span> <span class="o">=</span> <span class="n">SUPE</span><span class="p">[</span><span class="n">dirichlet_edges</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">V_dir</span> <span class="o">=</span> <span class="n">edge_volumes</span><span class="p">[</span><span class="n">dirichlet_edges</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">normal_velocities</span><span class="p">[</span><span class="n">dirichlet_edges</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">lxf_lambda</span><span class="p">)</span>
+
+        <span class="n">I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">I0_inner</span><span class="p">,</span> <span class="n">I_out</span><span class="p">,</span> <span class="n">I_dir</span><span class="p">])</span>
+        <span class="n">I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">I1_inner</span><span class="p">,</span> <span class="n">I_out</span><span class="p">,</span> <span class="n">I_dir</span><span class="p">])</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">V_inner</span><span class="p">,</span> <span class="n">V_out</span><span class="p">,</span> <span class="n">V_dir</span><span class="p">])</span>
+
+        <span class="n">A</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">V</span><span class="p">,</span> <span class="p">(</span><span class="n">I0</span><span class="p">,</span> <span class="n">I1</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)))</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">csc_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>   <span class="c1"># See pymor.operators.cg.DiffusionOperatorP1 for why copy() is necessary</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">dia_matrix</span><span class="p">(([</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">g</span><span class="o">.</span><span class="n">volumes</span><span class="p">(</span><span class="mi">0</span><span class="p">)],</span> <span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),)</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">A</span>
+
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="L2Product"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.L2Product">[docs]</a><span class="k">class</span> <span class="nc">L2Product</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;|Operator| representing the L2-product between finite volume functions.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The |Grid| for which to assemble the product.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the product.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">FVVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="n">A</span> <span class="o">=</span> <span class="n">dia_matrix</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">volumes</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),)</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="ReactionOperator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.ReactionOperator">[docs]</a><span class="k">class</span> <span class="nc">ReactionOperator</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Finite Volume reaction |Operator|.</span>
+
+<span class="sd">    The operator is of the form ::</span>
+
+<span class="sd">        L(u, mu)(x) = c(x, mu)⋅u(x)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The |Grid| for which to assemble the operator.</span>
+<span class="sd">    reaction_coefficient</span>
+<span class="sd">        The function &#39;c&#39;</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">reaction_coefficient</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">reaction_coefficient</span><span class="o">.</span><span class="n">dim_domain</span> <span class="o">==</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span> <span class="ow">and</span> <span class="n">reaction_coefficient</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">FVVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">reaction_coefficient</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="n">A</span> <span class="o">=</span> <span class="n">dia_matrix</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">reaction_coefficient</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">),</span> <span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                       <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),)</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="NonlinearReactionOperator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.NonlinearReactionOperator">[docs]</a><span class="k">class</span> <span class="nc">NonlinearReactionOperator</span><span class="p">(</span><span class="n">OperatorBase</span><span class="p">):</span>
+
+    <span class="n">linear</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">reaction_function</span><span class="p">,</span> <span class="n">reaction_function_derivative</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">space_id</span><span class="o">=</span><span class="s1">&#39;STATE&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">FVVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">space_id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">reaction_function</span><span class="p">,</span> <span class="n">reaction_function_derivative</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NonlinearReactionOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.NonlinearReactionOperator.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">ind</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
+
+        <span class="n">R</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="k">if</span> <span class="n">ind</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">U</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="n">ind</span><span class="p">]</span>
+        <span class="n">R</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reaction_function</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">R</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">R</span><span class="o">.</span><span class="n">shape</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">R</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="NonlinearReactionOperator.jacobian"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.NonlinearReactionOperator.jacobian">[docs]</a>    <span class="k">def</span> <span class="nf">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reaction_function_derivative</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">dia_matrix</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">reaction_function_derivative</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">shape</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">),</span> <span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                       <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),)</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">source_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">range_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">id</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="L2ProductFunctional"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.L2ProductFunctional">[docs]</a><span class="k">class</span> <span class="nc">L2ProductFunctional</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Finite volume functional representing the inner product with an L2-|Function|.</span>
+
+<span class="sd">    Additionally, boundary conditions can be enforced by providing `dirichlet_data`</span>
+<span class="sd">    and `neumann_data` functions.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        |Grid| for which to assemble the functional.</span>
+<span class="sd">    function</span>
+<span class="sd">        The |Function| with which to take the inner product or `None`.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| determining the Dirichlet and Neumann boundaries or `None`.</span>
+<span class="sd">        If `None`, no boundary treatment is performed.</span>
+<span class="sd">    dirichlet_data</span>
+<span class="sd">        |Function| providing the Dirichlet boundary values. If `None`,</span>
+<span class="sd">        constant-zero boundary is assumed.</span>
+<span class="sd">    diffusion_function</span>
+<span class="sd">        See :class:`DiffusionOperator`. Has to be specified in case `dirichlet_data`</span>
+<span class="sd">        is given.</span>
+<span class="sd">    diffusion_constant</span>
+<span class="sd">        See :class:`DiffusionOperator`. Has to be specified in case `dirichlet_data`</span>
+<span class="sd">        is given.</span>
+<span class="sd">    neumann_data</span>
+<span class="sd">        |Function| providing the Neumann boundary values. If `None`,</span>
+<span class="sd">        constant-zero is assumed.</span>
+<span class="sd">    order</span>
+<span class="sd">        Order of the Gauss quadrature to use for numerical integration.</span>
+<span class="sd">    name</span>
+<span class="sd">        The name of the functional.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">source</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">boundary_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dirichlet_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">diffusion_function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">diffusion_constant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">neumann_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">function</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">FVVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">function</span><span class="p">,</span> <span class="n">dirichlet_data</span><span class="p">,</span> <span class="n">diffusion_function</span><span class="p">,</span> <span class="n">neumann_data</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">bi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># evaluate function at all quadrature points -&gt; shape = (g.size(0), number of quadrature points, 1)</span>
+            <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">function</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">quadrature_points</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+
+            <span class="n">_</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">reference_element</span><span class="o">.</span><span class="n">quadrature</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">)</span>
+
+            <span class="c1"># integrate the products of the function with the shape functions on each element</span>
+            <span class="c1"># -&gt; shape = (g.size(0), number of shape functions)</span>
+            <span class="n">F_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ei,e,i-&gt;e&#39;</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">integration_elements</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">F_INTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">bi</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                               <span class="ow">or</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_neumann</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">neumann_data</span><span class="p">):</span>
+            <span class="n">centers</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">superentities</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">superentities</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">superentity_indices</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">superentity_indices</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">SE_I0</span> <span class="o">=</span> <span class="n">superentities</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">VOLS</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">volumes</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">FLUXES</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_dirichlet</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">dirichlet_mask</span> <span class="o">=</span> <span class="n">bi</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">SE_I0_D</span> <span class="o">=</span> <span class="n">SE_I0</span><span class="p">[</span><span class="n">dirichlet_mask</span><span class="p">]</span>
+                <span class="n">boundary_normals</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">unit_outer_normals</span><span class="p">()[</span><span class="n">SE_I0_D</span><span class="p">,</span> <span class="n">superentity_indices</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">][</span><span class="n">dirichlet_mask</span><span class="p">]]</span>
+                <span class="n">BOUNDARY_DISTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">centers</span><span class="p">[</span><span class="n">dirichlet_mask</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">g</span><span class="o">.</span><span class="n">orthogonal_centers</span><span class="p">()[</span><span class="n">SE_I0_D</span><span class="p">,</span> <span class="p">:])</span>
+                                        <span class="o">*</span> <span class="n">boundary_normals</span><span class="p">,</span>
+                                        <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">DIRICHLET_FLUXES</span> <span class="o">=</span> <span class="n">VOLS</span><span class="p">[</span><span class="n">dirichlet_mask</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_data</span><span class="p">(</span><span class="n">centers</span><span class="p">[</span><span class="n">dirichlet_mask</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">BOUNDARY_DISTS</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">DIRICHLET_FLUXES</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span><span class="p">(</span><span class="n">centers</span><span class="p">[</span><span class="n">dirichlet_mask</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_constant</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">DIRICHLET_FLUXES</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_constant</span>
+                <span class="n">FLUXES</span><span class="p">[</span><span class="n">dirichlet_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">DIRICHLET_FLUXES</span>
+
+            <span class="k">if</span> <span class="n">bi</span><span class="o">.</span><span class="n">has_neumann</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">neumann_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">neumann_mask</span> <span class="o">=</span> <span class="n">bi</span><span class="o">.</span><span class="n">neumann_mask</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">FLUXES</span><span class="p">[</span><span class="n">neumann_mask</span><span class="p">]</span> <span class="o">-=</span> <span class="n">VOLS</span><span class="p">[</span><span class="n">neumann_mask</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">neumann_data</span><span class="p">(</span><span class="n">centers</span><span class="p">[</span><span class="n">neumann_mask</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+
+            <span class="n">F_INTS</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">SE_I0</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">FLUXES</span><span class="p">,</span> <span class="n">minlength</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">F_INTS</span><span class="p">))</span>
+
+        <span class="n">F_INTS</span> <span class="o">/=</span> <span class="n">g</span><span class="o">.</span><span class="n">volumes</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">F_INTS</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="DiffusionOperator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.fv.DiffusionOperator">[docs]</a><span class="k">class</span> <span class="nc">DiffusionOperator</span><span class="p">(</span><span class="n">NumpyMatrixBasedOperator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Finite Volume Diffusion |Operator|.</span>
+
+<span class="sd">    The operator is of the form ::</span>
+
+<span class="sd">        (Lu)(x) = c ∇ ⋅ [ d(x) ∇ u(x) ]</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The |Grid| over which to assemble the operator.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        |BoundaryInfo| for the treatment of Dirichlet boundary conditions.</span>
+<span class="sd">    diffusion_function</span>
+<span class="sd">        The scalar-valued |Function| `d(x)`. If `None`, constant one is assumed.</span>
+<span class="sd">    diffusion_constant</span>
+<span class="sd">        The constant `c`. If `None`, `c` is set to one.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the operator.</span>
+<span class="sd">    name</span>
+<span class="sd">        Name of the operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sparse</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">boundary_info</span><span class="p">,</span> <span class="n">diffusion_function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">diffusion_constant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">AffineGridWithOrthogonalCentersInterface</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="n">diffusion_function</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">diffusion_function</span><span class="p">,</span> <span class="n">FunctionInterface</span><span class="p">)</span>
+                    <span class="ow">and</span> <span class="n">diffusion_function</span><span class="o">.</span><span class="n">dim_domain</span> <span class="o">==</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span>
+                    <span class="ow">and</span> <span class="n">diffusion_function</span><span class="o">.</span><span class="n">shape_range</span> <span class="o">==</span> <span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">FVVectorSpace</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">diffusion_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">diffusion_function</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+
+        <span class="c1"># compute the local coordinates of the codim-1 subentity centers in the reference element</span>
+        <span class="n">reference_element</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">subentity_embedding</span> <span class="o">=</span> <span class="n">reference_element</span><span class="o">.</span><span class="n">subentity_embedding</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">subentity_centers</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;eij,j-&gt;ei&#39;</span><span class="p">,</span>
+                                       <span class="n">subentity_embedding</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">reference_element</span><span class="o">.</span><span class="n">sub_reference_element</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">center</span><span class="p">())</span>
+                             <span class="o">+</span> <span class="n">subentity_embedding</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="c1"># compute shift for periodic boundaries</span>
+        <span class="n">embeddings</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">embeddings</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">superentities</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">superentities</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">superentity_indices</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">superentity_indices</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">boundary_mask</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">boundary_mask</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">inner_mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">boundary_mask</span>
+        <span class="n">SE_I0</span> <span class="o">=</span> <span class="n">superentities</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">SE_I1</span> <span class="o">=</span> <span class="n">superentities</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">SE_I0_I</span> <span class="o">=</span> <span class="n">SE_I0</span><span class="p">[</span><span class="n">inner_mask</span><span class="p">]</span>
+        <span class="n">SE_I1_I</span> <span class="o">=</span> <span class="n">SE_I1</span><span class="p">[</span><span class="n">inner_mask</span><span class="p">]</span>
+
+        <span class="n">SHIFTS</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;eij,ej-&gt;ei&#39;</span><span class="p">,</span>
+                            <span class="n">embeddings</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">SE_I0_I</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span>
+                            <span class="n">subentity_centers</span><span class="p">[</span><span class="n">superentity_indices</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">][</span><span class="n">inner_mask</span><span class="p">]])</span>
+                  <span class="o">+</span> <span class="n">embeddings</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">SE_I0_I</span><span class="p">,</span> <span class="p">:])</span>
+        <span class="n">SHIFTS</span> <span class="o">-=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;eij,ej-&gt;ei&#39;</span><span class="p">,</span>
+                             <span class="n">embeddings</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">SE_I1_I</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span>
+                             <span class="n">subentity_centers</span><span class="p">[</span><span class="n">superentity_indices</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">][</span><span class="n">inner_mask</span><span class="p">]])</span>
+                   <span class="o">+</span> <span class="n">embeddings</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">SE_I1_I</span><span class="p">,</span> <span class="p">:])</span>
+
+        <span class="c1"># comute distances for gradient approximations</span>
+        <span class="n">centers</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">orthogonal_centers</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">orthogonal_centers</span><span class="p">()</span>
+        <span class="n">VOLS</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">volumes</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">INNER_DISTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">orthogonal_centers</span><span class="p">[</span><span class="n">SE_I0_I</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">orthogonal_centers</span><span class="p">[</span><span class="n">SE_I1_I</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">SHIFTS</span><span class="p">,</span>
+                                     <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">SHIFTS</span>
+
+        <span class="c1"># assemble matrix</span>
+        <span class="n">FLUXES</span> <span class="o">=</span> <span class="n">VOLS</span><span class="p">[</span><span class="n">inner_mask</span><span class="p">]</span> <span class="o">/</span> <span class="n">INNER_DISTS</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">FLUXES</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span><span class="p">(</span><span class="n">centers</span><span class="p">[</span><span class="n">inner_mask</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_constant</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">FLUXES</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_constant</span>
+        <span class="k">del</span> <span class="n">INNER_DISTS</span>
+
+        <span class="n">FLUXES</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="o">-</span><span class="n">FLUXES</span><span class="p">,</span> <span class="o">-</span><span class="n">FLUXES</span><span class="p">,</span> <span class="n">FLUXES</span><span class="p">,</span> <span class="n">FLUXES</span><span class="p">))</span>
+        <span class="n">FLUXES_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">SE_I0_I</span><span class="p">,</span> <span class="n">SE_I1_I</span><span class="p">,</span> <span class="n">SE_I0_I</span><span class="p">,</span> <span class="n">SE_I1_I</span><span class="p">))</span>
+        <span class="n">FLUXES_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">SE_I1_I</span><span class="p">,</span> <span class="n">SE_I0_I</span><span class="p">,</span> <span class="n">SE_I0_I</span><span class="p">,</span> <span class="n">SE_I1_I</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span><span class="o">.</span><span class="n">has_dirichlet</span><span class="p">:</span>
+            <span class="n">dirichlet_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_info</span><span class="o">.</span><span class="n">dirichlet_mask</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">SE_I0_D</span> <span class="o">=</span> <span class="n">SE_I0</span><span class="p">[</span><span class="n">dirichlet_mask</span><span class="p">]</span>
+            <span class="n">boundary_normals</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">unit_outer_normals</span><span class="p">()[</span><span class="n">SE_I0_D</span><span class="p">,</span> <span class="n">superentity_indices</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">][</span><span class="n">dirichlet_mask</span><span class="p">]]</span>
+            <span class="n">BOUNDARY_DISTS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">centers</span><span class="p">[</span><span class="n">dirichlet_mask</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">orthogonal_centers</span><span class="p">[</span><span class="n">SE_I0_D</span><span class="p">,</span> <span class="p">:])</span> <span class="o">*</span> <span class="n">boundary_normals</span><span class="p">,</span>
+                                    <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="n">DIRICHLET_FLUXES</span> <span class="o">=</span> <span class="n">VOLS</span><span class="p">[</span><span class="n">dirichlet_mask</span><span class="p">]</span> <span class="o">/</span> <span class="n">BOUNDARY_DISTS</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">DIRICHLET_FLUXES</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_function</span><span class="p">(</span><span class="n">centers</span><span class="p">[</span><span class="n">dirichlet_mask</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_constant</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">DIRICHLET_FLUXES</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_constant</span>
+
+            <span class="n">FLUXES</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">FLUXES</span><span class="p">,</span> <span class="n">DIRICHLET_FLUXES</span><span class="p">))</span>
+            <span class="n">FLUXES_I0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">FLUXES_I0</span><span class="p">,</span> <span class="n">SE_I0_D</span><span class="p">))</span>
+            <span class="n">FLUXES_I1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">FLUXES_I1</span><span class="p">,</span> <span class="n">SE_I0_D</span><span class="p">))</span>
+
+        <span class="n">A</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="n">FLUXES</span><span class="p">,</span> <span class="p">(</span><span class="n">FLUXES_I0</span><span class="p">,</span> <span class="n">FLUXES_I1</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="p">(</span><span class="n">dia_matrix</span><span class="p">(([</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">grid</span><span class="o">.</span><span class="n">volumes</span><span class="p">(</span><span class="mi">0</span><span class="p">)],</span> <span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),)</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">A</span><span class="p">)</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">A</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,276 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.domaindiscretizers.gmsh &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.domaindiscretizers.gmsh</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="kn">from</span> <span class="nn">pymor.domaindescriptions.basic</span> <span class="kn">import</span> <span class="n">RectDomain</span>
+<span class="kn">from</span> <span class="nn">pymor.domaindescriptions.polygonal</span> <span class="kn">import</span> <span class="n">PolygonalDomain</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.gmsh</span> <span class="kn">import</span> <span class="n">load_gmsh</span>
+<span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">GmshMissing</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+
+
+<div class="viewcode-block" id="discretize_gmsh"><a class="viewcode-back" href="../../../generated/pymor.domaindiscretizers.html#pymor.domaindiscretizers.gmsh.discretize_gmsh">[docs]</a><span class="k">def</span> <span class="nf">discretize_gmsh</span><span class="p">(</span><span class="n">domain_description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">geo_file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">geo_file_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">msh_file_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">mesh_algorithm</span><span class="o">=</span><span class="s1">&#39;del2d&#39;</span><span class="p">,</span> <span class="n">clscale</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">refinement_steps</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Mesh a |DomainDescription| or an already existing Gmsh GEO-file using the Gmsh mesher.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    domain_description</span>
+<span class="sd">        A |DomainDescription| of the |PolygonalDomain| or |RectDomain| to discretize. Has to be `None`</span>
+<span class="sd">        when `geo_file` is given.</span>
+<span class="sd">    geo_file</span>
+<span class="sd">        File handle of the Gmsh Geo-file to discretize. Has to be `None` when</span>
+<span class="sd">        `domain_description` is given.</span>
+<span class="sd">    geo_file_path</span>
+<span class="sd">        Path of the created Gmsh GEO-file. When meshing a |PolygonalDomain| or |RectDomain| and</span>
+<span class="sd">        `geo_file_path` is `None`, a temporary file will be created. If `geo_file` is specified, this</span>
+<span class="sd">        is ignored and the path to `geo_file` will be used.</span>
+<span class="sd">    msh_file_path</span>
+<span class="sd">        Path of the created Gmsh MSH-file. If `None`, a temporary file will be created.</span>
+<span class="sd">    mesh_algorithm</span>
+<span class="sd">        The mesh generation algorithm to use (meshadapt, del2d, front2d).</span>
+<span class="sd">    clscale</span>
+<span class="sd">        Mesh element size scaling factor.</span>
+<span class="sd">    options</span>
+<span class="sd">        Other options to control the meshing procedure of Gmsh. See</span>
+<span class="sd">        http://geuz.org/gmsh/doc/texinfo/gmsh.html#Command_002dline-options for all available options.</span>
+<span class="sd">    refinement_steps</span>
+<span class="sd">        Number of refinement steps to do after the initial meshing.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    grid</span>
+<span class="sd">        The generated :class:`~pymor.grids.gmsh.GmshGrid`.</span>
+<span class="sd">    boundary_info</span>
+<span class="sd">        The generated :class:`~pymor.grids.gmsh.GmshBoundaryInfo`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">domain_description</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">geo_file</span> <span class="ow">is</span> <span class="kc">None</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.domaindiscretizers.gmsh.discretize_gmsh&#39;</span><span class="p">)</span>
+
+    <span class="c1"># run Gmsh; initial meshing</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Checking for Gmsh ...&#39;</span><span class="p">)</span>
+
+    <span class="c1"># when we are running MPI parallel and Gmsh is compiled with MPI support,</span>
+    <span class="c1"># we have to make sure Gmsh does not notice the MPI environment or it will fail.</span>
+    <span class="n">env</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+           <span class="k">if</span> <span class="s1">&#39;MPI&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">k</span><span class="o">.</span><span class="n">upper</span><span class="p">()}</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">version</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">([</span><span class="s1">&#39;gmsh&#39;</span><span class="p">,</span> <span class="s1">&#39;--version&#39;</span><span class="p">],</span> <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">subprocess</span><span class="o">.</span><span class="n">CalledProcessError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">GmshMissing</span><span class="p">(</span><span class="s1">&#39;Could not find Gmsh.&#39;</span>
+                          <span class="s1">&#39; Please ensure that the gmsh binary (http://geuz.org/gmsh/) is in your PATH.&#39;</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Found version &#39;</span> <span class="o">+</span> <span class="n">version</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">discretize_PolygonalDomain</span><span class="p">():</span>
+        <span class="c1"># combine points and holes, since holes are points, too, and have to be stored as such.</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="p">[</span><span class="n">domain_description</span><span class="o">.</span><span class="n">points</span><span class="p">]</span>
+        <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">domain_description</span><span class="o">.</span><span class="n">holes</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">points</span><span class="p">,</span> <span class="n">domain_description</span><span class="o">.</span><span class="n">boundary_types</span>
+
+    <span class="k">def</span> <span class="nf">discretize_RectDomain</span><span class="p">():</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="p">[[</span><span class="n">domain_description</span><span class="o">.</span><span class="n">domain</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+                   <span class="p">[</span><span class="n">domain_description</span><span class="o">.</span><span class="n">domain</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">domain_description</span><span class="o">.</span><span class="n">domain</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]],</span>
+                   <span class="n">domain_description</span><span class="o">.</span><span class="n">domain</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+                   <span class="p">[</span><span class="n">domain_description</span><span class="o">.</span><span class="n">domain</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">domain_description</span><span class="o">.</span><span class="n">domain</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]]]]</span>
+        <span class="n">boundary_types</span> <span class="o">=</span> <span class="p">{</span><span class="n">domain_description</span><span class="o">.</span><span class="n">bottom</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]}</span>
+        <span class="k">if</span> <span class="n">domain_description</span><span class="o">.</span><span class="n">right</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">boundary_types</span><span class="p">:</span>
+            <span class="n">boundary_types</span><span class="p">[</span><span class="n">domain_description</span><span class="o">.</span><span class="n">right</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">boundary_types</span><span class="p">[</span><span class="n">domain_description</span><span class="o">.</span><span class="n">right</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">domain_description</span><span class="o">.</span><span class="n">top</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">boundary_types</span><span class="p">:</span>
+            <span class="n">boundary_types</span><span class="p">[</span><span class="n">domain_description</span><span class="o">.</span><span class="n">top</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">boundary_types</span><span class="p">[</span><span class="n">domain_description</span><span class="o">.</span><span class="n">top</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">domain_description</span><span class="o">.</span><span class="n">left</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">boundary_types</span><span class="p">:</span>
+            <span class="n">boundary_types</span><span class="p">[</span><span class="n">domain_description</span><span class="o">.</span><span class="n">left</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">boundary_types</span><span class="p">[</span><span class="n">domain_description</span><span class="o">.</span><span class="n">left</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="kc">None</span> <span class="ow">in</span> <span class="n">boundary_types</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">boundary_types</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">points</span><span class="p">,</span> <span class="n">boundary_types</span>
+
+    <span class="c1"># these two are referenced in a finally block, but were left undefined in some paths</span>
+    <span class="n">geo_file</span><span class="p">,</span> <span class="n">msh_file</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># When a |PolygonalDomain| or |RectDomain| has to be discretized create a Gmsh GE0-file and write all data.</span>
+        <span class="k">if</span> <span class="n">domain_description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Writing Gmsh geometry file ...&#39;</span><span class="p">)</span>
+            <span class="c1"># Create a temporary GEO-file if None is specified</span>
+            <span class="k">if</span> <span class="n">geo_file_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">geo_file</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;wt&#39;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s1">&#39;.geo&#39;</span><span class="p">)</span>
+                <span class="n">geo_file_path</span> <span class="o">=</span> <span class="n">geo_file</span><span class="o">.</span><span class="n">name</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">geo_file</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">geo_file_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain_description</span><span class="p">,</span> <span class="n">PolygonalDomain</span><span class="p">):</span>
+                <span class="n">points</span><span class="p">,</span> <span class="n">boundary_types</span> <span class="o">=</span> <span class="n">discretize_PolygonalDomain</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain_description</span><span class="p">,</span> <span class="n">RectDomain</span><span class="p">):</span>
+                <span class="n">points</span><span class="p">,</span> <span class="n">boundary_types</span> <span class="o">=</span> <span class="n">discretize_RectDomain</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;I do not know how to discretize </span><span class="si">{domain_description}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="c1"># assign ids to all points and write them to the GEO-file.</span>
+            <span class="k">for</span> <span class="nb">id</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">([</span><span class="n">p</span> <span class="k">for</span> <span class="n">ps</span> <span class="ow">in</span> <span class="n">points</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">ps</span><span class="p">]):</span>
+                <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+                <span class="n">geo_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;Point(&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="nb">id</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;) = &#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="o">+</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;[&#39;</span><span class="p">,</span> <span class="s1">&#39;{&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;]&#39;</span><span class="p">,</span> <span class="s1">&#39;}&#39;</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="c1"># store points and their ids</span>
+            <span class="n">point_ids</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">ps</span> <span class="ow">in</span> <span class="n">points</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">ps</span><span class="p">],</span>
+                                 <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">([</span><span class="n">p</span> <span class="k">for</span> <span class="n">ps</span> <span class="ow">in</span> <span class="n">points</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">ps</span><span class="p">])</span><span class="o">+</span><span class="mi">1</span><span class="p">)))</span>
+            <span class="c1"># shift points 1 entry to the left.</span>
+            <span class="n">points_deque</span> <span class="o">=</span> <span class="p">[</span><span class="n">collections</span><span class="o">.</span><span class="n">deque</span><span class="p">(</span><span class="n">ps</span><span class="p">)</span> <span class="k">for</span> <span class="n">ps</span> <span class="ow">in</span> <span class="n">points</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">ps_d</span> <span class="ow">in</span> <span class="n">points_deque</span><span class="p">:</span>
+                <span class="n">ps_d</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># create lines by connecting the points with shifted points, such that they form a polygonal chains.</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="p">[[</span><span class="n">point_ids</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">p0</span><span class="p">)],</span> <span class="n">point_ids</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">p1</span><span class="p">)]]</span>
+                     <span class="k">for</span> <span class="n">ps</span><span class="p">,</span> <span class="n">ps_d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">points_deque</span><span class="p">)</span> <span class="k">for</span> <span class="n">p0</span><span class="p">,</span> <span class="n">p1</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ps</span><span class="p">,</span> <span class="n">ps_d</span><span class="p">)]</span>
+            <span class="c1"># assign ids to all lines and write them to the GEO-file.</span>
+            <span class="k">for</span> <span class="n">l_id</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+                <span class="n">geo_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;Line(&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">l_id</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;)&#39;</span><span class="o">+</span><span class="s1">&#39; = &#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">l</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;[&#39;</span><span class="p">,</span> <span class="s1">&#39;{&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;]&#39;</span><span class="p">,</span> <span class="s1">&#39;}&#39;</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="c1"># form line_loops (polygonal chains), create ids and write them to file.</span>
+            <span class="n">line_loops</span> <span class="o">=</span> <span class="p">[[</span><span class="n">point_ids</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">ps</span><span class="p">]</span> <span class="k">for</span> <span class="n">ps</span> <span class="ow">in</span> <span class="n">points</span><span class="p">]</span>
+            <span class="n">line_loop_ids</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span><span class="o">+</span><span class="nb">len</span><span class="p">(</span><span class="n">line_loops</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">ll_id</span><span class="p">,</span> <span class="n">ll</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">line_loop_ids</span><span class="p">,</span> <span class="n">line_loops</span><span class="p">):</span>
+                <span class="n">geo_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;Line Loop(&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">ll_id</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;)&#39;</span><span class="o">+</span><span class="s1">&#39; = &#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">ll</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;[&#39;</span><span class="p">,</span> <span class="s1">&#39;{&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;]&#39;</span><span class="p">,</span> <span class="s1">&#39;}&#39;</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="c1"># set this here explicitly for string conversion to make sense</span>
+            <span class="n">line_loop_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">line_loop_ids</span><span class="p">)</span>
+            <span class="c1"># create the surface defined by line loops, starting with the exterior and then the holes.</span>
+            <span class="n">geo_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;Plane Surface(&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">line_loop_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;)&#39;</span> <span class="o">+</span> <span class="s1">&#39; = &#39;</span>
+                           <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">line_loop_ids</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;[&#39;</span><span class="p">,</span> <span class="s1">&#39;{&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;]&#39;</span><span class="p">,</span> <span class="s1">&#39;}&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">geo_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;Physical Surface(&quot;boundary&quot;) = {&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">line_loop_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;};</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="c1"># write boundaries.</span>
+            <span class="k">for</span> <span class="n">boundary_type</span><span class="p">,</span> <span class="n">bs</span> <span class="ow">in</span> <span class="n">boundary_types</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">geo_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;Physical Line&#39;</span> <span class="o">+</span> <span class="s1">&#39;(&quot;&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">boundary_type</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;&quot;)&#39;</span> <span class="o">+</span> <span class="s1">&#39; = &#39;</span>
+                               <span class="o">+</span> <span class="nb">str</span><span class="p">([</span><span class="n">l_id</span> <span class="k">for</span> <span class="n">l_id</span> <span class="ow">in</span> <span class="n">bs</span><span class="p">])</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;[&#39;</span><span class="p">,</span> <span class="s1">&#39;{&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;]&#39;</span><span class="p">,</span> <span class="s1">&#39;}&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="n">geo_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="c1"># When a GEO-File is provided just get the corresponding file path.</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">geo_file_path</span> <span class="o">=</span> <span class="n">geo_file</span><span class="o">.</span><span class="n">name</span>
+        <span class="c1"># Create a temporary MSH-file if no path is specified.</span>
+        <span class="k">if</span> <span class="n">msh_file_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">msh_file</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;wt&#39;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s1">&#39;.msh&#39;</span><span class="p">)</span>
+            <span class="n">msh_file_path</span> <span class="o">=</span> <span class="n">msh_file</span><span class="o">.</span><span class="n">name</span>
+            <span class="n">msh_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+        <span class="c1"># run Gmsh; initial meshing</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calling Gmsh ...&#39;</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;gmsh&#39;</span><span class="p">,</span> <span class="n">geo_file_path</span><span class="p">,</span> <span class="s1">&#39;-2&#39;</span><span class="p">,</span> <span class="s1">&#39;-algo&#39;</span><span class="p">,</span> <span class="n">mesh_algorithm</span><span class="p">,</span> <span class="s1">&#39;-clscale&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">clscale</span><span class="p">),</span> <span class="n">options</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span>
+               <span class="n">msh_file_path</span><span class="p">]</span>
+        <span class="n">subprocess</span><span class="o">.</span><span class="n">check_call</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">)</span>
+
+        <span class="c1"># run gmsh; perform mesh refinement</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;gmsh&#39;</span><span class="p">,</span> <span class="n">msh_file_path</span><span class="p">,</span> <span class="s1">&#39;-refine&#39;</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">msh_file_path</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">refinement_steps</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Performing Gmsh refinement step {i+1}&#39;</span><span class="p">)</span>
+            <span class="n">subprocess</span><span class="o">.</span><span class="n">check_call</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">)</span>
+
+        <span class="n">toc</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">t_gmsh</span> <span class="o">=</span> <span class="n">toc</span> <span class="o">-</span> <span class="n">tic</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Gmsh took </span><span class="si">{t_gmsh}</span><span class="s1"> s&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Create |GmshGrid| and |GmshBoundaryInfo| form the just created MSH-file.</span>
+        <span class="n">grid</span><span class="p">,</span> <span class="n">bi</span> <span class="o">=</span> <span class="n">load_gmsh</span><span class="p">(</span><span class="n">msh_file_path</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="c1"># delete tempfiles if they were created beforehand.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">geo_file</span><span class="p">,</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">_TemporaryFileWrapper</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">geo_file_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msh_file</span><span class="p">,</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">_TemporaryFileWrapper</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">msh_file_path</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">grid</span><span class="p">,</span> <span class="n">bi</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

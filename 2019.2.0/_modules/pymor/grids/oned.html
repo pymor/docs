@@ -1,0 +1,179 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.grids.oned &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.grids.oned</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.grids.interfaces</span> <span class="kn">import</span> <span class="n">AffineGridWithOrthogonalCentersInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.referenceelements</span> <span class="kn">import</span> <span class="n">line</span>
+
+
+<div class="viewcode-block" id="OnedGrid"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.oned.OnedGrid">[docs]</a><span class="k">class</span> <span class="nc">OnedGrid</span><span class="p">(</span><span class="n">AffineGridWithOrthogonalCentersInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;One-dimensional |Grid| on an interval.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    domain</span>
+<span class="sd">        Tuple `(left, right)` containing the left and right boundary of the domain.</span>
+<span class="sd">    num_intervals</span>
+<span class="sd">        The number of codim-0 entities.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">dim</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">reference_element</span> <span class="o">=</span> <span class="n">line</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">num_intervals</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">identify_left_right</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">domain</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">domain</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">num_intervals</span><span class="p">,</span> <span class="n">num_intervals</span><span class="p">]</span> <span class="k">if</span> <span class="n">identify_left_right</span> <span class="k">else</span> <span class="p">[</span><span class="n">num_intervals</span><span class="p">,</span> <span class="n">num_intervals</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_width</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_intervals</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__subentities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_intervals</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">),</span>
+                                        <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_intervals</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">identify_left_right</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__subentities</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_intervals</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_width</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__B</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_width</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_intervals</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)))[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+
+<div class="viewcode-block" id="OnedGrid.__reduce__"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.oned.OnedGrid.__reduce__">[docs]</a>    <span class="k">def</span> <span class="nf">__reduce__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">OnedGrid</span><span class="p">,</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_intervals</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identify_left_right</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="OnedGrid.__str__"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.oned.OnedGrid.__str__">[docs]</a>    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="sa">f</span><span class="s1">&#39;OnedGrid, domain [</span><span class="si">{self.domain[0]}</span><span class="s1">,</span><span class="si">{self.domain[1]}</span><span class="s1">], &#39;</span>
+                <span class="sa">f</span><span class="s1">&#39;{self.size(0)} elements, {self.size(1)} vertices&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OnedGrid.size"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.oned.OnedGrid.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;codim has to be between 0 and </span><span class="si">{self.dim}</span><span class="s1">!&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sizes</span><span class="p">[</span><span class="n">codim</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="OnedGrid.subentities"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.oned.OnedGrid.subentities">[docs]</a>    <span class="k">def</span> <span class="nf">subentities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">,</span> <span class="n">subentity_codim</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;Invalid codimension&#39;</span>
+        <span class="k">assert</span> <span class="n">codim</span> <span class="o">&lt;=</span> <span class="n">subentity_codim</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="s1">&#39;Invalid subentity codimension&#39;</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">subentity_codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__subentities</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">subentities</span><span class="p">(</span><span class="n">codim</span><span class="p">,</span> <span class="n">subentity_codim</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OnedGrid.embeddings"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.oned.OnedGrid.embeddings">[docs]</a>    <span class="k">def</span> <span class="nf">embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codim</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__B</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">embeddings</span><span class="p">(</span><span class="n">codim</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OnedGrid.bounding_box"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.oned.OnedGrid.bounding_box">[docs]</a>    <span class="k">def</span> <span class="nf">bounding_box</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="OnedGrid.orthogonal_centers"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.oned.OnedGrid.orthogonal_centers">[docs]</a>    <span class="k">def</span> <span class="nf">orthogonal_centers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">centers</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OnedGrid.visualize"><a class="viewcode-back" href="../../../generated/pymor.grids.html#pymor.grids.oned.OnedGrid.visualize">[docs]</a>    <span class="k">def</span> <span class="nf">visualize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Visualize scalar data associated to the grid as a patch plot.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        U</span>
+<span class="sd">            |NumPy array| of the data to visualize. If `U.dim == 2 and len(U) &gt; 1`, the</span>
+<span class="sd">            data is visualized as a time series of plots. Alternatively, a tuple of</span>
+<span class="sd">            |Numpy arrays| can be provided, in which case a subplot is created for</span>
+<span class="sd">            each entry of the tuple. The lengths of all arrays have to agree.</span>
+<span class="sd">        codim</span>
+<span class="sd">            The codimension of the entities the data in `U` is attached to (either 0 or 2).</span>
+<span class="sd">        kwargs</span>
+<span class="sd">            See :func:`~pymor.gui.qt.visualize_patch`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">pymor.gui.qt</span> <span class="kn">import</span> <span class="n">visualize_matplotlib_1d</span>
+        <span class="kn">from</span> <span class="nn">pymor.vectorarrays.interfaces</span> <span class="kn">import</span> <span class="n">VectorArrayInterface</span>
+        <span class="kn">from</span> <span class="nn">pymor.vectorarrays.numpy</span> <span class="kn">import</span> <span class="n">NumpyVectorSpace</span><span class="p">,</span> <span class="n">NumpyVectorArray</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)):</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="p">(</span><span class="n">U</span><span class="p">,)</span>
+        <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">))</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">U</span><span class="p">)</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">NumpyVectorSpace</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="k">else</span>
+                  <span class="n">u</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">NumpyVectorArray</span><span class="p">)</span> <span class="k">else</span>
+                  <span class="n">NumpyVectorSpace</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+                  <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">U</span><span class="p">)</span>
+        <span class="n">visualize_matplotlib_1d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="n">codim</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

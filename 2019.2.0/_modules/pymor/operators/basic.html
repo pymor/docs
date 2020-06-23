@@ -1,0 +1,465 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.operators.basic &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.operators.basic</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms</span> <span class="kn">import</span> <span class="n">genericsolvers</span>
+<span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">InversionError</span><span class="p">,</span> <span class="n">LinAlgError</span>
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.interfaces</span> <span class="kn">import</span> <span class="n">OperatorInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.interfaces</span> <span class="kn">import</span> <span class="n">ParameterFunctionalInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.interfaces</span> <span class="kn">import</span> <span class="n">VectorArrayInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.numpy</span> <span class="kn">import</span> <span class="n">NumpyVectorSpace</span>
+
+
+<div class="viewcode-block" id="OperatorBase"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase">[docs]</a><span class="k">class</span> <span class="nc">OperatorBase</span><span class="p">(</span><span class="n">OperatorInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for |Operators| providing some default implementations.</span>
+
+<span class="sd">    When implementing a new operator, it is usually advisable to derive</span>
+<span class="sd">    from this class.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="OperatorBase.apply2"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.apply2">[docs]</a>    <span class="k">def</span> <span class="nf">apply2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)</span>
+        <span class="n">AU</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">V</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">AU</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OperatorBase.pairwise_apply2"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.pairwise_apply2">[docs]</a>    <span class="k">def</span> <span class="nf">pairwise_apply2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+        <span class="n">AU</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">V</span><span class="o">.</span><span class="n">pairwise_dot</span><span class="p">(</span><span class="n">AU</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OperatorBase.jacobian"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.jacobian">[docs]</a>    <span class="k">def</span> <span class="nf">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="OperatorBase.assemble"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.assemble">[docs]</a>    <span class="k">def</span> <span class="nf">assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">FixedParameterOperator</span>
+
+            <span class="k">return</span> <span class="n">FixedParameterOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_assembled&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span></div>
+
+    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">LincombOperator</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">LincombOperator</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">LincombOperator</span><span class="p">([</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.</span><span class="p">])</span>
+
+<div class="viewcode-block" id="OperatorBase.__add__"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.__add__">[docs]</a>    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">LincombOperator</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">LincombOperator</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">LincombOperator</span><span class="p">([</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">])</span></div>
+
+    <span class="fm">__radd__</span> <span class="o">=</span> <span class="fm">__add__</span>
+
+<div class="viewcode-block" id="OperatorBase.__mul__"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.__mul__">[docs]</a>    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="p">(</span><span class="n">Number</span><span class="p">,</span> <span class="n">ParameterFunctionalInterface</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">LincombOperator</span>
+        <span class="k">return</span> <span class="n">LincombOperator</span><span class="p">([</span><span class="bp">self</span><span class="p">],</span> <span class="p">[</span><span class="n">other</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="OperatorBase.__matmul__"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.__matmul__">[docs]</a>    <span class="k">def</span> <span class="fm">__matmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">Concatenation</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Concatenation</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Concatenation</span><span class="p">((</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="OperatorBase.__str__"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.__str__">[docs]</a>    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{self.name}</span><span class="s1">: R^</span><span class="si">{self.source.dim}</span><span class="s1"> --&gt; R^</span><span class="si">{self.range.dim}</span><span class="s1">  &#39;</span> \
+               <span class="sa">f</span><span class="s1">&#39;(parameter type: </span><span class="si">{self.parameter_type}</span><span class="s1">, class: </span><span class="si">{self.__class__.__name__}</span><span class="s1">)&#39;</span></div>
+
+<div class="viewcode-block" id="OperatorBase.apply_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.apply_adjoint">[docs]</a>    <span class="k">def</span> <span class="nf">apply_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">LinAlgError</span><span class="p">(</span><span class="s1">&#39;Operator not linear.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OperatorBase.apply_inverse"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.apply_inverse">[docs]</a>    <span class="k">def</span> <span class="nf">apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">FixedParameterOperator</span>
+        <span class="n">assembled_op</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">assembled_op</span> <span class="o">!=</span> <span class="bp">self</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">assembled_op</span><span class="p">,</span> <span class="n">FixedParameterOperator</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">assembled_op</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">:</span>
+            <span class="n">options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;inverse&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="n">genericsolvers</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">assembled_op</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">pymor.algorithms.newton</span> <span class="kn">import</span> <span class="n">newton</span>
+            <span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">NewtonError</span>
+
+            <span class="n">options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;inverse&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">options</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                    <span class="k">assert</span> <span class="n">options</span> <span class="o">==</span> <span class="s1">&#39;newton&#39;</span>
+                    <span class="n">options</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">assert</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;newton&#39;</span>
+                    <span class="n">options</span> <span class="o">=</span> <span class="n">options</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                    <span class="n">options</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">options</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">options</span><span class="p">[</span><span class="s1">&#39;least_squares&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">least_squares</span>
+
+            <span class="n">R</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">R</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">newton</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="o">**</span><span class="n">options</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="k">except</span> <span class="n">NewtonError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">InversionError</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">R</span></div>
+
+<div class="viewcode-block" id="OperatorBase.apply_inverse_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.apply_inverse_adjoint">[docs]</a>    <span class="k">def</span> <span class="nf">apply_inverse_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">FixedParameterOperator</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">LinAlgError</span><span class="p">(</span><span class="s1">&#39;Operator not linear.&#39;</span><span class="p">)</span>
+        <span class="n">assembled_op</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">assembled_op</span> <span class="o">!=</span> <span class="bp">self</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">assembled_op</span><span class="p">,</span> <span class="n">FixedParameterOperator</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">assembled_op</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># use generic solver for the adjoint operator</span>
+            <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">AdjointOperator</span>
+            <span class="n">options</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;inverse&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;inverse_adjoint&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span> <span class="k">else</span> <span class="kc">None</span><span class="p">}</span>
+            <span class="n">adjoint_op</span> <span class="o">=</span> <span class="n">AdjointOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">with_apply_inverse</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">adjoint_op</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OperatorBase.as_range_array"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.as_range_array">[docs]</a>    <span class="k">def</span> <span class="nf">as_range_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">)),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OperatorBase.as_source_array"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.as_source_array">[docs]</a>    <span class="k">def</span> <span class="nf">as_source_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">)),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OperatorBase.d_mu"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.OperatorBase.d_mu">[docs]</a>    <span class="k">def</span> <span class="nf">d_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="p">()):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">ZeroOperator</span>
+            <span class="k">return</span> <span class="n">ZeroOperator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_d_mu&#39;</span><span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="ListVectorArrayOperatorBase"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.ListVectorArrayOperatorBase">[docs]</a><span class="k">class</span> <span class="nc">ListVectorArrayOperatorBase</span><span class="p">(</span><span class="n">OperatorBase</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">pass</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_apply_one_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">_apply_inverse_one_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">_apply_adjoint_one_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">_apply_inverse_adjoint_one_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+<div class="viewcode-block" id="ListVectorArrayOperatorBase.apply"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.ListVectorArrayOperatorBase.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="s1">&#39;apply&#39;</span><span class="p">)</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_one_vector</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">U</span><span class="o">.</span><span class="n">_list</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">V</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ListVectorArrayOperatorBase.apply_inverse"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.ListVectorArrayOperatorBase.apply_inverse">[docs]</a>    <span class="k">def</span> <span class="nf">apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">V</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_apply</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="s1">&#39;apply_inverse&#39;</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_inverse_one_vector</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+                 <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">V</span><span class="o">.</span><span class="n">_list</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">U</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ListVectorArrayOperatorBase.apply_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.ListVectorArrayOperatorBase.apply_adjoint">[docs]</a>    <span class="k">def</span> <span class="nf">apply_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">V</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_apply</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="s1">&#39;apply_adjoint&#39;</span><span class="p">)</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_adjoint_one_vector</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">V</span><span class="o">.</span><span class="n">_list</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">U</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ListVectorArrayOperatorBase.apply_inverse_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.ListVectorArrayOperatorBase.apply_inverse_adjoint">[docs]</a>    <span class="k">def</span> <span class="nf">apply_inverse_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="s1">&#39;apply_inverse_adjoint&#39;</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+            <span class="n">V</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_inverse_adjoint_one_vector</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+                 <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">U</span><span class="o">.</span><span class="n">_list</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">V</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="LinearComplexifiedListVectorArrayOperatorBase"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.LinearComplexifiedListVectorArrayOperatorBase">[docs]</a><span class="k">class</span> <span class="nc">LinearComplexifiedListVectorArrayOperatorBase</span><span class="p">(</span><span class="n">ListVectorArrayOperatorBase</span><span class="p">):</span>
+
+    <span class="n">linear</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_real_apply_one_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">_real_apply_inverse_one_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">_real_apply_adjoint_one_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">_real_apply_inverse_adjoint_one_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">_apply_one_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">real_part</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_real_apply_one_vector</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">real_part</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="n">prepare_data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">imag_part</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">imag_part</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_real_apply_one_vector</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">imag_part</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="n">prepare_data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">imag_part</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">complexified_vector_type</span><span class="p">(</span><span class="n">real_part</span><span class="p">,</span> <span class="n">imag_part</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply_inverse_one_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">real_part</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_real_apply_inverse_one_vector</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">real_part</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">,</span>
+                                                        <span class="n">prepare_data</span><span class="o">=</span><span class="n">prepare_data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">imag_part</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">imag_part</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_real_apply_inverse_one_vector</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">imag_part</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">,</span>
+                                                            <span class="n">prepare_data</span><span class="o">=</span><span class="n">prepare_data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">imag_part</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">complexified_vector_type</span><span class="p">(</span><span class="n">real_part</span><span class="p">,</span> <span class="n">imag_part</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply_adjoint_one_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">real_part</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_real_apply_adjoint_one_vector</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">real_part</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="n">prepare_data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">imag_part</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">imag_part</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_real_apply_adjoint_one_vector</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">imag_part</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="n">prepare_data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">imag_part</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">complexified_vector_type</span><span class="p">(</span><span class="n">real_part</span><span class="p">,</span> <span class="n">imag_part</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply_inverse_adjoint_one_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">prepare_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">real_part</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_real_apply_inverse_adjoint_one_vector</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">real_part</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">,</span>
+                                                                <span class="n">prepare_data</span><span class="o">=</span><span class="n">prepare_data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">imag_part</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">imag_part</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_real_apply_inverse_adjoint_one_vector</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">imag_part</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">,</span>
+                                                                    <span class="n">prepare_data</span><span class="o">=</span><span class="n">prepare_data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">imag_part</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">complexified_vector_type</span><span class="p">(</span><span class="n">real_part</span><span class="p">,</span> <span class="n">imag_part</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ProjectedOperator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.ProjectedOperator">[docs]</a><span class="k">class</span> <span class="nc">ProjectedOperator</span><span class="p">(</span><span class="n">OperatorBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generic |Operator| representing the projection of an |Operator| to a subspace.</span>
+
+<span class="sd">    This operator is implemented as the concatenation of the linear combination with</span>
+<span class="sd">    `source_basis`, application of the original `operator` and projection onto</span>
+<span class="sd">    `range_basis`. As such, this operator can be used to obtain a reduced basis</span>
+<span class="sd">    projection of any given |Operator|. However, no offline/online decomposition is</span>
+<span class="sd">    performed, so this operator is mainly useful for testing before implementing</span>
+<span class="sd">    offline/online decomposition for a specific application.</span>
+
+<span class="sd">    This operator is instantiated in :func:`pymor.algorithms.projection.project`</span>
+<span class="sd">    as a default implementation for parametric or nonlinear operators.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    operator</span>
+<span class="sd">        The |Operator| to project.</span>
+<span class="sd">    range_basis</span>
+<span class="sd">        See :func:`pymor.algorithms.projection.project`.</span>
+<span class="sd">    source_basis</span>
+<span class="sd">        See :func:`pymor.algorithms.projection.project`.</span>
+<span class="sd">    product</span>
+<span class="sd">        See :func:`pymor.algorithms.projection.project`.</span>
+<span class="sd">    solver_options</span>
+<span class="sd">        The |solver_options| for the projected operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">linear</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">source_basis</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">source_basis</span> <span class="ow">in</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+        <span class="k">assert</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">range_basis</span> <span class="ow">in</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="n">product</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">product</span><span class="p">,</span> <span class="n">OperatorInterface</span><span class="p">)</span>
+                    <span class="ow">and</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="ow">and</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">product</span><span class="o">.</span><span class="n">source</span>
+                    <span class="ow">and</span> <span class="n">product</span><span class="o">.</span><span class="n">range</span> <span class="o">==</span> <span class="n">product</span><span class="o">.</span><span class="n">source</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">source_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">source_basis</span> <span class="o">=</span> <span class="n">source_basis</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">range_basis</span> <span class="o">=</span> <span class="n">range_basis</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">operator</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">source_basis</span><span class="p">))</span> <span class="k">if</span> <span class="n">source_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">range_basis</span><span class="p">))</span> <span class="k">if</span> <span class="n">range_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">linear</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">H</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">H</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">options</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;inverse&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;inverse_adjoint&#39;</span><span class="p">),</span>
+                       <span class="s1">&#39;inverse_adjoint&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;inverse&#39;</span><span class="p">)}</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="n">ProjectedOperator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">H</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ProjectedOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.ProjectedOperator.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">product</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">UU</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">UU</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">product</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">,</span> <span class="n">UU</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">UU</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="ProjectedOperator.jacobian"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.ProjectedOperator.jacobian">[docs]</a>    <span class="k">def</span> <span class="nf">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">J</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">J</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">pymor.algorithms.projection</span> <span class="kn">import</span> <span class="n">project</span>
+        <span class="n">pop</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">J</span><span class="p">,</span> <span class="n">range_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span><span class="p">,</span>
+                      <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span><span class="p">:</span>
+            <span class="n">options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;jacobian&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">options</span><span class="p">:</span>
+                <span class="n">pop</span> <span class="o">=</span> <span class="n">pop</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">solver_options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pop</span></div>
+
+<div class="viewcode-block" id="ProjectedOperator.assemble"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.ProjectedOperator.assemble">[docs]</a>    <span class="k">def</span> <span class="nf">assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="p">:</span>  <span class="c1"># avoid infinite recursion in apply_inverse default impl</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="kn">from</span> <span class="nn">pymor.algorithms.projection</span> <span class="kn">import</span> <span class="n">project</span>
+        <span class="n">pop</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">range_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="p">,</span> <span class="n">source_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span><span class="p">,</span>
+                      <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">product</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span><span class="p">:</span>
+            <span class="n">pop</span> <span class="o">=</span> <span class="n">pop</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">solver_options</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pop</span></div>
+
+<div class="viewcode-block" id="ProjectedOperator.apply_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.basic.ProjectedOperator.apply_adjoint">[docs]</a>    <span class="k">def</span> <span class="nf">apply_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">V</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range_basis</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_basis</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">U</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

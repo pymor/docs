@@ -1,0 +1,147 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.analyticalproblems.text &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.analyticalproblems.text</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">pymor.analyticalproblems.elliptic</span> <span class="kn">import</span> <span class="n">StationaryProblem</span>
+<span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
+<span class="kn">from</span> <span class="nn">pymor.domaindescriptions.basic</span> <span class="kn">import</span> <span class="n">RectDomain</span>
+<span class="kn">from</span> <span class="nn">pymor.functions.basic</span> <span class="kn">import</span> <span class="n">ConstantFunction</span><span class="p">,</span> <span class="n">LincombFunction</span>
+<span class="kn">from</span> <span class="nn">pymor.functions.bitmap</span> <span class="kn">import</span> <span class="n">BitmapFunction</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.functionals</span> <span class="kn">import</span> <span class="n">ProjectionParameterFunctional</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.spaces</span> <span class="kn">import</span> <span class="n">CubicParameterSpace</span>
+
+
+<div class="viewcode-block" id="text_problem"><a class="viewcode-back" href="../../../generated/pymor.analyticalproblems.html#pymor.analyticalproblems.text.text_problem">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;font_name&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">text_problem</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s1">&#39;pyMOR&#39;</span><span class="p">,</span> <span class="n">font_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+    <span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span><span class="p">,</span> <span class="n">ImageDraw</span><span class="p">,</span> <span class="n">ImageFont</span>
+    <span class="kn">from</span> <span class="nn">tempfile</span> <span class="kn">import</span> <span class="n">NamedTemporaryFile</span>
+
+    <span class="n">font_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">font_name</span><span class="p">]</span> <span class="k">if</span> <span class="n">font_name</span> <span class="k">else</span> <span class="p">[</span><span class="s1">&#39;DejaVuSansMono.ttf&#39;</span><span class="p">,</span> <span class="s1">&#39;VeraMono.ttf&#39;</span><span class="p">,</span> <span class="s1">&#39;UbuntuMono-R.ttf&#39;</span><span class="p">,</span> <span class="s1">&#39;Arial.ttf&#39;</span><span class="p">]</span>
+    <span class="n">font</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">font_list</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">font</span> <span class="o">=</span> <span class="n">ImageFont</span><span class="o">.</span><span class="n">truetype</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>  <span class="c1"># load some font from file of given size</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">IOError</span><span class="p">):</span>
+            <span class="k">pass</span>
+    <span class="k">if</span> <span class="n">font</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Could not load TrueType font&#39;</span><span class="p">)</span>
+
+    <span class="n">size</span> <span class="o">=</span> <span class="n">font</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>                             <span class="c1"># compute width and height of rendered text</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="p">(</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">20</span><span class="p">,</span> <span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">20</span><span class="p">)</span>                   <span class="c1"># add a border of 10 pixels around the text</span>
+
+    <span class="k">def</span> <span class="nf">make_bitmap_function</span><span class="p">(</span><span class="n">char_num</span><span class="p">):</span>                   <span class="c1"># we need to genereate a BitmapFunction for each character</span>
+        <span class="n">img</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s1">&#39;L&#39;</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>                        <span class="c1"># create new Image object of given dimensions</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">ImageDraw</span><span class="o">.</span><span class="n">Draw</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>                           <span class="c1"># create ImageDraw object for the given Image</span>
+
+        <span class="c1"># in order to position the character correctly, we first draw all characters from the first</span>
+        <span class="c1"># up to the wanted character</span>
+        <span class="n">d</span><span class="o">.</span><span class="n">text</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">text</span><span class="p">[:</span><span class="n">char_num</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">font</span><span class="o">=</span><span class="n">font</span><span class="p">,</span> <span class="n">fill</span><span class="o">=</span><span class="mi">255</span><span class="p">)</span>
+
+        <span class="c1"># next we erase all previous character by drawing a black rectangle</span>
+        <span class="k">if</span> <span class="n">char_num</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">d</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="n">font</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">text</span><span class="p">[:</span><span class="n">char_num</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">10</span><span class="p">,</span> <span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">])),</span> <span class="n">fill</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">outline</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># open a new temporary file</span>
+        <span class="k">with</span> <span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="n">suffix</span><span class="o">=</span><span class="s1">&#39;.png&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>    <span class="c1"># after leaving this &#39;with&#39; block, the temporary</span>
+                                                        <span class="c1"># file is automatically deleted</span>
+            <span class="n">img</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;png&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">BitmapFunction</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">size</span><span class="p">],</span> <span class="nb">range</span><span class="o">=</span><span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">])</span>
+
+    <span class="c1"># create BitmapFunctions for each character</span>
+    <span class="n">dfs</span> <span class="o">=</span> <span class="p">[</span><span class="n">make_bitmap_function</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">))]</span>
+
+    <span class="c1"># create an indicator function for the background</span>
+    <span class="n">background</span> <span class="o">=</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="n">LincombFunction</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dfs</span><span class="p">)))</span>
+
+    <span class="c1"># form the linear combination</span>
+    <span class="n">dfs</span> <span class="o">=</span> <span class="p">[</span><span class="n">background</span><span class="p">]</span> <span class="o">+</span> <span class="n">dfs</span>
+    <span class="n">coefficients</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;diffusion&#39;</span><span class="p">,</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">),),</span> <span class="p">(</span><span class="n">i</span><span class="p">,))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">))]</span>
+    <span class="n">diffusion</span> <span class="o">=</span> <span class="n">LincombFunction</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">StationaryProblem</span><span class="p">(</span>
+        <span class="n">domain</span><span class="o">=</span><span class="n">RectDomain</span><span class="p">(</span><span class="n">dfs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">bounding_box</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="s1">&#39;neumann&#39;</span><span class="p">),</span>
+        <span class="n">neumann_data</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="n">diffusion</span><span class="o">=</span><span class="n">diffusion</span><span class="p">,</span>
+        <span class="n">parameter_space</span><span class="o">=</span><span class="n">CubicParameterSpace</span><span class="p">(</span><span class="n">diffusion</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.</span><span class="p">)</span>
+    <span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

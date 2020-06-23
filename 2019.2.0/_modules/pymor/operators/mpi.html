@@ -1,0 +1,337 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.operators.mpi &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.operators.mpi</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">pymor.operators.basic</span> <span class="kn">import</span> <span class="n">OperatorBase</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">LincombOperator</span><span class="p">,</span> <span class="n">VectorArrayOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.tools</span> <span class="kn">import</span> <span class="n">mpi</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.mpi</span> <span class="kn">import</span> <span class="n">MPIVectorSpace</span><span class="p">,</span> <span class="n">_register_local_space</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.numpy</span> <span class="kn">import</span> <span class="n">NumpyVectorSpace</span>
+
+
+<div class="viewcode-block" id="MPIOperator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.MPIOperator">[docs]</a><span class="k">class</span> <span class="nc">MPIOperator</span><span class="p">(</span><span class="n">OperatorBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;MPI distributed |Operator|.</span>
+
+<span class="sd">    Given a single-rank implementation of an |Operator|, this</span>
+<span class="sd">    wrapper class uses the event loop from :mod:`pymor.tools.mpi`</span>
+<span class="sd">    to allow an MPI distributed usage of the |Operator|.</span>
+
+<span class="sd">    Instances of `MPIOperator` can be used on rank 0 like any</span>
+<span class="sd">    other (non-distributed) |Operator|.</span>
+
+<span class="sd">    Note, however, that the underlying |Operator| implementation</span>
+<span class="sd">    needs to be MPI aware. For instance, the operator&#39;s `apply`</span>
+<span class="sd">    method has to perform the necessary MPI communication to</span>
+<span class="sd">    obtain all DOFs hosted on other MPI ranks which are required</span>
+<span class="sd">    for the local operator evaluation.</span>
+
+<span class="sd">    Instead of instantiating :class:`MPIOperator` directly, it</span>
+<span class="sd">    is usually preferable to use :func:`mpi_wrap_operator` instead.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    obj_id</span>
+<span class="sd">        :class:`~pymor.tools.mpi.ObjectId` of the local |Operators|</span>
+<span class="sd">        on each rank.</span>
+<span class="sd">    mpi_range</span>
+<span class="sd">        Set to `True` if the range of the |Operator| is MPI distributed.</span>
+<span class="sd">    mpi_source</span>
+<span class="sd">        Set to `True` if the source of the |Operator| is MPI distributed.</span>
+<span class="sd">    with_apply2</span>
+<span class="sd">        Set to `True` if the operator implementation has its own</span>
+<span class="sd">        MPI aware implementation of `apply2` and `pairwise_apply2`.</span>
+<span class="sd">        Otherwise, the default implementations using `apply` and</span>
+<span class="sd">        :meth:`~pymor.vectorarrays.interfaces.VectorArrayInterface.dot`</span>
+<span class="sd">        will be used.</span>
+<span class="sd">    pickle_local_spaces</span>
+<span class="sd">        If `pickle_local_spaces` is `False`, a unique identifier</span>
+<span class="sd">        is computed for each local source/range |VectorSpace|, which is then</span>
+<span class="sd">        transferred to rank 0 instead of the true |VectorSpace|. This</span>
+<span class="sd">        allows the useage of :class:`~pymor.vectorarrays.mpi.MPIVectorArray`</span>
+<span class="sd">        even when the local |VectorSpaces| are not picklable.</span>
+<span class="sd">    space_type</span>
+<span class="sd">        This class will be used to wrap the local |VectorArrays|</span>
+<span class="sd">        returned by the local operators into an MPI distributed</span>
+<span class="sd">        |VectorArray| managed from rank 0. By default,</span>
+<span class="sd">        :class:`~pymor.vectorarrays.mpi.MPIVectorSpace` will be used,</span>
+<span class="sd">        other options are :class:`~pymor.vectorarrays.mpi.MPIVectorSpaceAutoComm`</span>
+<span class="sd">        and :class:`~pymor.vectorarrays.mpi.MPIVectorSpaceNoComm`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj_id</span><span class="p">,</span> <span class="n">mpi_range</span><span class="p">,</span> <span class="n">mpi_source</span><span class="p">,</span> <span class="n">with_apply2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">pickle_local_spaces</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">space_type</span><span class="o">=</span><span class="n">MPIVectorSpace</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">mpi_source</span> <span class="ow">or</span> <span class="n">mpi_range</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">op</span> <span class="o">=</span> <span class="n">op</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="n">obj_id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">linear</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_parameter_type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mpi_source</span><span class="p">:</span>
+            <span class="n">local_spaces</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIOperator_get_local_spaces</span><span class="p">,</span> <span class="n">obj_id</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">pickle_local_spaces</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">ls</span> <span class="o">==</span> <span class="n">local_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">ls</span> <span class="ow">in</span> <span class="n">local_spaces</span><span class="p">):</span>
+                <span class="n">local_spaces</span> <span class="o">=</span> <span class="p">(</span><span class="n">local_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">space_type</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span>
+        <span class="k">if</span> <span class="n">mpi_range</span><span class="p">:</span>
+            <span class="n">local_spaces</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIOperator_get_local_spaces</span><span class="p">,</span> <span class="n">obj_id</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">pickle_local_spaces</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">ls</span> <span class="o">==</span> <span class="n">local_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">ls</span> <span class="ow">in</span> <span class="n">local_spaces</span><span class="p">):</span>
+                <span class="n">local_spaces</span> <span class="o">=</span> <span class="p">(</span><span class="n">local_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">space_type</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">range</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver_options</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">solver_options</span>
+
+<div class="viewcode-block" id="MPIOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.MPIOperator.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">obj_id</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi_source</span> <span class="k">else</span> <span class="n">U</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi_range</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call_manage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;apply&#39;</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;apply&#39;</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIOperator.as_range_array"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.MPIOperator.as_range_array">[docs]</a>    <span class="k">def</span> <span class="nf">as_range_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call_manage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;as_range_array&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="MPIOperator.as_source_array"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.MPIOperator.as_source_array">[docs]</a>    <span class="k">def</span> <span class="nf">as_source_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call_manage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;as_source_array&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="MPIOperator.apply2"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.MPIOperator.apply2">[docs]</a>    <span class="k">def</span> <span class="nf">apply2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_apply2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">V</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span>
+        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">obj_id</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi_source</span> <span class="k">else</span> <span class="n">U</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">obj_id</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi_range</span> <span class="k">else</span> <span class="n">V</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;apply2&#39;</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIOperator.pairwise_apply2"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.MPIOperator.pairwise_apply2">[docs]</a>    <span class="k">def</span> <span class="nf">pairwise_apply2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_apply2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">pairwise_apply2</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">V</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span>
+        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">obj_id</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi_source</span> <span class="k">else</span> <span class="n">U</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">obj_id</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi_range</span> <span class="k">else</span> <span class="n">V</span>
+        <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;pairwise_apply2&#39;</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIOperator.apply_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.MPIOperator.apply_adjoint">[docs]</a>    <span class="k">def</span> <span class="nf">apply_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">V</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">obj_id</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi_range</span> <span class="k">else</span> <span class="n">V</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi_source</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span>
+                <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call_manage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;apply_adjoint&#39;</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;apply_adjoint&#39;</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MPIOperator.apply_inverse"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.MPIOperator.apply_inverse">[docs]</a>    <span class="k">def</span> <span class="nf">apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi_source</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi_range</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="k">assert</span> <span class="n">V</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call_manage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;apply_inverse&#39;</span><span class="p">,</span>
+                                               <span class="n">V</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="MPIOperator.apply_inverse_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.MPIOperator.apply_inverse_adjoint">[docs]</a>    <span class="k">def</span> <span class="nf">apply_inverse_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi_source</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi_range</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call_manage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;apply_inverse_adjoint&#39;</span><span class="p">,</span>
+                                               <span class="n">U</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="MPIOperator.jacobian"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.MPIOperator.jacobian">[docs]</a>    <span class="k">def</span> <span class="nf">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">obj_id</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call_manage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;jacobian&#39;</span><span class="p">,</span> <span class="n">U</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="MPIOperator.assemble"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.MPIOperator.assemble">[docs]</a>    <span class="k">def</span> <span class="nf">assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">obj_id</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">method_call_manage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="s1">&#39;assemble&#39;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">))</span></div>
+
+    <span class="k">def</span> <span class="nf">_assemble_lincomb</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operators</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">identity_shift</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">MPIOperator</span><span class="p">)</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">operators</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">assert</span> <span class="n">solver_options</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="n">operators</span> <span class="o">=</span> <span class="p">[</span><span class="n">op</span><span class="o">.</span><span class="n">obj_id</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">operators</span><span class="p">]</span>
+        <span class="n">obj_id</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_MPIOperator_assemble_lincomb</span><span class="p">,</span> <span class="n">operators</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">identity_shift</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="n">obj_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">op</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">remove_object</span><span class="p">,</span> <span class="n">obj_id</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">obj_id</span><span class="o">=</span><span class="n">obj_id</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MPIOperator.restricted"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.MPIOperator.restricted">[docs]</a>    <span class="k">def</span> <span class="nf">restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dofs</span><span class="p">):</span>
+        <span class="n">retval</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">function_call</span><span class="p">,</span> <span class="n">_MPIOperator_restriced</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">dofs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">retval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="k">return</span> <span class="n">retval</span></div>
+
+    <span class="k">def</span> <span class="fm">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">remove_object</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obj_id</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_MPIOperator_get_local_spaces</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">pickle_local_spaces</span><span class="p">):</span>
+    <span class="bp">self</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    <span class="n">local_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="k">if</span> <span class="n">source</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">pickle_local_spaces</span><span class="p">:</span>
+        <span class="n">local_space</span> <span class="o">=</span> <span class="n">_register_local_space</span><span class="p">(</span><span class="n">local_space</span><span class="p">)</span>
+    <span class="n">local_spaces</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">local_space</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIOperator_assemble_lincomb</span><span class="p">(</span><span class="n">operators</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">identity_shift</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+    <span class="n">operators</span> <span class="o">=</span> <span class="p">[</span><span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">operators</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">mpi</span><span class="o">.</span><span class="n">manage_object</span><span class="p">(</span><span class="n">operators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_assemble_lincomb</span><span class="p">(</span><span class="n">operators</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">identity_shift</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_MPIOperator_restriced</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dofs</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">restricted</span><span class="p">(</span><span class="n">dofs</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="mpi_wrap_operator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.mpi.mpi_wrap_operator">[docs]</a><span class="k">def</span> <span class="nf">mpi_wrap_operator</span><span class="p">(</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">mpi_range</span><span class="p">,</span> <span class="n">mpi_source</span><span class="p">,</span> <span class="n">with_apply2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">pickle_local_spaces</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                      <span class="n">space_type</span><span class="o">=</span><span class="n">MPIVectorSpace</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Wrap MPI distributed local |Operators| to a global |Operator| on rank 0.</span>
+
+<span class="sd">    Given MPI distributed local |Operators| referred to by the</span>
+<span class="sd">    :class:`~pymor.tools.mpi.ObjectId` `obj_id`, return a new |Operator|</span>
+<span class="sd">    which manages these distributed operators from rank 0. This</span>
+<span class="sd">    is done by instantiating :class:`MPIOperator`. Additionally, the</span>
+<span class="sd">    structure of the wrapped operators is preserved. E.g. |LincombOperators|</span>
+<span class="sd">    will be wrapped as a |LincombOperator| of :class:`MPIOperators &lt;MPIOperator&gt;`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    See :class:`MPIOperator`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    The wrapped |Operator|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">op</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="n">obj_id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">LincombOperator</span><span class="p">):</span>
+        <span class="n">obj_ids</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_mpi_wrap_operator_LincombOperator_manage_operators</span><span class="p">,</span> <span class="n">obj_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">LincombOperator</span><span class="p">([</span><span class="n">mpi_wrap_operator</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">mpi_range</span><span class="p">,</span> <span class="n">mpi_source</span><span class="p">,</span> <span class="n">with_apply2</span><span class="p">,</span> <span class="n">pickle_local_spaces</span><span class="p">,</span>
+                                                  <span class="n">space_type</span><span class="p">)</span>
+                                <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">obj_ids</span><span class="p">],</span> <span class="n">op</span><span class="o">.</span><span class="n">coefficients</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">VectorArrayOperator</span><span class="p">):</span>
+        <span class="n">array_obj_id</span><span class="p">,</span> <span class="n">local_spaces</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">_mpi_wrap_operator_VectorArrayOperator_manage_array</span><span class="p">,</span>
+                                              <span class="n">obj_id</span><span class="p">,</span> <span class="n">pickle_local_spaces</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">ls</span> <span class="o">==</span> <span class="n">local_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">ls</span> <span class="ow">in</span> <span class="n">local_spaces</span><span class="p">):</span>
+            <span class="n">local_spaces</span> <span class="o">=</span> <span class="p">(</span><span class="n">local_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],)</span>
+        <span class="k">return</span> <span class="n">VectorArrayOperator</span><span class="p">(</span><span class="n">space_type</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">)</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">array_obj_id</span><span class="p">),</span>
+                                   <span class="n">adjoint</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">adjoint</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">MPIOperator</span><span class="p">(</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">mpi_range</span><span class="p">,</span> <span class="n">mpi_source</span><span class="p">,</span> <span class="n">with_apply2</span><span class="p">,</span> <span class="n">pickle_local_spaces</span><span class="p">,</span> <span class="n">space_type</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_mpi_wrap_operator_LincombOperator_manage_operators</span><span class="p">(</span><span class="n">obj_id</span><span class="p">):</span>
+    <span class="n">op</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="n">obj_id</span><span class="p">)</span>
+    <span class="n">obj_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">mpi</span><span class="o">.</span><span class="n">manage_object</span><span class="p">(</span><span class="n">o</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">op</span><span class="o">.</span><span class="n">operators</span><span class="p">]</span>
+    <span class="n">mpi</span><span class="o">.</span><span class="n">remove_object</span><span class="p">(</span><span class="n">obj_id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">obj_ids</span>
+
+
+<span class="k">def</span> <span class="nf">_mpi_wrap_operator_VectorArrayOperator_manage_array</span><span class="p">(</span><span class="n">obj_id</span><span class="p">,</span> <span class="n">pickle_local_spaces</span><span class="p">):</span>
+    <span class="n">op</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="n">obj_id</span><span class="p">)</span>
+    <span class="n">array_obj_id</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">manage_object</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">array</span><span class="p">)</span>
+    <span class="n">local_space</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">space</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">pickle_local_spaces</span><span class="p">:</span>
+        <span class="n">local_space</span> <span class="o">=</span> <span class="n">_register_local_space</span><span class="p">(</span><span class="n">local_space</span><span class="p">)</span>
+    <span class="n">local_spaces</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">local_space</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">mpi</span><span class="o">.</span><span class="n">remove_object</span><span class="p">(</span><span class="n">obj_id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">array_obj_id</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">local_spaces</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

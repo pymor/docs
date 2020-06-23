@@ -1,0 +1,183 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.tools.vtkio &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.tools.vtkio</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.config</span> <span class="kn">import</span> <span class="n">config</span>
+<span class="kn">from</span> <span class="nn">pymor.grids</span> <span class="kn">import</span> <span class="n">referenceelements</span>
+<span class="kn">from</span> <span class="nn">pymor.grids.constructions</span> <span class="kn">import</span> <span class="n">flatten_grid</span>
+
+<span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_PYEVTK</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">pyevtk.hl</span> <span class="kn">import</span> <span class="n">_addDataToFile</span><span class="p">,</span> <span class="n">_appendDataToFile</span>
+    <span class="kn">from</span> <span class="nn">pyevtk.vtk</span> <span class="kn">import</span> <span class="n">VtkGroup</span><span class="p">,</span> <span class="n">VtkFile</span><span class="p">,</span> <span class="n">VtkUnstructuredGrid</span><span class="p">,</span> <span class="n">VtkTriangle</span><span class="p">,</span> <span class="n">VtkQuad</span>
+
+
+<span class="k">def</span> <span class="nf">_write_vtu_series</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">coordinates</span><span class="p">,</span> <span class="n">connectivity</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">filename_base</span><span class="p">,</span> <span class="n">last_step</span><span class="p">,</span> <span class="n">is_cell_data</span><span class="p">):</span>
+    <span class="n">steps</span> <span class="o">=</span> <span class="n">last_step</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">last_step</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="n">fn_tpl</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">_</span><span class="si">{:08d}</span><span class="s2">&quot;</span>
+
+    <span class="n">npoints</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coordinates</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">ncells</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">connectivity</span><span class="p">)</span>
+
+    <span class="n">ref</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">reference_element</span>
+    <span class="k">if</span> <span class="n">ref</span> <span class="ow">is</span> <span class="n">ref</span> <span class="ow">is</span> <span class="n">referenceelements</span><span class="o">.</span><span class="n">triangle</span><span class="p">:</span>
+        <span class="n">points_per_cell</span> <span class="o">=</span> <span class="mi">3</span>
+        <span class="n">vtk_el_type</span> <span class="o">=</span> <span class="n">VtkTriangle</span><span class="o">.</span><span class="n">tid</span>
+    <span class="k">elif</span> <span class="n">ref</span> <span class="ow">is</span> <span class="n">referenceelements</span><span class="o">.</span><span class="n">square</span><span class="p">:</span>
+        <span class="n">points_per_cell</span> <span class="o">=</span> <span class="mi">4</span>
+        <span class="n">vtk_el_type</span> <span class="o">=</span> <span class="n">VtkQuad</span><span class="o">.</span><span class="n">tid</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;vtk output only available for grids with triangle or rectangle reference elments&quot;</span><span class="p">)</span>
+
+    <span class="n">connectivity</span> <span class="o">=</span> <span class="n">connectivity</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">cell_types</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">ncells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;uint8&#39;</span><span class="p">)</span>
+    <span class="n">cell_types</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">vtk_el_type</span>
+    <span class="n">offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">points_per_cell</span><span class="p">,</span> <span class="n">stop</span><span class="o">=</span><span class="n">ncells</span><span class="o">*</span><span class="n">points_per_cell</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">points_per_cell</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span>
+
+    <span class="n">group</span> <span class="o">=</span> <span class="n">VtkGroup</span><span class="p">(</span><span class="n">filename_base</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">steps</span><span class="p">):</span>
+        <span class="n">fn</span> <span class="o">=</span> <span class="n">fn_tpl</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">filename_base</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">vtk_data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">VtkFile</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">VtkUnstructuredGrid</span><span class="p">)</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">openGrid</span><span class="p">()</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">openPiece</span><span class="p">(</span><span class="n">ncells</span><span class="o">=</span><span class="n">ncells</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="n">npoints</span><span class="p">)</span>
+
+        <span class="n">w</span><span class="o">.</span><span class="n">openElement</span><span class="p">(</span><span class="s2">&quot;Points&quot;</span><span class="p">)</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">addData</span><span class="p">(</span><span class="s2">&quot;Coordinates&quot;</span><span class="p">,</span> <span class="n">coordinates</span><span class="p">)</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">closeElement</span><span class="p">(</span><span class="s2">&quot;Points&quot;</span><span class="p">)</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">openElement</span><span class="p">(</span><span class="s2">&quot;Cells&quot;</span><span class="p">)</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">addData</span><span class="p">(</span><span class="s2">&quot;connectivity&quot;</span><span class="p">,</span> <span class="n">connectivity</span><span class="p">)</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">addData</span><span class="p">(</span><span class="s2">&quot;offsets&quot;</span><span class="p">,</span> <span class="n">offsets</span><span class="p">)</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">addData</span><span class="p">(</span><span class="s2">&quot;types&quot;</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">)</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">closeElement</span><span class="p">(</span><span class="s2">&quot;Cells&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_cell_data</span><span class="p">:</span>
+            <span class="n">_addDataToFile</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">cellData</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Data&quot;</span><span class="p">:</span> <span class="n">vtk_data</span><span class="p">},</span> <span class="n">pointData</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_addDataToFile</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">cellData</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pointData</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Data&quot;</span><span class="p">:</span> <span class="n">vtk_data</span><span class="p">})</span>
+
+        <span class="n">w</span><span class="o">.</span><span class="n">closePiece</span><span class="p">()</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">closeGrid</span><span class="p">()</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">appendData</span><span class="p">(</span><span class="n">coordinates</span><span class="p">)</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">appendData</span><span class="p">(</span><span class="n">connectivity</span><span class="p">)</span><span class="o">.</span><span class="n">appendData</span><span class="p">(</span><span class="n">offsets</span><span class="p">)</span><span class="o">.</span><span class="n">appendData</span><span class="p">(</span><span class="n">cell_types</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_cell_data</span><span class="p">:</span>
+            <span class="n">_appendDataToFile</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">cellData</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Data&quot;</span><span class="p">:</span> <span class="n">vtk_data</span><span class="p">},</span> <span class="n">pointData</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_appendDataToFile</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">cellData</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pointData</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Data&quot;</span><span class="p">:</span> <span class="n">vtk_data</span><span class="p">})</span>
+
+        <span class="n">w</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+        <span class="n">group</span><span class="o">.</span><span class="n">addFile</span><span class="p">(</span><span class="n">filepath</span><span class="o">=</span><span class="n">fn</span> <span class="o">+</span> <span class="s1">&#39;.vtu&#39;</span><span class="p">,</span> <span class="n">sim_time</span><span class="o">=</span><span class="n">i</span><span class="p">)</span>
+    <span class="n">group</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="write_vtk"><a class="viewcode-back" href="../../../generated/pymor.tools.html#pymor.tools.vtkio.write_vtk">[docs]</a><span class="k">def</span> <span class="nf">write_vtk</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">filename_base</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">binary_vtk</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">last_step</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Output grid-associated data in (legacy) vtk format</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid</span>
+<span class="sd">        A |Grid| with triangular or rectilinear reference element.</span>
+<span class="sd">    data</span>
+<span class="sd">        |VectorArray| with either cell (ie one datapoint per codim 0 entity)</span>
+<span class="sd">        or vertex (ie one datapoint per codim 2 entity) data in each array element.</span>
+<span class="sd">    codim</span>
+<span class="sd">        the codimension associated with the data</span>
+<span class="sd">    filename_base</span>
+<span class="sd">        common component for output files in timeseries</span>
+<span class="sd">    binary_vtk</span>
+<span class="sd">        if false, output files contain human readable inline ascii data, else appended binary</span>
+<span class="sd">    last_step</span>
+<span class="sd">        if set must be &lt;= len(data) to restrict output of timeseries</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_PYEVTK</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s1">&#39;could not import pyevtk&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+    <span class="k">if</span> <span class="n">codim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="n">subentities</span><span class="p">,</span> <span class="n">coordinates</span><span class="p">,</span> <span class="n">entity_map</span> <span class="o">=</span> <span class="n">flatten_grid</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[:,</span> <span class="n">entity_map</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">coordinates</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">coordinates</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">coordinates</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+    <span class="n">_write_vtu_series</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">coordinates</span><span class="o">=</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">),</span> <span class="n">connectivity</span><span class="o">=</span><span class="n">subentities</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+                      <span class="n">filename_base</span><span class="o">=</span><span class="n">filename_base</span><span class="p">,</span> <span class="n">last_step</span><span class="o">=</span><span class="n">last_step</span><span class="p">,</span> <span class="n">is_cell_data</span><span class="o">=</span><span class="p">(</span><span class="n">codim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">))</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

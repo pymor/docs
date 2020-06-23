@@ -1,0 +1,195 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymordemos.parabolic &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymordemos.parabolic</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;Simple demonstration of solving parabolic equations using pyMOR&#39;s builtin discretization toolkit.</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">    parabolic.py [options] heat TOP</span>
+<span class="sd">    parabolic.py [options] dar SPEED</span>
+
+<span class="sd">Arguments:</span>
+<span class="sd">    TOP          The heat diffusion coefficient for the top bars.</span>
+<span class="sd">    SPEED        The advection speed.</span>
+
+<span class="sd">Options:</span>
+<span class="sd">    -h, --help   Show this message.</span>
+<span class="sd">    --fv         Use finite volume discretization instead of finite elements.</span>
+<span class="sd">    --rect       Use RectGrid instead of TriaGrid.</span>
+<span class="sd">    --grid=NI    Use grid with NIxNI intervals [default: 100].</span>
+<span class="sd">    --nt=COUNT   Number of time steps [default: 100].</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">docopt</span> <span class="kn">import</span> <span class="n">docopt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.basic</span> <span class="kn">import</span> <span class="o">*</span>
+
+
+<div class="viewcode-block" id="parabolic_demo"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic.parabolic_demo">[docs]</a><span class="k">def</span> <span class="nf">parabolic_demo</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--nt&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--nt&#39;</span><span class="p">])</span>
+    <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;heat&#39;</span><span class="p">]:</span>
+        <span class="n">args</span><span class="p">[</span><span class="s1">&#39;TOP&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;TOP&#39;</span><span class="p">])</span>
+        <span class="n">problem</span> <span class="o">=</span> <span class="n">InstationaryProblem</span><span class="p">(</span>
+
+            <span class="n">StationaryProblem</span><span class="p">(</span>
+                <span class="n">domain</span><span class="o">=</span><span class="n">RectDomain</span><span class="p">(</span><span class="n">top</span><span class="o">=</span><span class="s1">&#39;dirichlet&#39;</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="s1">&#39;neumann&#39;</span><span class="p">),</span>
+
+                <span class="n">diffusion</span><span class="o">=</span><span class="n">LincombFunction</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+                     <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x[..., 0] &gt; 0.45) * (x[..., 0] &lt; 0.55) * (x[..., 1] &lt; 0.7) * 1.&#39;</span><span class="p">,</span>
+                                        <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+                     <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x[..., 0] &gt; 0.35) * (x[..., 0] &lt; 0.40) * (x[..., 1] &gt; 0.3) * 1. + &#39;</span>
+                                        <span class="s1">&#39;(x[..., 0] &gt; 0.60) * (x[..., 0] &lt; 0.65) * (x[..., 1] &gt; 0.3) * 1.&#39;</span><span class="p">,</span>
+                                        <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">)],</span>
+                    <span class="p">[</span><span class="mf">1.</span><span class="p">,</span>
+                     <span class="mf">100.</span> <span class="o">-</span> <span class="mf">1.</span><span class="p">,</span>
+                     <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;top - 1.&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;top&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">})]</span>
+                <span class="p">),</span>
+
+                <span class="n">rhs</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+
+                <span class="n">dirichlet_data</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+
+                <span class="n">neumann_data</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x[..., 0] &gt; 0.45) * (x[..., 0] &lt; 0.55) * -1000.&#39;</span><span class="p">,</span>
+                                                <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+            <span class="p">),</span>
+
+            <span class="n">T</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span>
+
+            <span class="n">initial_data</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x[..., 0] &gt; 0.45) * (x[..., 0] &lt; 0.55) * (x[..., 1] &lt; 0.7) * 10.&#39;</span><span class="p">,</span>
+                                            <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+
+            <span class="n">parameter_space</span><span class="o">=</span><span class="n">CubicParameterSpace</span><span class="p">({</span><span class="s1">&#39;top&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span> <span class="n">minimum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">maximum</span><span class="o">=</span><span class="mf">100.</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">args</span><span class="p">[</span><span class="s1">&#39;SPEED&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;SPEED&#39;</span><span class="p">])</span>
+        <span class="n">problem</span> <span class="o">=</span> <span class="n">InstationaryProblem</span><span class="p">(</span>
+
+            <span class="n">StationaryProblem</span><span class="p">(</span>
+                <span class="n">domain</span><span class="o">=</span><span class="n">RectDomain</span><span class="p">(),</span>
+
+                <span class="n">diffusion</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+
+                <span class="n">advection</span><span class="o">=</span><span class="n">LincombFunction</span><span class="p">([</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">)],</span>
+                                          <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;speed&#39;</span><span class="p">,</span> <span class="p">())]),</span>
+
+                <span class="n">reaction</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+
+                <span class="n">rhs</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x[..., 0] &gt; 0.3) * (x[..., 0] &lt; 0.7) * (x[..., 1] &gt; 0.3)*(x[...,1]&lt;0.7) * 0.&#39;</span><span class="p">,</span>
+                                       <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+
+                <span class="n">dirichlet_data</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+            <span class="p">),</span>
+
+            <span class="n">T</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span>
+
+            <span class="n">initial_data</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">&#39;(x[..., 0] &gt; 0.3) * (x[..., 0] &lt; 0.7) * (x[...,1]&gt;0.3) * (x[..., 1] &lt; 0.7) * 10.&#39;</span><span class="p">,</span>
+                                            <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Discretize ...&#39;</span><span class="p">)</span>
+    <span class="n">discretizer</span> <span class="o">=</span> <span class="n">discretize_instationary_fv</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--fv&#39;</span><span class="p">]</span> <span class="k">else</span> <span class="n">discretize_instationary_cg</span>
+    <span class="n">m</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">discretizer</span><span class="p">(</span>
+        <span class="n">analytical_problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>
+        <span class="n">grid_type</span><span class="o">=</span><span class="n">RectGrid</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--rect&#39;</span><span class="p">]</span> <span class="k">else</span> <span class="n">TriaGrid</span><span class="p">,</span>
+        <span class="n">diameter</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--rect&#39;</span><span class="p">]</span> <span class="k">else</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;--grid&#39;</span><span class="p">],</span>
+        <span class="n">nt</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;--nt&#39;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Solve ...&#39;</span><span class="p">)</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">solve</span><span class="p">({</span><span class="s1">&#39;top&#39;</span><span class="p">:</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;TOP&#39;</span><span class="p">]}</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;heat&#39;</span><span class="p">]</span> <span class="k">else</span> <span class="p">{</span><span class="s1">&#39;speed&#39;</span><span class="p">:</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;SPEED&#39;</span><span class="p">]})</span>
+    <span class="n">m</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Solution&#39;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">docopt</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">)</span>
+    <span class="n">parabolic_demo</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

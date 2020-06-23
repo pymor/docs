@@ -1,0 +1,431 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.lrradi &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.lrradi</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">scipy.linalg</span> <span class="k">as</span> <span class="nn">spla</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.genericsolvers</span> <span class="kn">import</span> <span class="n">_parse_options</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.riccati</span> <span class="kn">import</span> <span class="n">_solve_ricc_check_args</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.constructions</span> <span class="kn">import</span> <span class="n">cat_arrays</span>
+<span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">IdentityOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.gram_schmidt</span> <span class="kn">import</span> <span class="n">gram_schmidt</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.random</span> <span class="kn">import</span> <span class="n">get_random_state</span>
+
+
+<div class="viewcode-block" id="ricc_lrcf_solver_options"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.lrradi.ricc_lrcf_solver_options">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;lrradi_tol&#39;</span><span class="p">,</span> <span class="s1">&#39;lrradi_maxiter&#39;</span><span class="p">,</span> <span class="s1">&#39;lrradi_shifts&#39;</span><span class="p">,</span> <span class="s1">&#39;hamiltonian_shifts_init_maxiter&#39;</span><span class="p">,</span>
+          <span class="s1">&#39;hamiltonian_shifts_init_seed&#39;</span><span class="p">,</span> <span class="s1">&#39;hamiltonian_shifts_subspace_columns&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">ricc_lrcf_solver_options</span><span class="p">(</span><span class="n">lrradi_tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span>
+                             <span class="n">lrradi_maxiter</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+                             <span class="n">lrradi_shifts</span><span class="o">=</span><span class="s1">&#39;hamiltonian_shifts&#39;</span><span class="p">,</span>
+                             <span class="n">hamiltonian_shifts_init_maxiter</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+                             <span class="n">hamiltonian_shifts_init_seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                             <span class="n">hamiltonian_shifts_subspace_columns</span><span class="o">=</span><span class="mi">6</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns available Riccati equation solvers with default solver options.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    lrradi_tol</span>
+<span class="sd">        See :func:`solve_ricc_lrcf`.</span>
+<span class="sd">    lrradi_maxiter</span>
+<span class="sd">        See :func:`solve_ricc_lrcf`.</span>
+<span class="sd">    lrradi_shifts</span>
+<span class="sd">        See :func:`solve_ricc_lrcf`.</span>
+<span class="sd">    hamiltonian_shifts_init_maxiter</span>
+<span class="sd">        See :func:`hamiltonian_shifts_init`.</span>
+<span class="sd">    hamiltonian_shifts_init_seed</span>
+<span class="sd">        See :func:`hamiltonian_shifts_init`.</span>
+<span class="sd">    hamiltonian_shifts_subspace_columns</span>
+<span class="sd">        See :func:`hamiltonian_shifts`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    A dict of available solvers with default solver options.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;lrradi&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;lrradi&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;tol&#39;</span><span class="p">:</span> <span class="n">lrradi_tol</span><span class="p">,</span>
+                       <span class="s1">&#39;maxiter&#39;</span><span class="p">:</span> <span class="n">lrradi_maxiter</span><span class="p">,</span>
+                       <span class="s1">&#39;shifts&#39;</span><span class="p">:</span> <span class="n">lrradi_shifts</span><span class="p">,</span>
+                       <span class="s1">&#39;shift_options&#39;</span><span class="p">:</span>
+                       <span class="p">{</span><span class="s1">&#39;hamiltonian_shifts&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;hamiltonian_shifts&#39;</span><span class="p">,</span>
+                                               <span class="s1">&#39;init_maxiter&#39;</span><span class="p">:</span> <span class="n">hamiltonian_shifts_init_maxiter</span><span class="p">,</span>
+                                               <span class="s1">&#39;init_seed&#39;</span><span class="p">:</span> <span class="n">hamiltonian_shifts_init_seed</span><span class="p">,</span>
+                                               <span class="s1">&#39;subspace_columns&#39;</span><span class="p">:</span> <span class="n">hamiltonian_shifts_subspace_columns</span><span class="p">}}}}</span></div>
+
+
+<div class="viewcode-block" id="solve_ricc_lrcf"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.lrradi.solve_ricc_lrcf">[docs]</a><span class="k">def</span> <span class="nf">solve_ricc_lrcf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">S</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute an approximate low-rank solution of a Riccati equation.</span>
+
+<span class="sd">    See :func:`pymor.algorithms.riccati.solve_ricc_lrcf` for a</span>
+<span class="sd">    general description.</span>
+
+<span class="sd">    This function is an implementation of Algorithm 2 in [BBKS18]_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The |Operator| A.</span>
+<span class="sd">    E</span>
+<span class="sd">        The |Operator| E or `None`.</span>
+<span class="sd">    B</span>
+<span class="sd">        The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">    C</span>
+<span class="sd">        The operator C as a |VectorArray| from `A.source`.</span>
+<span class="sd">    R</span>
+<span class="sd">        The operator R as a 2D |NumPy array| or `None`.</span>
+<span class="sd">    S</span>
+<span class="sd">        The operator S as a |VectorArray| from `A.source` or `None`.</span>
+<span class="sd">    trans</span>
+<span class="sd">        Whether the first |Operator| in the Riccati equation is</span>
+<span class="sd">        transposed.</span>
+<span class="sd">    options</span>
+<span class="sd">        The solver options to use. (see</span>
+<span class="sd">        :func:`ricc_lrcf_solver_options`)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Z</span>
+<span class="sd">        Low-rank Cholesky factor of the Riccati equation solution,</span>
+<span class="sd">        |VectorArray| from `A.source`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_solve_ricc_check_args</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+    <span class="n">options</span> <span class="o">=</span> <span class="n">_parse_options</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">ricc_lrcf_solver_options</span><span class="p">(),</span> <span class="s1">&#39;lrradi&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.lrradi.solve_ricc_lrcf&#39;</span><span class="p">)</span>
+
+    <span class="n">shift_options</span> <span class="o">=</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;shift_options&#39;</span><span class="p">][</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;shifts&#39;</span><span class="p">]]</span>
+    <span class="k">if</span> <span class="n">shift_options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;hamiltonian_shifts&#39;</span><span class="p">:</span>
+        <span class="n">init_shifts</span> <span class="o">=</span> <span class="n">hamiltonian_shifts_init</span>
+        <span class="n">iteration_shifts</span> <span class="o">=</span> <span class="n">hamiltonian_shifts</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unknown lrradi shift strategy.&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">E</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="n">IdentityOperator</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">S</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">Rc</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">cholesky</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>                                 <span class="c1"># R = Rc^T * Rc</span>
+        <span class="n">Rci</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">solve_triangular</span><span class="p">(</span><span class="n">Rc</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">Rc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>  <span class="c1"># R^{-1} = Rci * Rci^T</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span><span class="p">:</span>
+            <span class="n">C</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Rci</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>  <span class="c1"># C &lt;- Rci^T * C = (C^T * Rci)^T</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">B</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Rci</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>  <span class="c1"># B &lt;- B * Rci</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span><span class="p">:</span>
+        <span class="n">B</span><span class="p">,</span> <span class="n">C</span> <span class="o">=</span> <span class="n">C</span><span class="p">,</span> <span class="n">B</span>
+
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">C</span><span class="p">)</span> <span class="o">*</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;maxiter&#39;</span><span class="p">])</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+    <span class="n">K</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">B</span><span class="p">))</span>
+    <span class="n">RF</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">j_shift</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">shifts</span> <span class="o">=</span> <span class="n">init_shifts</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">shift_options</span><span class="p">)</span>
+
+    <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">RF</span><span class="o">.</span><span class="n">gramian</span><span class="p">(),</span> <span class="nb">ord</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">init_res</span> <span class="o">=</span> <span class="n">res</span>
+    <span class="n">Ctol</span> <span class="o">=</span> <span class="n">res</span> <span class="o">*</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;tol&#39;</span><span class="p">]</span>
+
+    <span class="k">while</span> <span class="n">res</span> <span class="o">&gt;</span> <span class="n">Ctol</span> <span class="ow">and</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;maxiter&#39;</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span><span class="p">:</span>
+            <span class="n">AsE</span> <span class="o">=</span> <span class="n">A</span> <span class="o">+</span> <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span> <span class="o">*</span> <span class="n">E</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">AsE</span> <span class="o">=</span> <span class="n">A</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">])</span> <span class="o">*</span> <span class="n">E</span>
+        <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span><span class="p">:</span>
+                <span class="n">V</span> <span class="o">=</span> <span class="n">AsE</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">RF</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">V</span> <span class="o">=</span> <span class="n">AsE</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">RF</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span><span class="p">:</span>
+                <span class="n">LN</span> <span class="o">=</span> <span class="n">AsE</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">cat_arrays</span><span class="p">([</span><span class="n">RF</span><span class="p">,</span> <span class="n">K</span><span class="p">]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">LN</span> <span class="o">=</span> <span class="n">AsE</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">cat_arrays</span><span class="p">([</span><span class="n">RF</span><span class="p">,</span> <span class="n">K</span><span class="p">]))</span>
+            <span class="n">L</span> <span class="o">=</span> <span class="n">LN</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">RF</span><span class="p">)]</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="n">LN</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">K</span><span class="p">):]</span>
+            <span class="n">ImBN</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">K</span><span class="p">))</span> <span class="o">-</span> <span class="n">B</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+            <span class="n">ImBNKL</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">ImBN</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">L</span><span class="p">))</span>
+            <span class="n">V</span> <span class="o">=</span> <span class="p">(</span><span class="n">L</span> <span class="o">+</span> <span class="n">N</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">ImBNKL</span><span class="o">.</span><span class="n">T</span><span class="p">))</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">Z</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+            <span class="n">VB</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+            <span class="n">Yt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">C</span><span class="p">))</span> <span class="o">-</span> <span class="p">(</span><span class="n">VB</span> <span class="o">@</span> <span class="n">VB</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+            <span class="n">Y</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">Yt</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">trans</span><span class="p">:</span>
+                <span class="n">EVYt</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">V</span><span class="p">)</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">Yt</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">EVYt</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="p">)</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">Yt</span><span class="p">))</span>
+            <span class="n">RF</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="o">*</span><span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">),</span> <span class="n">EVYt</span><span class="p">)</span>
+            <span class="n">K</span> <span class="o">+=</span> <span class="n">EVYt</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">VB</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">Z</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+            <span class="n">Z</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span>
+            <span class="n">Vr</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">real</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+            <span class="n">Vi</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">imag</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+            <span class="n">sa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">])</span>
+            <span class="n">F1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span>
+                <span class="o">-</span><span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="o">/</span><span class="n">sa</span> <span class="o">*</span> <span class="n">Vr</span> <span class="o">-</span> <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">imag</span><span class="o">/</span><span class="n">sa</span> <span class="o">*</span> <span class="n">Vi</span><span class="p">,</span>
+                <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">imag</span><span class="o">/</span><span class="n">sa</span> <span class="o">*</span> <span class="n">Vr</span> <span class="o">-</span> <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="o">/</span><span class="n">sa</span> <span class="o">*</span> <span class="n">Vi</span>
+            <span class="p">))</span>
+            <span class="n">F2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span>
+                <span class="n">Vr</span><span class="p">,</span>
+                <span class="n">Vi</span>
+            <span class="p">))</span>
+            <span class="n">F3</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span>
+                <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">imag</span><span class="o">/</span><span class="n">sa</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">C</span><span class="p">)),</span>
+                <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="o">/</span><span class="n">sa</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">C</span><span class="p">))</span>
+            <span class="p">))</span>
+            <span class="n">Yt</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">C</span><span class="p">)),</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">C</span><span class="p">)))</span> \
+                <span class="o">-</span> <span class="p">(</span><span class="n">F1</span> <span class="o">@</span> <span class="n">F1</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>  \
+                <span class="o">-</span> <span class="p">(</span><span class="n">F2</span> <span class="o">@</span> <span class="n">F2</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>  \
+                <span class="o">-</span> <span class="p">(</span><span class="n">F3</span> <span class="o">@</span> <span class="n">F3</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="n">Y</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">Yt</span><span class="p">)</span>
+            <span class="n">EVYt</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">cat_arrays</span><span class="p">([</span><span class="n">V</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">V</span><span class="o">.</span><span class="n">imag</span><span class="p">]))</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">Yt</span><span class="p">))</span>
+            <span class="n">RF</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">shifts</span><span class="p">[</span><span class="n">j_shift</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">),</span> <span class="n">EVYt</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">C</span><span class="p">)])</span>
+            <span class="n">K</span> <span class="o">+=</span> <span class="n">EVYt</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">F2</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">j</span> <span class="o">+=</span> <span class="mi">2</span>
+        <span class="n">j_shift</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">RF</span><span class="o">.</span><span class="n">gramian</span><span class="p">(),</span> <span class="nb">ord</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Relative residual at step </span><span class="si">{j}</span><span class="s1">: {res/init_res:.5e}&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">j_shift</span> <span class="o">&gt;=</span> <span class="n">shifts</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="n">shifts</span> <span class="o">=</span> <span class="n">iteration_shifts</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">RF</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">shift_options</span><span class="p">)</span>
+            <span class="n">j_shift</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="c1"># transform solution to lrcf</span>
+    <span class="n">cf</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">cholesky</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span>
+    <span class="n">Z_cf</span> <span class="o">=</span> <span class="n">Z</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">spla</span><span class="o">.</span><span class="n">solve_triangular</span><span class="p">(</span><span class="n">cf</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Z</span><span class="p">)))</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Z_cf</span></div>
+
+
+<div class="viewcode-block" id="hamiltonian_shifts_init"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.lrradi.hamiltonian_shifts_init">[docs]</a><span class="k">def</span> <span class="nf">hamiltonian_shifts_init</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">shift_options</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute initial shift parameters for low-rank RADI iteration.</span>
+
+<span class="sd">    Compute Galerkin projection of Hamiltonian matrix on space spanned by :math:`C` and return the</span>
+<span class="sd">    eigenvalue of the projected Hamiltonian with the most impact on convergence as the next shift</span>
+<span class="sd">    parameter.</span>
+
+<span class="sd">    See [BBKS18]_, pp. 318-321.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The |Operator| A from the corresponding Riccati equation.</span>
+<span class="sd">    E</span>
+<span class="sd">        The |Operator| E from the corresponding Riccati equation.</span>
+<span class="sd">    B</span>
+<span class="sd">        The |VectorArray| B from the corresponding Riccati equation.</span>
+<span class="sd">    C</span>
+<span class="sd">        The |VectorArray| C from the corresponding Riccati equation.</span>
+<span class="sd">    shift_options</span>
+<span class="sd">        The shift options to use (see :func:`ricc_lrcf_solver_options`).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    shifts</span>
+<span class="sd">        A |NumPy array| containing a set of stable shift parameters.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">random_state</span> <span class="o">=</span> <span class="n">get_random_state</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">shift_options</span><span class="p">[</span><span class="s1">&#39;init_seed&#39;</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">shift_options</span><span class="p">[</span><span class="s1">&#39;init_maxiter&#39;</span><span class="p">]):</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">Ap</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">Q</span><span class="p">)</span>
+        <span class="n">QB</span> <span class="o">=</span> <span class="n">Q</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+        <span class="n">Gp</span> <span class="o">=</span> <span class="n">QB</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">QB</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">QR</span> <span class="o">=</span> <span class="n">Q</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">C</span><span class="p">)</span>
+        <span class="n">Rp</span> <span class="o">=</span> <span class="n">QR</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">QR</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">Hp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">block</span><span class="p">([</span>
+            <span class="p">[</span><span class="n">Ap</span><span class="p">,</span> <span class="n">Gp</span><span class="p">],</span>
+            <span class="p">[</span><span class="n">Rp</span><span class="p">,</span> <span class="o">-</span><span class="n">Ap</span><span class="o">.</span><span class="n">T</span><span class="p">]</span>
+        <span class="p">])</span>
+        <span class="n">Ep</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">Q</span><span class="p">)</span>
+        <span class="n">EEp</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">Ep</span><span class="p">,</span> <span class="n">Ep</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">eigvals</span><span class="p">,</span> <span class="n">eigvecs</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">Hp</span><span class="p">,</span> <span class="n">EEp</span><span class="p">)</span>
+        <span class="n">eigpairs</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="n">eigvals</span><span class="p">,</span> <span class="n">eigvecs</span><span class="p">)</span>
+        <span class="c1"># filter stable eigenvalues</span>
+        <span class="n">eigpairs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">real</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">eigpairs</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">eigpairs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># use random subspace instead of span{C} (with same dimensions)</span>
+            <span class="n">C</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">C</span><span class="p">),</span> <span class="n">distribution</span><span class="o">=</span><span class="s1">&#39;normal&#39;</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="c1"># find shift with most impact on convergence</span>
+        <span class="n">maxval</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">maxind</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">eigpairs</span><span class="p">)):</span>
+            <span class="n">eig</span> <span class="o">=</span> <span class="n">eigpairs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">y_eig</span> <span class="o">=</span> <span class="n">eig</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">Q</span><span class="p">):]</span>
+            <span class="n">x_eig</span> <span class="o">=</span> <span class="n">eig</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">Q</span><span class="p">)]</span>
+            <span class="n">Ey</span> <span class="o">=</span> <span class="n">Ep</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">y_eig</span><span class="p">)</span>
+            <span class="n">xEy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">x_eig</span><span class="p">,</span> <span class="n">Ey</span><span class="p">))</span>
+            <span class="n">currval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">y_eig</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">xEy</span>
+            <span class="k">if</span> <span class="n">currval</span> <span class="o">&gt;</span> <span class="n">maxval</span><span class="p">:</span>
+                <span class="n">maxval</span> <span class="o">=</span> <span class="n">currval</span>
+                <span class="n">maxind</span> <span class="o">=</span> <span class="n">i</span>
+        <span class="n">shift</span> <span class="o">=</span> <span class="n">eigpairs</span><span class="p">[</span><span class="n">maxind</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># remove imaginary part if it is relatively small</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">shift</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-8</span><span class="p">:</span>
+            <span class="n">shift</span> <span class="o">=</span> <span class="n">shift</span><span class="o">.</span><span class="n">real</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">shift</span><span class="p">])</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Could not generate initial shifts for low-rank RADI iteration.&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="hamiltonian_shifts"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.lrradi.hamiltonian_shifts">[docs]</a><span class="k">def</span> <span class="nf">hamiltonian_shifts</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">shift_options</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute further shift parameters for low-rank RADI iteration.</span>
+
+<span class="sd">    Compute Galerkin projection of Hamiltonian matrix on space spanned by last few columns of</span>
+<span class="sd">    :math:`Z` and return the eigenvalue of the projected Hamiltonian with the most impact on</span>
+<span class="sd">    convergence as the next shift parameter.</span>
+
+<span class="sd">    See [BBKS18]_, pp. 318-321.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The |Operator| A from the corresponding Riccati equation.</span>
+<span class="sd">    E</span>
+<span class="sd">        The |Operator| E from the corresponding Riccati equation.</span>
+<span class="sd">    B</span>
+<span class="sd">        The |VectorArray| B from the corresponding Riccati equation.</span>
+<span class="sd">    R</span>
+<span class="sd">        A |VectorArray| representing the currently computed residual factor.</span>
+<span class="sd">    K</span>
+<span class="sd">        A |VectorArray| representing the currently computed iterate.</span>
+<span class="sd">    Z</span>
+<span class="sd">        A |VectorArray| representing the currently computed solution factor.</span>
+<span class="sd">    shift_options</span>
+<span class="sd">        The shift options to use (see :func:`ricc_lrcf_solver_options`).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    shifts</span>
+<span class="sd">        A |NumPy array| containing a set of stable shift parameters.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">l</span> <span class="o">=</span> <span class="n">shift_options</span><span class="p">[</span><span class="s1">&#39;subspace_columns&#39;</span><span class="p">]</span>
+    <span class="c1"># always use multiple of len(R) columns</span>
+    <span class="n">l</span> <span class="o">=</span> <span class="n">l</span> <span class="o">//</span> <span class="nb">len</span><span class="p">(</span><span class="n">R</span><span class="p">)</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">l</span><span class="p">:</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span>
+
+    <span class="n">Q</span> <span class="o">=</span> <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">Z</span><span class="p">[</span><span class="o">-</span><span class="n">l</span><span class="p">:],</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">Ap</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">Q</span><span class="p">)</span>
+    <span class="n">KBp</span> <span class="o">=</span> <span class="n">Q</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">K</span><span class="p">)</span> <span class="o">@</span> <span class="n">Q</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">AAp</span> <span class="o">=</span> <span class="n">Ap</span> <span class="o">-</span> <span class="n">KBp</span>
+    <span class="n">QB</span> <span class="o">=</span> <span class="n">Q</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+    <span class="n">Gp</span> <span class="o">=</span> <span class="n">QB</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">QB</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+    <span class="n">QR</span> <span class="o">=</span> <span class="n">Q</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>
+    <span class="n">Rp</span> <span class="o">=</span> <span class="n">QR</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">QR</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+    <span class="n">Hp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">block</span><span class="p">([</span>
+        <span class="p">[</span><span class="n">AAp</span><span class="p">,</span> <span class="n">Gp</span><span class="p">],</span>
+        <span class="p">[</span><span class="n">Rp</span><span class="p">,</span> <span class="o">-</span><span class="n">AAp</span><span class="o">.</span><span class="n">T</span><span class="p">]</span>
+    <span class="p">])</span>
+    <span class="n">Ep</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply2</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">Q</span><span class="p">)</span>
+    <span class="n">EEp</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">Ep</span><span class="p">,</span> <span class="n">Ep</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+    <span class="n">eigvals</span><span class="p">,</span> <span class="n">eigvecs</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">Hp</span><span class="p">,</span> <span class="n">EEp</span><span class="p">)</span>
+    <span class="n">eigpairs</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="n">eigvals</span><span class="p">,</span> <span class="n">eigvecs</span><span class="p">)</span>
+    <span class="c1"># filter stable eigenvalues</span>
+    <span class="n">eigpairs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">real</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">eigpairs</span><span class="p">))</span>
+    <span class="c1"># find shift with most impact on convergence</span>
+    <span class="n">maxval</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">maxind</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">eigpairs</span><span class="p">)):</span>
+        <span class="n">eig</span> <span class="o">=</span> <span class="n">eigpairs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">y_eig</span> <span class="o">=</span> <span class="n">eig</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">Q</span><span class="p">):]</span>
+        <span class="n">x_eig</span> <span class="o">=</span> <span class="n">eig</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">Q</span><span class="p">)]</span>
+        <span class="n">Ey</span> <span class="o">=</span> <span class="n">Ep</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">y_eig</span><span class="p">)</span>
+        <span class="n">xEy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">x_eig</span><span class="p">,</span> <span class="n">Ey</span><span class="p">))</span>
+        <span class="n">currval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">y_eig</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">xEy</span>
+        <span class="k">if</span> <span class="n">currval</span> <span class="o">&gt;</span> <span class="n">maxval</span><span class="p">:</span>
+            <span class="n">maxval</span> <span class="o">=</span> <span class="n">currval</span>
+            <span class="n">maxind</span> <span class="o">=</span> <span class="n">i</span>
+    <span class="n">shift</span> <span class="o">=</span> <span class="n">eigpairs</span><span class="p">[</span><span class="n">maxind</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># remove imaginary part if it is relatively small</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">shift</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-8</span><span class="p">:</span>
+        <span class="n">shift</span> <span class="o">=</span> <span class="n">shift</span><span class="o">.</span><span class="n">real</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">shift</span><span class="p">])</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

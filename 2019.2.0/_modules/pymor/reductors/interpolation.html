@@ -1,0 +1,501 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.reductors.interpolation &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.reductors.interpolation</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.krylov</span> <span class="kn">import</span> <span class="n">rational_arnoldi</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.gram_schmidt</span> <span class="kn">import</span> <span class="n">gram_schmidt</span><span class="p">,</span> <span class="n">gram_schmidt_biorth</span>
+<span class="kn">from</span> <span class="nn">pymor.core.interfaces</span> <span class="kn">import</span> <span class="n">BasicInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.models.iosys</span> <span class="kn">import</span> <span class="n">LTIModel</span><span class="p">,</span> <span class="n">SecondOrderModel</span><span class="p">,</span> <span class="n">LinearDelayModel</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">LincombOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.basic</span> <span class="kn">import</span> <span class="p">(</span><span class="n">ProjectionBasedReductor</span><span class="p">,</span> <span class="n">LTIPGReductor</span><span class="p">,</span> <span class="n">SOLTIPGReductor</span><span class="p">,</span>
+                                   <span class="n">DelayLTIPGReductor</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="GenericBHIReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.interpolation.GenericBHIReductor">[docs]</a><span class="k">class</span> <span class="nc">GenericBHIReductor</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Generic bitangential Hermite interpolation reductor.</span>
+
+<span class="sd">    This is a generic reductor for reducing any linear</span>
+<span class="sd">    :class:`~pymor.models.iosys.InputStateOutputModel` with the transfer</span>
+<span class="sd">    function which can be written in the generalized coprime</span>
+<span class="sd">    factorization :math:`H(s) = \mathcal{C}(s) \mathcal{K}(s)^{-1}</span>
+<span class="sd">    \mathcal{B}(s)` as in [BG09]_. The interpolation here is limited to</span>
+<span class="sd">    only up to the first derivative. Interpolation points are assumed to</span>
+<span class="sd">    be pairwise distinct.</span>
+
+<span class="sd">    In particular, given interpolation points :math:`\sigma_i`, right</span>
+<span class="sd">    tangential directions :math:`b_i`, and left tangential directions</span>
+<span class="sd">    :math:`c_i`, for :math:`i = 1, 2, \ldots, r`, which are closed under</span>
+<span class="sd">    conjugation (if :math:`\sigma_i` is real, then so are :math:`b_i`</span>
+<span class="sd">    and :math:`c_i`; if :math:`\sigma_i` is complex, there is</span>
+<span class="sd">    :math:`\sigma_j` such that :math:`\sigma_j = \overline{\sigma_i}`,</span>
+<span class="sd">    :math:`b_j = \overline{b_i}`, :math:`c_j = \overline{c_i}`), this</span>
+<span class="sd">    reductor finds a transfer function :math:`\widehat{H}` such that</span>
+
+<span class="sd">    .. math::</span>
+<span class="sd">        H(\sigma_i) b_i &amp; = \widehat{H}(\sigma_i) b_i, \\</span>
+<span class="sd">        c_i^T H(\sigma_i) &amp; = c_i^T \widehat{H}(\sigma_i) b_i, \\</span>
+<span class="sd">        c_i^T H&#39;(\sigma_i) b_i &amp; = c_i^T \widehat{H}&#39;(\sigma_i) b_i,</span>
+
+<span class="sd">    for all :math:`i = 1, 2, \ldots, r`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full-order |Model| to reduce.</span>
+<span class="sd">    mu</span>
+<span class="sd">        |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_PGReductor</span> <span class="o">=</span> <span class="n">ProjectionBasedReductor</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fom</span> <span class="o">=</span> <span class="n">fom</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_product</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_B_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">_C_apply_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">_K_apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">_K_apply_inverse_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">_fom_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+<div class="viewcode-block" id="GenericBHIReductor.reduce"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.interpolation.GenericBHIReductor.reduce">[docs]</a>    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;orth&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Bitangential Hermite interpolation.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        sigma</span>
+<span class="sd">            Interpolation points (closed under conjugation), sequence of</span>
+<span class="sd">            length `r`.</span>
+<span class="sd">        b</span>
+<span class="sd">            Right tangential directions, |VectorArray| of length `r`</span>
+<span class="sd">            from `self.fom.input_space`.</span>
+<span class="sd">        c</span>
+<span class="sd">            Left tangential directions, |VectorArray| of length `r` from</span>
+<span class="sd">            `self.fom.output_space`.</span>
+<span class="sd">        projection</span>
+<span class="sd">            Projection method:</span>
+
+<span class="sd">            - `&#39;orth&#39;`: projection matrices are orthogonalized with</span>
+<span class="sd">              respect to the Euclidean inner product</span>
+<span class="sd">            - `&#39;biorth&#39;`: projection matrices are biorthogolized with</span>
+<span class="sd">              respect to the E product</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        rom</span>
+<span class="sd">            Reduced-order model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">input_space</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span>
+        <span class="k">assert</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">output_space</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span>
+        <span class="k">assert</span> <span class="n">projection</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;orth&#39;</span><span class="p">,</span> <span class="s1">&#39;biorth&#39;</span><span class="p">)</span>
+
+        <span class="c1"># rescale tangential directions (to avoid overflow or underflow)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">b</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">())</span> <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">input_space</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">())</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">output_space</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+
+        <span class="c1"># compute projection matrices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">imag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">Bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_B_apply</span><span class="p">(</span><span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">b</span><span class="o">.</span><span class="n">real</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_K_apply_inverse</span><span class="p">(</span><span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">Bb</span><span class="p">))</span>
+
+                <span class="n">CTc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_C_apply_adjoint</span><span class="p">(</span><span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">real</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_K_apply_inverse_adjoint</span><span class="p">(</span><span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">CTc</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">imag</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">Bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_B_apply</span><span class="p">(</span><span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K_apply_inverse</span><span class="p">(</span><span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">Bb</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span>
+
+                <span class="n">CTc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_C_apply_adjoint</span><span class="p">(</span><span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">conj</span><span class="p">())</span>
+                <span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K_apply_inverse_adjoint</span><span class="p">(</span><span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">CTc</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;orth&#39;</span><span class="p">:</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;biorth&#39;</span><span class="p">:</span>
+            <span class="n">gram_schmidt_biorth</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_product</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># find reduced-order model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_PGReductor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fom_assemble</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">,</span>
+                                             <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;biorth&#39;</span><span class="p">)</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">rom</span></div>
+
+<div class="viewcode-block" id="GenericBHIReductor.reconstruct"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.interpolation.GenericBHIReductor.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reconstruct high-dimensional vector from reduced vector `u`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">u</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="LTIBHIReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.interpolation.LTIBHIReductor">[docs]</a><span class="k">class</span> <span class="nc">LTIBHIReductor</span><span class="p">(</span><span class="n">GenericBHIReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Bitangential Hermite interpolation for |LTIModels|.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full-order |LTIModel| to reduce.</span>
+<span class="sd">    mu</span>
+<span class="sd">        |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_PGReductor</span> <span class="o">=</span> <span class="n">LTIPGReductor</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">LTIModel</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_product</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">E</span>
+
+    <span class="k">def</span> <span class="nf">_B_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_C_apply_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">C</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_K_apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="n">sEmA</span> <span class="o">=</span> <span class="n">s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">A</span>
+        <span class="k">return</span> <span class="n">sEmA</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_K_apply_inverse_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="n">sEmA</span> <span class="o">=</span> <span class="n">s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">A</span>
+        <span class="k">return</span> <span class="n">sEmA</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_fom_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span>
+                <span class="o">**</span><span class="p">{</span><span class="n">op</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="s1">&#39;C&#39;</span><span class="p">,</span> <span class="s1">&#39;D&#39;</span><span class="p">,</span> <span class="s1">&#39;E&#39;</span><span class="p">]},</span>
+                <span class="n">parameter_space</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span>
+
+<div class="viewcode-block" id="LTIBHIReductor.reduce"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.interpolation.LTIBHIReductor.reduce">[docs]</a>    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;orth&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Bitangential Hermite interpolation.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        sigma</span>
+<span class="sd">            Interpolation points (closed under conjugation), sequence of</span>
+<span class="sd">            length `r`.</span>
+<span class="sd">        b</span>
+<span class="sd">            Right tangential directions, |VectorArray| of length `r`</span>
+<span class="sd">            from `self.fom.input_space`.</span>
+<span class="sd">        c</span>
+<span class="sd">            Left tangential directions, |VectorArray| of length `r` from</span>
+<span class="sd">            `self.fom.output_space`.</span>
+<span class="sd">        projection</span>
+<span class="sd">            Projection method:</span>
+
+<span class="sd">            - `&#39;orth&#39;`: projection matrices are orthogonalized with</span>
+<span class="sd">              respect to the Euclidean inner product</span>
+<span class="sd">            - `&#39;biorth&#39;`: projection matrices are biorthogolized with</span>
+<span class="sd">              respect to the E product</span>
+<span class="sd">            - `&#39;arnoldi&#39;`: projection matrices are orthogonalized using</span>
+<span class="sd">              the rational Arnoldi process (available only for SISO</span>
+<span class="sd">              systems).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        rom</span>
+<span class="sd">            Reduced-order model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">projection</span> <span class="o">!=</span> <span class="s1">&#39;arnoldi&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="n">projection</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">input_dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">source</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span>
+        <span class="k">assert</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">C</span><span class="o">.</span><span class="n">range</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span>
+
+        <span class="c1"># compute projection matrices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V</span> <span class="o">=</span> <span class="n">rational_arnoldi</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">B</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">=</span> <span class="n">rational_arnoldi</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">C</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># find reduced-order model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_PGReductor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fom_assemble</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">)</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pg_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">rom</span></div></div>
+
+
+<div class="viewcode-block" id="SOBHIReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.interpolation.SOBHIReductor">[docs]</a><span class="k">class</span> <span class="nc">SOBHIReductor</span><span class="p">(</span><span class="n">GenericBHIReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Bitangential Hermite interpolation for |SecondOrderModels|.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full-order |SecondOrderModel| to reduce.</span>
+<span class="sd">    mu</span>
+<span class="sd">        |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_PGReductor</span> <span class="o">=</span> <span class="n">SOLTIPGReductor</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">SecondOrderModel</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_product</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">M</span>
+
+    <span class="k">def</span> <span class="nf">_B_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_C_apply_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">Cp</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">Cv</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span> <span class="o">*</span> <span class="n">s</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_K_apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="n">s2MpsEpK</span> <span class="o">=</span> <span class="n">s</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">M</span> <span class="o">+</span> <span class="n">s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">K</span>
+        <span class="k">return</span> <span class="n">s2MpsEpK</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_K_apply_inverse_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="n">s2MpsEpK</span> <span class="o">=</span> <span class="n">s</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">M</span> <span class="o">+</span> <span class="n">s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">K</span>
+        <span class="k">return</span> <span class="n">s2MpsEpK</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_fom_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span>
+                <span class="o">**</span><span class="p">{</span><span class="n">op</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;M&#39;</span><span class="p">,</span> <span class="s1">&#39;E&#39;</span><span class="p">,</span> <span class="s1">&#39;K&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="s1">&#39;Cp&#39;</span><span class="p">,</span> <span class="s1">&#39;Cv&#39;</span><span class="p">,</span> <span class="s1">&#39;D&#39;</span><span class="p">]},</span>
+                <span class="n">parameter_space</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span></div>
+
+
+<div class="viewcode-block" id="DelayBHIReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.interpolation.DelayBHIReductor">[docs]</a><span class="k">class</span> <span class="nc">DelayBHIReductor</span><span class="p">(</span><span class="n">GenericBHIReductor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Bitangential Hermite interpolation for |LinearDelayModels|.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The full-order |LinearDelayModel| to reduce.</span>
+<span class="sd">    mu</span>
+<span class="sd">        |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_PGReductor</span> <span class="o">=</span> <span class="n">DelayLTIPGReductor</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">LinearDelayModel</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_product</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">E</span>
+
+    <span class="k">def</span> <span class="nf">_B_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_C_apply_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">C</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_K_apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="n">Ks</span> <span class="o">=</span> <span class="n">LincombOperator</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">A</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">Ad</span><span class="p">,</span>
+            <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">taui</span> <span class="o">*</span> <span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">taui</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">tau</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">Ks</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_K_apply_inverse_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+        <span class="n">Ks</span> <span class="o">=</span> <span class="n">LincombOperator</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">A</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">Ad</span><span class="p">,</span>
+            <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">taui</span> <span class="o">*</span> <span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">taui</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">tau</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">Ks</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_fom_assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">parametric</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span>
+                <span class="o">**</span><span class="p">{</span><span class="n">op</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="s1">&#39;C&#39;</span><span class="p">,</span> <span class="s1">&#39;D&#39;</span><span class="p">,</span> <span class="s1">&#39;E&#39;</span><span class="p">]},</span>
+                <span class="n">Ad</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">Ad</span><span class="p">),</span>
+                <span class="n">parameter_space</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span></div>
+
+
+<div class="viewcode-block" id="TFBHIReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.interpolation.TFBHIReductor">[docs]</a><span class="k">class</span> <span class="nc">TFBHIReductor</span><span class="p">(</span><span class="n">BasicInterface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Loewner bitangential Hermite interpolation reductor.</span>
+
+<span class="sd">    See [BG12]_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The |Model| with `eval_tf` and `eval_dtf` methods.</span>
+<span class="sd">    mu</span>
+<span class="sd">        |Parameter|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fom</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fom</span> <span class="o">=</span> <span class="n">fom</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">parse_parameter</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TFBHIReductor.reduce"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.interpolation.TFBHIReductor.reduce">[docs]</a>    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Realization-independent tangential Hermite interpolation.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        sigma</span>
+<span class="sd">            Interpolation points (closed under conjugation), sequence of</span>
+<span class="sd">            length `r`.</span>
+<span class="sd">        b</span>
+<span class="sd">            Right tangential directions, |VectorArray| from</span>
+<span class="sd">            `fom.input_space` of length `r`.</span>
+<span class="sd">        c</span>
+<span class="sd">            Left tangential directions, |VectorArray| from</span>
+<span class="sd">            `fom.output_space` of length `r`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        lti</span>
+<span class="sd">            The reduced-order |LTIModel| interpolating the transfer</span>
+<span class="sd">            function of `fom`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">input_space</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span>
+        <span class="k">assert</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">output_space</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span>
+
+        <span class="c1"># rescale tangential directions (to avoid overflow or underflow)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">b</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">())</span> <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">input_space</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">())</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">output_space</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+
+        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+        <span class="c1"># matrices of the interpolatory LTI system</span>
+        <span class="n">Er</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="n">r</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
+        <span class="n">Ar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="n">r</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
+        <span class="n">Br</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">input_dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
+        <span class="n">Cr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">output_dim</span><span class="p">,</span> <span class="n">r</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
+
+        <span class="n">Hs</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">eval_tf</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">sigma</span><span class="p">]</span>
+        <span class="n">dHs</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">eval_dtf</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">sigma</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">j</span><span class="p">:</span>
+                    <span class="n">Er</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">@</span> <span class="p">(</span><span class="n">Hs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">Hs</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">@</span> <span class="n">b</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">sigma</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                    <span class="n">Ar</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">@</span> <span class="p">(</span><span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">Hs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">sigma</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">Hs</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">@</span> <span class="n">b</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                                <span class="o">/</span> <span class="p">(</span><span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">sigma</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">Er</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">@</span> <span class="n">dHs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">@</span> <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="n">Ar</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">@</span> <span class="p">(</span><span class="n">Hs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">dHs</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">@</span> <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">Br</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">Hs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">Cr</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">Hs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">@</span> <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="c1"># transform the system to have real matrices</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="n">r</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">imag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">T</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">j</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">sigma</span> <span class="o">-</span> <span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()))</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">j</span><span class="p">:</span>
+                    <span class="n">T</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                    <span class="n">T</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                    <span class="n">T</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="n">j</span>
+                    <span class="n">T</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="n">j</span>
+        <span class="n">Er</span> <span class="o">=</span> <span class="p">(</span><span class="n">T</span> <span class="o">@</span> <span class="n">Er</span> <span class="o">@</span> <span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
+        <span class="n">Ar</span> <span class="o">=</span> <span class="p">(</span><span class="n">T</span> <span class="o">@</span> <span class="n">Ar</span> <span class="o">@</span> <span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
+        <span class="n">Br</span> <span class="o">=</span> <span class="p">(</span><span class="n">T</span> <span class="o">@</span> <span class="n">Br</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
+        <span class="n">Cr</span> <span class="o">=</span> <span class="p">(</span><span class="n">Cr</span> <span class="o">@</span> <span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
+
+        <span class="k">return</span> <span class="n">LTIModel</span><span class="o">.</span><span class="n">from_matrices</span><span class="p">(</span><span class="n">Ar</span><span class="p">,</span> <span class="n">Br</span><span class="p">,</span> <span class="n">Cr</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Er</span><span class="p">,</span> <span class="n">cont_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">cont_time</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TFBHIReductor.reconstruct"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.interpolation.TFBHIReductor.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reconstruct high-dimensional vector from reduced vector `u`.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;The reconstruct method is not available for </span><span class="si">{self.__class__.__name__}</span><span class="s1">.&#39;</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>

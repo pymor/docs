@@ -1,0 +1,534 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.ei &#8212; pyMOR v2019.2.0 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.ei</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2019 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="sd">&quot;&quot;&quot;This module contains algorithms for the empirical interpolation of |Operators|.</span>
+
+<span class="sd">The main work for generating the necessary interpolation data is handled by</span>
+<span class="sd">the :func:`ei_greedy` method. The objects returned by this method can be used</span>
+<span class="sd">to instantiate an |EmpiricalInterpolatedOperator|.</span>
+
+<span class="sd">As a convenience, the :func:`interpolate_operators` method allows to perform</span>
+<span class="sd">the empirical interpolation of the |Operators| of a given model with</span>
+<span class="sd">a single function call.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.linalg</span> <span class="kn">import</span> <span class="n">solve</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.pod</span> <span class="kn">import</span> <span class="n">pod</span> <span class="k">as</span> <span class="n">pod_alg</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.ei</span> <span class="kn">import</span> <span class="n">EmpiricalInterpolatedOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.parallel.dummy</span> <span class="kn">import</span> <span class="n">dummy_pool</span>
+<span class="kn">from</span> <span class="nn">pymor.parallel.interfaces</span> <span class="kn">import</span> <span class="n">RemoteObjectInterface</span>
+<span class="kn">from</span> <span class="nn">pymor.parallel.manager</span> <span class="kn">import</span> <span class="n">RemoteObjectManager</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.interfaces</span> <span class="kn">import</span> <span class="n">VectorArrayInterface</span>
+
+
+<div class="viewcode-block" id="ei_greedy"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.ei.ei_greedy">[docs]</a><span class="k">def</span> <span class="nf">ei_greedy</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">error_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_interpolation_dofs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+              <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">pool</span><span class="o">=</span><span class="n">dummy_pool</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generate data for empirical interpolation using EI-Greedy algorithm.</span>
+
+<span class="sd">    Given a |VectorArray| `U`, this method generates a collateral basis and</span>
+<span class="sd">    interpolation DOFs for empirical interpolation of the vectors contained in `U`.</span>
+<span class="sd">    The returned objects can be used to instantiate an |EmpiricalInterpolatedOperator|</span>
+<span class="sd">    (with `triangular=True`).</span>
+
+<span class="sd">    The interpolation data is generated by a greedy search algorithm, where in each</span>
+<span class="sd">    loop iteration the worst approximated vector in `U` is added to the collateral basis.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    U</span>
+<span class="sd">        A |VectorArray| of vectors to interpolate.</span>
+<span class="sd">    error_norm</span>
+<span class="sd">        Norm w.r.t. which to calculate the interpolation error. If `None`, the Euclidean norm</span>
+<span class="sd">        is used.</span>
+<span class="sd">    atol</span>
+<span class="sd">        Stop the greedy search if the largest approximation error is below this threshold.</span>
+<span class="sd">    rtol</span>
+<span class="sd">        Stop the greedy search if the largest relative approximation error is below this threshold.</span>
+<span class="sd">    max_interpolation_dofs</span>
+<span class="sd">        Stop the greedy search if the number of interpolation DOF (= dimension of the collateral</span>
+<span class="sd">        basis) reaches this value.</span>
+<span class="sd">    copy</span>
+<span class="sd">        If `False`, `U` will be modified during executing of the algorithm.</span>
+<span class="sd">    pool</span>
+<span class="sd">        If not `None`, the |WorkerPool| to use for parallelization.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    interpolation_dofs</span>
+<span class="sd">        |NumPy array| of the DOFs at which the vectors are evaluated.</span>
+<span class="sd">    collateral_basis</span>
+<span class="sd">        |VectorArray| containing the generated collateral basis.</span>
+<span class="sd">    data</span>
+<span class="sd">        Dict containing the following fields:</span>
+
+<span class="sd">            :errors:                Sequence of maximum approximation errors during</span>
+<span class="sd">                                    greedy search.</span>
+<span class="sd">            :triangularity_errors:  Sequence of maximum absolute values of interoplation</span>
+<span class="sd">                                    matrix coefficients in the upper triangle (should</span>
+<span class="sd">                                    be near zero).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">pool</span><span class="p">:</span>  <span class="c1"># dispatch to parallel implemenation</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="p">(</span><span class="n">VectorArrayInterface</span><span class="p">,</span> <span class="n">RemoteObjectInterface</span><span class="p">))</span>
+        <span class="k">with</span> <span class="n">RemoteObjectManager</span><span class="p">()</span> <span class="k">as</span> <span class="n">rom</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">):</span>
+                <span class="n">U</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">manage</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">scatter_array</span><span class="p">(</span><span class="n">U</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">_parallel_ei_greedy</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">error_norm</span><span class="o">=</span><span class="n">error_norm</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span>
+                                       <span class="n">max_interpolation_dofs</span><span class="o">=</span><span class="n">max_interpolation_dofs</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">,</span> <span class="n">pool</span><span class="o">=</span><span class="n">pool</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.ei.ei_greedy&#39;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Generating Interpolation Data ...&#39;</span><span class="p">)</span>
+
+    <span class="n">interpolation_dofs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">collateral_basis</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="n">max_errs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">triangularity_errs</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">if</span> <span class="n">copy</span><span class="p">:</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="n">ERR</span> <span class="o">=</span> <span class="n">U</span>
+
+    <span class="n">errs</span> <span class="o">=</span> <span class="n">ERR</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span> <span class="k">if</span> <span class="n">error_norm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">error_norm</span><span class="p">(</span><span class="n">ERR</span><span class="p">)</span>
+    <span class="n">max_err_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">errs</span><span class="p">)</span>
+    <span class="n">initial_max_err</span> <span class="o">=</span> <span class="n">max_err</span> <span class="o">=</span> <span class="n">errs</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">]</span>
+
+    <span class="c1"># main loop</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">max_interpolation_dofs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">max_interpolation_dofs</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Maximum number of interpolation DOFs reached. Stopping extension loop.&#39;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Final maximum interpolation error with&#39;</span>
+                        <span class="sa">f</span><span class="s1">&#39;{len(interpolation_dofs)} interpolation DOFs: </span><span class="si">{max_err}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">break</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Maximum interpolation error with &#39;</span>
+                    <span class="sa">f</span><span class="s1">&#39;{len(interpolation_dofs)} interpolation DOFs: </span><span class="si">{max_err}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">atol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">max_err</span> <span class="o">&lt;=</span> <span class="n">atol</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Absolute error tolerance reached! Stopping extension loop.&#39;</span><span class="p">)</span>
+            <span class="k">break</span>
+
+        <span class="k">if</span> <span class="n">rtol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">max_err</span> <span class="o">/</span> <span class="n">initial_max_err</span> <span class="o">&lt;=</span> <span class="n">rtol</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Relative error tolerance reached! Stopping extension loop.&#39;</span><span class="p">)</span>
+            <span class="k">break</span>
+
+        <span class="c1"># compute new interpolation dof and collateral basis vector</span>
+        <span class="n">new_vec</span> <span class="o">=</span> <span class="n">U</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">new_dof</span> <span class="o">=</span> <span class="n">new_vec</span><span class="o">.</span><span class="n">amax</span><span class="p">()[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">new_dof</span> <span class="ow">in</span> <span class="n">interpolation_dofs</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;DOF </span><span class="si">{new_dof}</span><span class="s1"> selected twice for interplation! Stopping extension loop.&#39;</span><span class="p">)</span>
+            <span class="k">break</span>
+        <span class="n">new_dof_value</span> <span class="o">=</span> <span class="n">new_vec</span><span class="o">.</span><span class="n">dofs</span><span class="p">([</span><span class="n">new_dof</span><span class="p">])[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">new_dof_value</span> <span class="o">==</span> <span class="mf">0.</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;DOF </span><span class="si">{new_dof}</span><span class="s1"> selected for interpolation has zero maximum error! Stopping extension loop.&#39;</span><span class="p">)</span>
+            <span class="k">break</span>
+        <span class="n">new_vec</span> <span class="o">*=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">new_dof_value</span>
+        <span class="n">interpolation_dofs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">interpolation_dofs</span><span class="p">,</span> <span class="n">new_dof</span><span class="p">))</span>
+        <span class="n">collateral_basis</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_vec</span><span class="p">)</span>
+        <span class="n">max_errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">max_err</span><span class="p">)</span>
+
+        <span class="c1"># update U and ERR</span>
+        <span class="n">new_dof_values</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">dofs</span><span class="p">([</span><span class="n">new_dof</span><span class="p">])</span>
+        <span class="n">U</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="o">-</span><span class="n">new_dof_values</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">new_vec</span><span class="p">)</span>
+        <span class="n">errs</span> <span class="o">=</span> <span class="n">ERR</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span> <span class="k">if</span> <span class="n">error_norm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">error_norm</span><span class="p">(</span><span class="n">ERR</span><span class="p">)</span>
+        <span class="n">max_err_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">errs</span><span class="p">)</span>
+        <span class="n">max_err</span> <span class="o">=</span> <span class="n">errs</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">]</span>
+
+    <span class="n">interpolation_matrix</span> <span class="o">=</span> <span class="n">collateral_basis</span><span class="o">.</span><span class="n">dofs</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">triangularity_errors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">interpolation_matrix</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">tril</span><span class="p">(</span><span class="n">interpolation_matrix</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">interpolation_matrix</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">triangularity_errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">triangularity_errors</span><span class="p">[:</span><span class="n">d</span><span class="p">,</span> <span class="p">:</span><span class="n">d</span><span class="p">]))</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">triangularity_errs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Interpolation matrix is not lower triangular with maximum error of </span><span class="si">{triangularity_errs[-1]}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;errors&#39;</span><span class="p">:</span> <span class="n">max_errs</span><span class="p">,</span> <span class="s1">&#39;triangularity_errors&#39;</span><span class="p">:</span> <span class="n">triangularity_errs</span><span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">interpolation_dofs</span><span class="p">,</span> <span class="n">collateral_basis</span><span class="p">,</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="deim"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.ei.deim">[docs]</a><span class="k">def</span> <span class="nf">deim</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">modes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pod</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pod_options</span><span class="o">=</span><span class="p">{}):</span>
+    <span class="sd">&quot;&quot;&quot;Generate data for empirical interpolation using DEIM algorithm.</span>
+
+<span class="sd">    Given a |VectorArray| `U`, this method generates a collateral basis and</span>
+<span class="sd">    interpolation DOFs for empirical interpolation of the vectors contained in `U`.</span>
+<span class="sd">    The returned objects can be used to instantiate an |EmpiricalInterpolatedOperator|</span>
+<span class="sd">    (with `triangular=False`).</span>
+
+<span class="sd">    The collateral basis is determined by the first :func:`~pymor.algorithms.pod.pod` modes of `U`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    U</span>
+<span class="sd">        A |VectorArray| of vectors to interpolate.</span>
+<span class="sd">    modes</span>
+<span class="sd">        Dimension of the collateral basis i.e. number of POD modes of the vectors in `U`.</span>
+<span class="sd">    pod</span>
+<span class="sd">        If `True`, perform a POD of `U` to obtain the collateral basis. If `False`, `U`</span>
+<span class="sd">        is used as collateral basis.</span>
+<span class="sd">    atol</span>
+<span class="sd">        Absolute POD tolerance.</span>
+<span class="sd">    rtol</span>
+<span class="sd">        Relative POD tolerance.</span>
+<span class="sd">    product</span>
+<span class="sd">        Inner product |Operator| used for the POD.</span>
+<span class="sd">    pod_options</span>
+<span class="sd">        Dictionary of additional options to pass to the :func:`~pymor.algorithms.pod.pod` algorithm.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    interpolation_dofs</span>
+<span class="sd">        |NumPy array| of the DOFs at which the vectors are interpolated.</span>
+<span class="sd">    collateral_basis</span>
+<span class="sd">        |VectorArray| containing the generated collateral basis.</span>
+<span class="sd">    data</span>
+<span class="sd">        Dict containing the following fields:</span>
+
+<span class="sd">            :svals: POD singular values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">VectorArrayInterface</span><span class="p">)</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.ei.deim&#39;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Generating Interpolation Data ...&#39;</span><span class="p">)</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">if</span> <span class="n">pod</span><span class="p">:</span>
+        <span class="n">collateral_basis</span><span class="p">,</span> <span class="n">svals</span> <span class="o">=</span> <span class="n">pod_alg</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">modes</span><span class="o">=</span><span class="n">modes</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span> <span class="o">**</span><span class="n">pod_options</span><span class="p">)</span>
+        <span class="n">data</span><span class="p">[</span><span class="s1">&#39;svals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">svals</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">collateral_basis</span> <span class="o">=</span> <span class="n">U</span>
+
+    <span class="n">interpolation_dofs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">interpolation_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">collateral_basis</span><span class="p">)):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Choosing interpolation point for basis vector </span><span class="si">{i}</span><span class="s1">.&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">coefficients</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span><span class="n">interpolation_matrix</span><span class="p">,</span>
+                                 <span class="n">collateral_basis</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">dofs</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">U_interpolated</span> <span class="o">=</span> <span class="n">collateral_basis</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)]</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">coefficients</span><span class="p">)</span>
+            <span class="n">ERR</span> <span class="o">=</span> <span class="n">collateral_basis</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">U_interpolated</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ERR</span> <span class="o">=</span> <span class="n">collateral_basis</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="c1"># compute new interpolation dof and collateral basis vector</span>
+        <span class="n">new_dof</span> <span class="o">=</span> <span class="n">ERR</span><span class="o">.</span><span class="n">amax</span><span class="p">()[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">new_dof</span> <span class="ow">in</span> <span class="n">interpolation_dofs</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;DOF </span><span class="si">{new_dof}</span><span class="s1"> selected twice for interplation! Stopping extension loop.&#39;</span><span class="p">)</span>
+            <span class="k">break</span>
+
+        <span class="n">interpolation_dofs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">interpolation_dofs</span><span class="p">,</span> <span class="n">new_dof</span><span class="p">))</span>
+        <span class="n">interpolation_matrix</span> <span class="o">=</span> <span class="n">collateral_basis</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)]</span><span class="o">.</span><span class="n">dofs</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">collateral_basis</span><span class="p">):</span>
+        <span class="k">del</span> <span class="n">collateral_basis</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">):</span><span class="nb">len</span><span class="p">(</span><span class="n">collateral_basis</span><span class="p">)]</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Finished.&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">interpolation_dofs</span><span class="p">,</span> <span class="n">collateral_basis</span><span class="p">,</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="interpolate_operators"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.ei.interpolate_operators">[docs]</a><span class="k">def</span> <span class="nf">interpolate_operators</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">operator_names</span><span class="p">,</span> <span class="n">parameter_sample</span><span class="p">,</span> <span class="n">error_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                          <span class="n">product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_interpolation_dofs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                          <span class="n">pod_options</span><span class="o">=</span><span class="p">{},</span> <span class="n">alg</span><span class="o">=</span><span class="s1">&#39;ei_greedy&#39;</span><span class="p">,</span> <span class="n">pool</span><span class="o">=</span><span class="n">dummy_pool</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Empirical operator interpolation using the EI-Greedy/DEIM algorithm.</span>
+
+<span class="sd">    This is a convenience method to facilitate the use of :func:`ei_greedy` or :func:`deim`.</span>
+<span class="sd">    Given a |Model|, names of |Operators|, and a sample of |Parameters|, first</span>
+<span class="sd">    the operators are evaluated on the solution snapshots of the model for the</span>
+<span class="sd">    provided parameters. These evaluations are then used as input for</span>
+<span class="sd">    :func:`ei_greedy`/:func:`deim`.  Finally the resulting interpolation data is used to</span>
+<span class="sd">    create |EmpiricalInterpolatedOperators| and a new model with the interpolated</span>
+<span class="sd">    operators is returned.</span>
+
+<span class="sd">    Note that this implementation creates *one* common collateral basis for all specified</span>
+<span class="sd">    operators, which might not be what you want.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fom</span>
+<span class="sd">        The |Model| whose |Operators| will be interpolated.</span>
+<span class="sd">    operator_names</span>
+<span class="sd">        List of keys in the `operators` dict of the model. The corresponding</span>
+<span class="sd">        |Operators| will be interpolated.</span>
+<span class="sd">    parameter_sample</span>
+<span class="sd">        A list of |Parameters| for which solution snapshots are calculated.</span>
+<span class="sd">    error_norm</span>
+<span class="sd">        See :func:`ei_greedy`.</span>
+<span class="sd">        Has no effect if `alg == &#39;deim&#39;`.</span>
+<span class="sd">    product</span>
+<span class="sd">        Inner product for POD computation in :func:`deim`.</span>
+<span class="sd">        Has no effect if `alg == &#39;ei_greedy&#39;`.</span>
+<span class="sd">    atol</span>
+<span class="sd">        See :func:`ei_greedy`.</span>
+<span class="sd">    rtol</span>
+<span class="sd">        See :func:`ei_greedy`.</span>
+<span class="sd">    max_interpolation_dofs</span>
+<span class="sd">        See :func:`ei_greedy`.</span>
+<span class="sd">    pod_options</span>
+<span class="sd">        Further options for :func:`~pymor.algorithms.pod.pod` algorithm.</span>
+<span class="sd">        Has no effect if `alg == &#39;ei_greedy&#39;`.</span>
+<span class="sd">    alg</span>
+<span class="sd">        Either `ei_greedy` or `deim`.</span>
+<span class="sd">    pool</span>
+<span class="sd">        If not `None`, the |WorkerPool| to use for parallelization.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    eim</span>
+<span class="sd">        |Model| with |Operators| given by `operator_names` replaced by</span>
+<span class="sd">        |EmpiricalInterpolatedOperators|.</span>
+<span class="sd">    data</span>
+<span class="sd">        Dict containing the following fields:</span>
+
+<span class="sd">            :dofs:                  |NumPy array| of the DOFs at which the |Operators| have to be evaluated.</span>
+<span class="sd">            :basis:                 |VectorArray| containing the generated collateral basis.</span>
+
+<span class="sd">        In addition, `data` contains the fields of the `data` `dict` returned by</span>
+<span class="sd">        :func:`ei_greedy`/:func:`deim`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="n">alg</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;ei_greedy&#39;</span><span class="p">,</span> <span class="s1">&#39;deim&#39;</span><span class="p">)</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.ei.interpolate_operators&#39;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">RemoteObjectManager</span><span class="p">()</span> <span class="k">as</span> <span class="n">rom</span><span class="p">:</span>
+        <span class="n">operators</span> <span class="o">=</span> <span class="p">[</span><span class="nb">getattr</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">operator_name</span><span class="p">)</span> <span class="k">for</span> <span class="n">operator_name</span> <span class="ow">in</span> <span class="n">operator_names</span><span class="p">]</span>
+        <span class="k">with</span> <span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Computing operator evaluations on solution snapshots ...&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">pool</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Using pool of {len(pool)} workers for parallel evaluation&#39;</span><span class="p">)</span>
+                <span class="n">evaluations</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">manage</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()))</span>
+                <span class="n">pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">_interpolate_operators_build_evaluations</span><span class="p">,</span> <span class="n">parameter_sample</span><span class="p">,</span>
+                         <span class="n">fom</span><span class="o">=</span><span class="n">fom</span><span class="p">,</span> <span class="n">operators</span><span class="o">=</span><span class="n">operators</span><span class="p">,</span> <span class="n">evaluations</span><span class="o">=</span><span class="n">evaluations</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">evaluations</span> <span class="o">=</span> <span class="n">operators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">parameter_sample</span><span class="p">:</span>
+                    <span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">operators</span><span class="p">:</span>
+                        <span class="n">evaluations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">alg</span> <span class="o">==</span> <span class="s1">&#39;ei_greedy&#39;</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Performing EI-Greedy:&#39;</span><span class="p">):</span>
+                <span class="n">dofs</span><span class="p">,</span> <span class="n">basis</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">ei_greedy</span><span class="p">(</span><span class="n">evaluations</span><span class="p">,</span> <span class="n">error_norm</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span>
+                                              <span class="n">max_interpolation_dofs</span><span class="o">=</span><span class="n">max_interpolation_dofs</span><span class="p">,</span>
+                                              <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">pool</span><span class="o">=</span><span class="n">pool</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">alg</span> <span class="o">==</span> <span class="s1">&#39;deim&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">alg</span> <span class="o">==</span> <span class="s1">&#39;deim&#39;</span> <span class="ow">and</span> <span class="n">pool</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">dummy_pool</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;DEIM algorithm not parallel. Collecting operator evaluations.&#39;</span><span class="p">)</span>
+                <span class="n">evaluations</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_identity</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">evaluations</span><span class="p">)</span>
+                <span class="n">evs</span> <span class="o">=</span> <span class="n">evaluations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">evaluations</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+                    <span class="n">evs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">remove_from_other</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">evaluations</span> <span class="o">=</span> <span class="n">evs</span>
+            <span class="k">with</span> <span class="n">logger</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="s1">&#39;Executing DEIM algorithm:&#39;</span><span class="p">):</span>
+                <span class="n">dofs</span><span class="p">,</span> <span class="n">basis</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">deim</span><span class="p">(</span><span class="n">evaluations</span><span class="p">,</span> <span class="n">modes</span><span class="o">=</span><span class="n">max_interpolation_dofs</span><span class="p">,</span>
+                                         <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span> <span class="n">pod_options</span><span class="o">=</span><span class="n">pod_options</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="kc">False</span>
+
+    <span class="n">ei_operators</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">EmpiricalInterpolatedOperator</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">dofs</span><span class="p">,</span> <span class="n">basis</span><span class="p">,</span> <span class="n">triangular</span><span class="o">=</span><span class="p">(</span><span class="n">alg</span> <span class="o">==</span> <span class="s1">&#39;ei_greedy&#39;</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">operator</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">operator_names</span><span class="p">,</span> <span class="n">operators</span><span class="p">)}</span>
+    <span class="n">eim</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{fom.name}</span><span class="s1">_ei&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">ei_operators</span><span class="p">)</span>
+
+    <span class="n">data</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;dofs&#39;</span><span class="p">:</span> <span class="n">dofs</span><span class="p">,</span> <span class="s1">&#39;basis&#39;</span><span class="p">:</span> <span class="n">basis</span><span class="p">})</span>
+    <span class="k">return</span> <span class="n">eim</span><span class="p">,</span> <span class="n">data</span></div>
+
+
+<span class="k">def</span> <span class="nf">_interpolate_operators_build_evaluations</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">fom</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">operators</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">evaluations</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">operators</span><span class="p">:</span>
+        <span class="n">evaluations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_parallel_ei_greedy</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">error_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_interpolation_dofs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">RemoteObjectInterface</span><span class="p">)</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.ei.ei_greedy&#39;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Generating Interpolation Data ...&#39;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Using pool of {len(pool)} workers for parallel greedy search&#39;</span><span class="p">)</span>
+
+    <span class="n">interpolation_dofs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">collateral_basis</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">apply_only</span><span class="p">(</span><span class="n">_parallel_ei_greedy_get_empty</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">U</span><span class="o">=</span><span class="n">U</span><span class="p">)</span>
+    <span class="n">max_errs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">triangularity_errs</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">with</span> <span class="n">pool</span><span class="o">.</span><span class="n">push</span><span class="p">({})</span> <span class="k">as</span> <span class="n">distributed_data</span><span class="p">:</span>
+        <span class="n">errs</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_parallel_ei_greedy_initialize</span><span class="p">,</span>
+                          <span class="n">U</span><span class="o">=</span><span class="n">U</span><span class="p">,</span> <span class="n">error_norm</span><span class="o">=</span><span class="n">error_norm</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">distributed_data</span><span class="p">)</span>
+        <span class="n">max_err_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">errs</span><span class="p">)</span>
+        <span class="n">initial_max_err</span> <span class="o">=</span> <span class="n">max_err</span> <span class="o">=</span> <span class="n">errs</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">]</span>
+
+        <span class="c1"># main loop</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+
+            <span class="k">if</span> <span class="n">max_interpolation_dofs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">max_interpolation_dofs</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Maximum number of interpolation DOFs reached. Stopping extension loop.&#39;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Final maximum interpolation error with &#39;</span>
+                            <span class="sa">f</span><span class="s1">&#39;{len(interpolation_dofs)} interpolation DOFs: </span><span class="si">{max_err}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="k">break</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Maximum interpolation error with {len(interpolation_dofs)} interpolation DOFs: </span><span class="si">{max_err}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">atol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">max_err</span> <span class="o">&lt;=</span> <span class="n">atol</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Absolute error tolerance reached! Stopping extension loop.&#39;</span><span class="p">)</span>
+                <span class="k">break</span>
+
+            <span class="k">if</span> <span class="n">rtol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">max_err</span> <span class="o">/</span> <span class="n">initial_max_err</span> <span class="o">&lt;=</span> <span class="n">rtol</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Relative error tolerance reached! Stopping extension loop.&#39;</span><span class="p">)</span>
+                <span class="k">break</span>
+
+            <span class="c1"># compute new interpolation dof and collateral basis vector</span>
+            <span class="n">new_vec</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">apply_only</span><span class="p">(</span><span class="n">_parallel_ei_greedy_get_vector</span><span class="p">,</span> <span class="n">max_err_ind</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">distributed_data</span><span class="p">)</span>
+            <span class="n">new_dof</span> <span class="o">=</span> <span class="n">new_vec</span><span class="o">.</span><span class="n">amax</span><span class="p">()[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">new_dof</span> <span class="ow">in</span> <span class="n">interpolation_dofs</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;DOF </span><span class="si">{new_dof}</span><span class="s1"> selected twice for interpolation! Stopping extension loop.&#39;</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="n">new_dof_value</span> <span class="o">=</span> <span class="n">new_vec</span><span class="o">.</span><span class="n">dofs</span><span class="p">([</span><span class="n">new_dof</span><span class="p">])[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">new_dof_value</span> <span class="o">==</span> <span class="mf">0.</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;DOF </span><span class="si">{new_dof}</span><span class="s1"> selected for interpolation has zero maximum error! &#39;</span>
+                            <span class="sa">f</span><span class="s1">&#39;Stopping extension loop.&#39;</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="n">new_vec</span> <span class="o">*=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">new_dof_value</span>
+            <span class="n">interpolation_dofs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">interpolation_dofs</span><span class="p">,</span> <span class="n">new_dof</span><span class="p">))</span>
+            <span class="n">collateral_basis</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_vec</span><span class="p">)</span>
+            <span class="n">max_errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">max_err</span><span class="p">)</span>
+
+            <span class="n">errs</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_parallel_ei_greedy_update</span><span class="p">,</span> <span class="n">new_vec</span><span class="o">=</span><span class="n">new_vec</span><span class="p">,</span> <span class="n">new_dof</span><span class="o">=</span><span class="n">new_dof</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">distributed_data</span><span class="p">)</span>
+            <span class="n">max_err_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">errs</span><span class="p">)</span>
+            <span class="n">max_err</span> <span class="o">=</span> <span class="n">errs</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">]</span>
+
+    <span class="n">interpolation_matrix</span> <span class="o">=</span> <span class="n">collateral_basis</span><span class="o">.</span><span class="n">dofs</span><span class="p">(</span><span class="n">interpolation_dofs</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">triangularity_errors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">interpolation_matrix</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">tril</span><span class="p">(</span><span class="n">interpolation_matrix</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">interpolation_matrix</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">triangularity_errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">triangularity_errors</span><span class="p">[:</span><span class="n">d</span><span class="p">,</span> <span class="p">:</span><span class="n">d</span><span class="p">]))</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">triangularity_errs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Interpolation matrix is not lower triangular with maximum error of </span><span class="si">{triangularity_errs[-1]}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;errors&#39;</span><span class="p">:</span> <span class="n">max_errs</span><span class="p">,</span> <span class="s1">&#39;triangularity_errors&#39;</span><span class="p">:</span> <span class="n">triangularity_errs</span><span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">interpolation_dofs</span><span class="p">,</span> <span class="n">collateral_basis</span><span class="p">,</span> <span class="n">data</span>
+
+
+<span class="k">def</span> <span class="nf">_parallel_ei_greedy_get_empty</span><span class="p">(</span><span class="n">U</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">U</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">_parallel_ei_greedy_initialize</span><span class="p">(</span><span class="n">U</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">error_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">copy</span><span class="p">:</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;U&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">U</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;error_norm&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">error_norm</span>
+    <span class="n">errs</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span> <span class="k">if</span> <span class="n">error_norm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">error_norm</span><span class="p">(</span><span class="n">U</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;max_err_ind&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_err_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">errs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">errs</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_parallel_ei_greedy_get_vector</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;U&#39;</span><span class="p">][</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;max_err_ind&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">_parallel_ei_greedy_update</span><span class="p">(</span><span class="n">new_vec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_dof</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;U&#39;</span><span class="p">]</span>
+    <span class="n">error_norm</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;error_norm&#39;</span><span class="p">]</span>
+
+    <span class="n">new_dof_values</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">dofs</span><span class="p">([</span><span class="n">new_dof</span><span class="p">])</span>
+    <span class="n">U</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="o">-</span><span class="n">new_dof_values</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">new_vec</span><span class="p">)</span>
+
+    <span class="n">errs</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span> <span class="k">if</span> <span class="n">error_norm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">error_norm</span><span class="p">(</span><span class="n">U</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;max_err_ind&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_err_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">errs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">errs</span><span class="p">[</span><span class="n">max_err_ind</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_identity</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">x</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2.0 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2019 pyMOR developers and contributors.
+      Last updated on Jun 23, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.3.1.
+    </div>
+  </body>
+</html>
