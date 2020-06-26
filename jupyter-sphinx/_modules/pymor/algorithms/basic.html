@@ -4,7 +4,8 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>pymor.algorithms.basic &#8212; pyMOR v2019.2rc0+1210.g9b2782f6 Manual</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pymor.algorithms.basic &#8212; pyMOR v2019.2rc0+1303.g7fb4778d Manual</title>
     <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/jupyter-sphinx.css" />
@@ -16,7 +17,7 @@
     <script src="../../../_static/language_data.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <script src="https://unpkg.com/@jupyter-widgets/html-manager@^0.18.0/dist/embed-amd.js"></script>
-    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
     
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -30,8 +31,9 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2rc0+1210.g9b2782f6 Manual</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2rc0+1303.g7fb4778d Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymor.algorithms.basic</a></li> 
       </ul>
     </div>  
 
@@ -52,6 +54,7 @@
 
 <span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
 <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">induced_norm</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.floatcmp</span> <span class="kn">import</span> <span class="n">float_cmp</span>
 
 
 <div class="viewcode-block" id="almost_equal"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.basic.almost_equal">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;rtol&#39;</span><span class="p">,</span> <span class="s1">&#39;atol&#39;</span><span class="p">)</span>
@@ -144,8 +147,28 @@
         <span class="n">rhs</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">product</span><span class="p">)</span>
         <span class="n">coeffs</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">gramian</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">sym_pos</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">overwrite_a</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">overwrite_b</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
         <span class="k">return</span> <span class="n">basis</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">coeffs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="contains_zero_vector"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.basic.contains_zero_vector">[docs]</a><span class="k">def</span> <span class="nf">contains_zero_vector</span><span class="p">(</span><span class="n">vector_array</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;returns `True` iff any vector in the array float_compares to 0s of the same dim</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    vector_array</span>
+<span class="sd">        a |VectorArray| implementation</span>
+<span class="sd">    rtol</span>
+<span class="sd">        relative tolerance for float_cmp</span>
+<span class="sd">    atol</span>
+<span class="sd">        absolute tolerance for float_cmp</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">vector_array</span><span class="p">)):</span>
+        <span class="n">sup</span> <span class="o">=</span> <span class="n">vector_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">sup_norm</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">float_cmp</span><span class="p">(</span><span class="n">sup</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">rtol</span><span class="p">,</span> <span class="n">atol</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="kc">False</span></div>
 </pre></div>
 
+            <div class="clearer"></div>
           </div>
         </div>
       </div>
@@ -174,14 +197,15 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2rc0+1210.g9b2782f6 Manual</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2rc0+1303.g7fb4778d Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymor.algorithms.basic</a></li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2013-2020 pyMOR developers and contributors.
-      Last updated on Jun 25, 2020.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.0.3.
+      Last updated on Jun 26, 2020.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.1.1.
     </div>
   </body>
 </html>
