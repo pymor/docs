@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta charset="utf-8" />
-    <title>pymor.parameters package &#8212; pyMOR v2019.2rc0+1304.gd3f64315 Manual</title>
+    <title>pymor.parameters package &#8212; pyMOR v2019.2rc0+1309.g65249abd Manual</title>
     <link rel="stylesheet" href="../_static/pymor.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
@@ -35,7 +35,7 @@
         <li class="right" >
           <a href="pymor.parallel.html" title="pymor.parallel package"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">pyMOR v2019.2rc0+1304.gd3f64315 Manual</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">pyMOR v2019.2rc0+1309.g65249abd Manual</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="pymor.html" accesskey="U">pymor package</a> &#187;</li> 
       </ul>
     </div>  
@@ -532,6 +532,124 @@ is not empty.</p>
 <span id="functionals-module"></span><h3>functionals module<a class="headerlink" href="#module-pymor.parameters.functionals" title="Permalink to this headline">¶</a></h3>
 <hr class="docutils" />
 <dl class="class">
+<dt id="pymor.parameters.functionals.BaseMaxThetaParameterFunctional">
+<em class="property">class </em><code class="sig-prename descclassname">pymor.parameters.functionals.</code><code class="sig-name descname">BaseMaxThetaParameterFunctional</code><span class="sig-paren">(</span><em class="sig-param">thetas_prime</em>, <em class="sig-param">thetas</em>, <em class="sig-param">mu_bar</em>, <em class="sig-param">gamma_mu_bar=1.0</em>, <em class="sig-param">name=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/parameters/functionals.html#BaseMaxThetaParameterFunctional"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.parameters.functionals.BaseMaxThetaParameterFunctional" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">pymor.parameters.functionals.ParameterFunctional</span></code></a></p>
+<p><a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterFunctional</span></code></a> implementing a generalization of the max-theta approach from <a class="reference internal" href="../bibliography.html#haa17" id="id1"><span>[Haa17]</span></a> (Exercise 5.12).</p>
+<p>Let V denote a Hilbert space and let a: V x V -&gt; K denote a continuous bilinear form or l: V -&gt; K a continuous
+linear functional, either with affine decomposition</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span> <span class="o">=</span> <span class="n">sum_</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="n">a_q</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>  <span class="ow">or</span>  <span class="n">l</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span> <span class="o">=</span> <span class="n">sum_</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="n">l_q</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>for Q coefficient <a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterFunctional</span></code></a> theta_1, …, theta_Q and continuous bilinear forms
+a_1, …, a_Q: V x V -&gt; K or continuous linear functionals l_q: V -&gt; K. Let mu_bar be a parameter with respect to
+which the continuity constant of a(., ., mu_bar) or l(., mu_bar) is known, i.e. we known gamma_mu_bar &gt; 0, s.t.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu_bar</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">gamma_mu_bar</span> <span class="o">|</span><span class="n">u</span><span class="o">|</span><span class="n">_V</span> <span class="o">|</span><span class="n">v</span><span class="o">|</span><span class="n">_V</span>  <span class="ow">or</span>  <span class="n">l</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">mu_bar</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">gamma_mu_bar</span> <span class="o">|</span><span class="n">v</span><span class="o">|</span><span class="n">_V</span><span class="o">.</span>
+</pre></div>
+</div>
+<p>The max-theta approach (in its generalized form) from <a class="reference internal" href="../bibliography.html#haa17" id="id2"><span>[Haa17]</span></a> (Exercise 5.12) allows to obtain a computable bound
+for the continuity constant of another bilinear form a_prime(., ., mu) or linear form l_prime(., mu) with the same
+affine decomposition but different theta_prime_q for arbitrary parameters mu, since</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">a_prime</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="o">|</span><span class="n">max_</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_prime_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span><span class="o">/</span><span class="n">theta_q</span><span class="p">(</span><span class="n">mu_bar</span><span class="p">)</span><span class="o">|</span>  <span class="o">|</span><span class="n">a</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu_bar</span><span class="p">)</span><span class="o">|</span>
+</pre></div>
+</div>
+<p>or</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">l_prime</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="o">|</span><span class="n">max_</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_prime_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span><span class="o">/</span><span class="n">theta_q</span><span class="p">(</span><span class="n">mu_bar</span><span class="p">)</span><span class="o">|</span> <span class="o">|</span><span class="n">l</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu_bar</span><span class="p">)</span><span class="o">|</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>if all theta_q(mu_bar) != 0.</p>
+<p>Given a list of the thetas, the <a class="reference internal" href="#pymor.parameters.base.Mu" title="pymor.parameters.base.Mu"><code class="xref py py-class docutils literal notranslate"><span class="pre">parameter</span> <span class="pre">values</span></code></a> mu_bar and the constant gamma_mu_bar, this functional thus evaluates
+to</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">|</span><span class="n">gamma_mu_bar</span> <span class="o">*</span> <span class="n">max_</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_prime_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span><span class="o">/</span><span class="n">theta_q</span><span class="p">(</span><span class="n">mu_bar</span><span class="p">)</span><span class="o">|</span>
+</pre></div>
+</div>
+<p>Note that we also get an upper bound if theta_prime_q(mu) == 0 for any q. However, if theta_prime_q(mu) == 0 for
+at least one q, we need to use the absolute value in the denominator, i.e.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">|</span><span class="n">gamma_mu_bar</span> <span class="o">*</span> <span class="n">max_</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_prime_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span><span class="o">/|</span><span class="n">theta_q</span><span class="p">(</span><span class="n">mu_bar</span><span class="p">)</span><span class="o">|</span> <span class="o">|</span>
+</pre></div>
+</div>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>thetas</dt><dd><p>List or tuple of <a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterFunctional</span></code></a> of the base bilinear form a which is used for estimation.</p>
+</dd>
+<dt>thetas_prime</dt><dd><p>List or tuple of <a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterFunctional</span></code></a> of the bilinear form a_prime for the numerator of the
+MaxThetaParameterFunctional.</p>
+</dd>
+<dt>mu_bar</dt><dd><p>Parameter associated with gamma_mu_bar.</p>
+</dd>
+<dt>gamma_mu_bar</dt><dd><p>Known continuity constant of the base bilinear form a.</p>
+</dd>
+<dt>name</dt><dd><p>Name of the functional.</p>
+</dd>
+</dl>
+</div>
+<div class="admonition-methods admonition">
+<p class="admonition-title">Methods</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.parameters.functionals.BaseMaxThetaParameterFunctional" title="pymor.parameters.functionals.BaseMaxThetaParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseMaxThetaParameterFunctional</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional.d_mu" title="pymor.parameters.functionals.ParameterFunctional.d_mu"><code class="xref py py-meth docutils literal notranslate"><span class="pre">d_mu</span></code></a>, <a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional.evaluate" title="pymor.parameters.functionals.ParameterFunctional.evaluate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">evaluate</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="pymor.core.html#pymor.core.base.ImmutableObject" title="pymor.core.base.ImmutableObject"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImmutableObject</span></code></a></p></td>
+<td><p><a class="reference internal" href="pymor.core.html#pymor.core.base.ImmutableObject.with_" title="pymor.core.base.ImmutableObject.with_"><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_</span></code></a>, <a class="reference internal" href="pymor.core.html#pymor.core.base.ImmutableObject.__setattr__" title="pymor.core.base.ImmutableObject.__setattr__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">__setattr__</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="pymor.core.html#pymor.core.base.BasicObject" title="pymor.core.base.BasicObject"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicObject</span></code></a></p></td>
+<td><p><a class="reference internal" href="pymor.core.html#pymor.core.base.BasicObject.disable_logging" title="pymor.core.base.BasicObject.disable_logging"><code class="xref py py-meth docutils literal notranslate"><span class="pre">disable_logging</span></code></a>, <a class="reference internal" href="pymor.core.html#pymor.core.base.BasicObject.enable_logging" title="pymor.core.base.BasicObject.enable_logging"><code class="xref py py-meth docutils literal notranslate"><span class="pre">enable_logging</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition-attributes admonition">
+<p class="admonition-title">Attributes</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.parameters.base.ParametricObject" title="pymor.parameters.base.ParametricObject"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParametricObject</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.parameters.base.ParametricObject.parameters" title="pymor.parameters.base.ParametricObject.parameters"><code class="xref py py-attr docutils literal notranslate"><span class="pre">parameters</span></code></a>, <a class="reference internal" href="#pymor.parameters.base.ParametricObject.parameters_inherited" title="pymor.parameters.base.ParametricObject.parameters_inherited"><code class="xref py py-attr docutils literal notranslate"><span class="pre">parameters_inherited</span></code></a>, <a class="reference internal" href="#pymor.parameters.base.ParametricObject.parameters_internal" title="pymor.parameters.base.ParametricObject.parameters_internal"><code class="xref py py-attr docutils literal notranslate"><span class="pre">parameters_internal</span></code></a>, <a class="reference internal" href="#pymor.parameters.base.ParametricObject.parameters_own" title="pymor.parameters.base.ParametricObject.parameters_own"><code class="xref py py-attr docutils literal notranslate"><span class="pre">parameters_own</span></code></a>, <a class="reference internal" href="#pymor.parameters.base.ParametricObject.parametric" title="pymor.parameters.base.ParametricObject.parametric"><code class="xref py py-attr docutils literal notranslate"><span class="pre">parametric</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="pymor.core.html#pymor.core.base.BasicObject" title="pymor.core.base.BasicObject"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicObject</span></code></a></p></td>
+<td><p><a class="reference internal" href="pymor.core.html#pymor.core.base.BasicObject.logger" title="pymor.core.base.BasicObject.logger"><code class="xref py py-attr docutils literal notranslate"><span class="pre">logger</span></code></a>, <a class="reference internal" href="pymor.core.html#pymor.core.base.BasicObject.logging_disabled" title="pymor.core.base.BasicObject.logging_disabled"><code class="xref py py-attr docutils literal notranslate"><span class="pre">logging_disabled</span></code></a>, <a class="reference internal" href="pymor.core.html#pymor.core.base.BasicObject.name" title="pymor.core.base.BasicObject.name"><code class="xref py py-attr docutils literal notranslate"><span class="pre">name</span></code></a>, <a class="reference internal" href="pymor.core.html#pymor.core.base.BasicObject.uid" title="pymor.core.base.BasicObject.uid"><code class="xref py py-attr docutils literal notranslate"><span class="pre">uid</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="method">
+<dt id="pymor.parameters.functionals.BaseMaxThetaParameterFunctional.d_mu">
+<code class="sig-name descname">d_mu</code><span class="sig-paren">(</span><em class="sig-param">component</em>, <em class="sig-param">index=()</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/parameters/functionals.html#BaseMaxThetaParameterFunctional.d_mu"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.parameters.functionals.BaseMaxThetaParameterFunctional.d_mu" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the functionals’s derivative with respect to a given parameter.</p>
+<div class="admonition-parameters admonition">
+<p class="admonition-title">Parameters</p>
+<dl class="simple">
+<dt>parameter</dt><dd><p>The <a class="reference internal" href="#pymor.parameters.base.Parameters" title="pymor.parameters.base.Parameters"><code class="xref py py-class docutils literal notranslate"><span class="pre">Parameter</span></code></a> w.r.t. which to return the derivative.</p>
+</dd>
+<dt>index</dt><dd><p>Index of the <a class="reference internal" href="#pymor.parameters.base.Parameters" title="pymor.parameters.base.Parameters"><code class="xref py py-class docutils literal notranslate"><span class="pre">Parameter</span></code></a>’s component w.r.t which to return the derivative.</p>
+</dd>
+</dl>
+</div>
+<div class="admonition-returns admonition">
+<p class="admonition-title">Returns</p>
+<p>New <a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterFunctional</span></code></a> representing the partial derivative.</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pymor.parameters.functionals.BaseMaxThetaParameterFunctional.evaluate">
+<code class="sig-name descname">evaluate</code><span class="sig-paren">(</span><em class="sig-param">mu=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/parameters/functionals.html#BaseMaxThetaParameterFunctional.evaluate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.parameters.functionals.BaseMaxThetaParameterFunctional.evaluate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate the functional for given <a class="reference internal" href="#pymor.parameters.base.Mu" title="pymor.parameters.base.Mu"><code class="xref py py-class docutils literal notranslate"><span class="pre">parameter</span> <span class="pre">values</span></code></a> <code class="docutils literal notranslate"><span class="pre">mu</span></code>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<dl class="class">
 <dt id="pymor.parameters.functionals.ConjugateParameterFunctional">
 <em class="property">class </em><code class="sig-prename descclassname">pymor.parameters.functionals.</code><code class="sig-name descname">ConjugateParameterFunctional</code><span class="sig-paren">(</span><em class="sig-param">functional</em>, <em class="sig-param">name=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/parameters/functionals.html#ConjugateParameterFunctional"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.parameters.functionals.ConjugateParameterFunctional" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">pymor.parameters.functionals.ParameterFunctional</span></code></a></p>
@@ -944,21 +1062,10 @@ with the signature <code class="docutils literal notranslate"><span class="pre">
 <dl class="class">
 <dt id="pymor.parameters.functionals.MaxThetaParameterFunctional">
 <em class="property">class </em><code class="sig-prename descclassname">pymor.parameters.functionals.</code><code class="sig-name descname">MaxThetaParameterFunctional</code><span class="sig-paren">(</span><em class="sig-param">thetas</em>, <em class="sig-param">mu_bar</em>, <em class="sig-param">gamma_mu_bar=1.0</em>, <em class="sig-param">name=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/parameters/functionals.html#MaxThetaParameterFunctional"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.parameters.functionals.MaxThetaParameterFunctional" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">pymor.parameters.functionals.ParameterFunctional</span></code></a></p>
-<p><a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterFunctional</span></code></a> implementing the max-theta approach from <a class="reference internal" href="../bibliography.html#haa17" id="id1"><span>[Haa17]</span></a> (Exercise 5.12).</p>
-<p>Let V denote a Hilbert space and let a: V x V -&gt; K denote a continuous bilinear form or l: V -&gt; K a continuous
-linear functional, either with affine decomposition</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span> <span class="o">=</span> <span class="n">sum_</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="n">a_q</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>  <span class="ow">or</span>  <span class="n">l</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span> <span class="o">=</span> <span class="n">sum_</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="n">l_q</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>for Q coefficient <a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterFunctional</span></code></a> theta_1, …, theta_Q and continuous bilinear forms
-a_1, …, a_Q: V x V -&gt; K or continuous linear functionals l_q: V -&gt; K. Let mu_bar be a parameter with respect to
-which the continuity constant of a(., ., mu_bar) or l(., mu_bar) is known, i.e. we known gamma_mu_bar &gt; 0, s.t.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu_bar</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">gamma_mu_bar</span> <span class="o">|</span><span class="n">u</span><span class="o">|</span><span class="n">_V</span> <span class="o">|</span><span class="n">v</span><span class="o">|</span><span class="n">_V</span>  <span class="ow">or</span>  <span class="n">l</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">mu_bar</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">gamma_mu_bar</span> <span class="o">|</span><span class="n">v</span><span class="o">|</span><span class="n">_V</span><span class="o">.</span>
-</pre></div>
-</div>
-<p>The max-theta approach from <a class="reference internal" href="../bibliography.html#haa17" id="id2"><span>[Haa17]</span></a> (Exercise 5.12) allows to obtain a computable bound for the continuity
-constant of a(., ., mu) or l(., mu) for arbitrary parameters mu, since</p>
+<dd><p>Bases: <a class="reference internal" href="#pymor.parameters.functionals.BaseMaxThetaParameterFunctional" title="pymor.parameters.functionals.BaseMaxThetaParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">pymor.parameters.functionals.BaseMaxThetaParameterFunctional</span></code></a></p>
+<p><a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterFunctional</span></code></a> implementing the max-theta approach from <a class="reference internal" href="../bibliography.html#haa17" id="id3"><span>[Haa17]</span></a> (Exercise 5.12).</p>
+<p>This is a specialized version of BaseMaxThetaParameterFunctional which allows to obtain a computable bound
+for the continuity constant of the actual a(., ., mu) or l(., mu) for arbitrary parameters mu, since</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="o">|</span><span class="n">max_</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span><span class="o">/</span><span class="n">theta_q</span><span class="p">(</span><span class="n">mu_bar</span><span class="p">)</span><span class="o">|</span>  <span class="o">|</span><span class="n">a</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu_bar</span><span class="p">)</span><span class="o">|</span>
 </pre></div>
 </div>
@@ -969,7 +1076,7 @@ constant of a(., ., mu) or l(., mu) for arbitrary parameters mu, since</p>
 <p>if all theta_q(mu_bar) != 0.</p>
 <p>Given a list of the thetas, the <a class="reference internal" href="#pymor.parameters.base.Mu" title="pymor.parameters.base.Mu"><code class="xref py py-class docutils literal notranslate"><span class="pre">parameter</span> <span class="pre">values</span></code></a> mu_bar and the constant gamma_mu_bar, this functional thus evaluates
 to</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">gamma_mu_bar</span> <span class="o">*</span> <span class="nb">max</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span><span class="o">/</span><span class="n">theta_q</span><span class="p">(</span><span class="n">mu_bar</span><span class="p">)</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">|</span><span class="n">gamma_mu_bar</span> <span class="o">*</span> <span class="nb">max</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span><span class="o">/</span><span class="n">theta_q</span><span class="p">(</span><span class="n">mu_bar</span><span class="p">)</span><span class="o">|</span>
 </pre></div>
 </div>
 <div class="admonition-parameters admonition">
@@ -993,16 +1100,13 @@ to</p>
 <col style="width: 80%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.parameters.functionals.MaxThetaParameterFunctional" title="pymor.parameters.functionals.MaxThetaParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">MaxThetaParameterFunctional</span></code></a></p></td>
-<td><p><a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional.evaluate" title="pymor.parameters.functionals.ParameterFunctional.evaluate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">evaluate</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymor.parameters.functionals.BaseMaxThetaParameterFunctional" title="pymor.parameters.functionals.BaseMaxThetaParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseMaxThetaParameterFunctional</span></code></a></p></td>
+<td><p><a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional.d_mu" title="pymor.parameters.functionals.ParameterFunctional.d_mu"><code class="xref py py-meth docutils literal notranslate"><span class="pre">d_mu</span></code></a>, <a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional.evaluate" title="pymor.parameters.functionals.ParameterFunctional.evaluate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">evaluate</span></code></a></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterFunctional</span></code></a></p></td>
-<td><p><a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional.d_mu" title="pymor.parameters.functionals.ParameterFunctional.d_mu"><code class="xref py py-meth docutils literal notranslate"><span class="pre">d_mu</span></code></a></p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="pymor.core.html#pymor.core.base.ImmutableObject" title="pymor.core.base.ImmutableObject"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImmutableObject</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="pymor.core.html#pymor.core.base.ImmutableObject" title="pymor.core.base.ImmutableObject"><code class="xref py py-class docutils literal notranslate"><span class="pre">ImmutableObject</span></code></a></p></td>
 <td><p><a class="reference internal" href="pymor.core.html#pymor.core.base.ImmutableObject.with_" title="pymor.core.base.ImmutableObject.with_"><code class="xref py py-meth docutils literal notranslate"><span class="pre">with_</span></code></a>, <a class="reference internal" href="pymor.core.html#pymor.core.base.ImmutableObject.__setattr__" title="pymor.core.base.ImmutableObject.__setattr__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">__setattr__</span></code></a></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="pymor.core.html#pymor.core.base.BasicObject" title="pymor.core.base.BasicObject"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicObject</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="pymor.core.html#pymor.core.base.BasicObject" title="pymor.core.base.BasicObject"><code class="xref py py-class docutils literal notranslate"><span class="pre">BasicObject</span></code></a></p></td>
 <td><p><a class="reference internal" href="pymor.core.html#pymor.core.base.BasicObject.disable_logging" title="pymor.core.base.BasicObject.disable_logging"><code class="xref py py-meth docutils literal notranslate"><span class="pre">disable_logging</span></code></a>, <a class="reference internal" href="pymor.core.html#pymor.core.base.BasicObject.enable_logging" title="pymor.core.base.BasicObject.enable_logging"><code class="xref py py-meth docutils literal notranslate"><span class="pre">enable_logging</span></code></a></p></td>
 </tr>
 </tbody>
@@ -1025,12 +1129,6 @@ to</p>
 </tbody>
 </table>
 </div>
-<dl class="method">
-<dt id="pymor.parameters.functionals.MaxThetaParameterFunctional.evaluate">
-<code class="sig-name descname">evaluate</code><span class="sig-paren">(</span><em class="sig-param">mu=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/parameters/functionals.html#MaxThetaParameterFunctional.evaluate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.parameters.functionals.MaxThetaParameterFunctional.evaluate" title="Permalink to this definition">¶</a></dt>
-<dd><p>Evaluate the functional for given <a class="reference internal" href="#pymor.parameters.base.Mu" title="pymor.parameters.base.Mu"><code class="xref py py-class docutils literal notranslate"><span class="pre">parameter</span> <span class="pre">values</span></code></a> <code class="docutils literal notranslate"><span class="pre">mu</span></code>.</p>
-</dd></dl>
-
 </dd></dl>
 
 <hr class="docutils" />
@@ -1038,7 +1136,7 @@ to</p>
 <dt id="pymor.parameters.functionals.MinThetaParameterFunctional">
 <em class="property">class </em><code class="sig-prename descclassname">pymor.parameters.functionals.</code><code class="sig-name descname">MinThetaParameterFunctional</code><span class="sig-paren">(</span><em class="sig-param">thetas</em>, <em class="sig-param">mu_bar</em>, <em class="sig-param">alpha_mu_bar=1.0</em>, <em class="sig-param">name=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pymor/parameters/functionals.html#MinThetaParameterFunctional"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymor.parameters.functionals.MinThetaParameterFunctional" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">pymor.parameters.functionals.ParameterFunctional</span></code></a></p>
-<p><a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterFunctional</span></code></a> implementing the min-theta approach from <a class="reference internal" href="../bibliography.html#haa17" id="id3"><span>[Haa17]</span></a> (Proposition 2.35).</p>
+<p><a class="reference internal" href="#pymor.parameters.functionals.ParameterFunctional" title="pymor.parameters.functionals.ParameterFunctional"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterFunctional</span></code></a> implementing the min-theta approach from <a class="reference internal" href="../bibliography.html#haa17" id="id4"><span>[Haa17]</span></a> (Proposition 2.35).</p>
 <p>Let V denote a Hilbert space and let a: V x V -&gt; K denote a parametric coercive bilinear form with affine
 decomposition</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span> <span class="o">=</span> <span class="n">sum_</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span> <span class="n">a_q</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">),</span>
@@ -1050,7 +1148,7 @@ of a(., ., mu_bar) is known, i.e. we known alpha_mu_bar &gt; 0, s.t.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">alpha_mu_bar</span> <span class="o">|</span><span class="n">u</span><span class="o">|</span><span class="n">_V</span><span class="o">^</span><span class="mi">2</span> <span class="o">&lt;=</span> <span class="n">a</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu_bar</span><span class="p">)</span><span class="o">.</span>
 </pre></div>
 </div>
-<p>The min-theta approach from <a class="reference internal" href="../bibliography.html#haa17" id="id4"><span>[Haa17]</span></a> (Proposition 2.35) allows to obtain a computable bound for the coercivity
+<p>The min-theta approach from <a class="reference internal" href="../bibliography.html#haa17" id="id5"><span>[Haa17]</span></a> (Proposition 2.35) allows to obtain a computable bound for the coercivity
 constant of a(., ., mu) for arbitrary parameters mu, since</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_</span><span class="p">{</span><span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">}</span><span class="o">^</span><span class="n">Q</span> <span class="n">theta_q</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span><span class="o">/</span><span class="n">theta_q</span><span class="p">(</span><span class="n">mu_bar</span><span class="p">)</span> <span class="n">a</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu_bar</span><span class="p">)</span><span class="o">.</span>
 </pre></div>
@@ -1429,7 +1527,7 @@ a number.</p>
         <li class="right" >
           <a href="pymor.parallel.html" title="pymor.parallel package"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">pyMOR v2019.2rc0+1304.gd3f64315 Manual</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">pyMOR v2019.2rc0+1309.g65249abd Manual</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="pymor.html" >pymor package</a> &#187;</li> 
       </ul>
     </div>
