@@ -127,7 +127,6 @@ problem = StationaryProblem(
     neumann_data=ConstantFunction(-1, 2)
 )
 m, data = discretize_stationary_cg(problem, diameter=1/100)
-m.visualize(m.solve([1., 0.001]))
-m.visualize(m.solve([0.001, 1]))
+m.visualize((m.solve([1., 0.001]), m.solve([0.001, 1])))
 
 m.operator
