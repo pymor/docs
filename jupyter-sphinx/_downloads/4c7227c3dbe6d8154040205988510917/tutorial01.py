@@ -57,8 +57,6 @@ problem = StationaryProblem(
 m, data = discretize_stationary_cg(problem, diameter=1/100)
 m.visualize(m.solve())
 
-import os
-print(os.getcwd())
 diffusion = BitmapFunction('RB.png', range=[0.001, 1])
 problem = StationaryProblem(
     domain=domain,
