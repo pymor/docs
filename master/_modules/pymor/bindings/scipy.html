@@ -4,7 +4,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>pymor.bindings.scipy &#8212; pyMOR v2019.2rc0+1334.ge573e3d3 Manual</title>
+    <title>pymor.bindings.scipy &#8212; pyMOR v2019.2rc0+1332.g3a5053a0 Manual</title>
     <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/jupyter-sphinx.css" />
@@ -30,7 +30,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2rc0+1334.ge573e3d3 Manual</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2rc0+1332.g3a5053a0 Manual</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
       </ul>
     </div>  
@@ -47,6 +47,8 @@
 
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">packaging.version</span> <span class="kn">import</span> <span class="n">Version</span>
+<span class="kn">import</span> <span class="nn">scipy.version</span>
 <span class="kn">from</span> <span class="nn">scipy.linalg</span> <span class="kn">import</span> <span class="n">solve</span><span class="p">,</span> <span class="n">solve_continuous_lyapunov</span><span class="p">,</span> <span class="n">solve_continuous_are</span>
 <span class="kn">from</span> <span class="nn">scipy.sparse.linalg</span> <span class="kn">import</span> <span class="n">bicgstab</span><span class="p">,</span> <span class="n">spsolve</span><span class="p">,</span> <span class="n">splu</span><span class="p">,</span> <span class="n">spilu</span><span class="p">,</span> <span class="n">lgmres</span><span class="p">,</span> <span class="n">lsqr</span><span class="p">,</span> <span class="n">LinearOperator</span>
 
@@ -57,6 +59,7 @@
 <span class="kn">from</span> <span class="nn">pymor.core.config</span> <span class="kn">import</span> <span class="n">config</span>
 <span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
 <span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">InversionError</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
 <span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
 
 
@@ -250,8 +253,15 @@
                     <span class="k">raise</span> <span class="n">InversionError</span><span class="p">(</span><span class="s1">&#39;bicgstab failed with error code </span><span class="si">{}</span><span class="s1"> (illegal input or breakdown)&#39;</span><span class="o">.</span>
                                          <span class="nb">format</span><span class="p">(</span><span class="n">info</span><span class="p">))</span>
     <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;scipy_bicgstab_spilu&#39;</span><span class="p">:</span>
-        <span class="n">ilu</span> <span class="o">=</span> <span class="n">spilu</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">drop_tol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_drop_tol&#39;</span><span class="p">],</span> <span class="n">fill_factor</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_fill_factor&#39;</span><span class="p">],</span>
-                    <span class="n">drop_rule</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_drop_rule&#39;</span><span class="p">],</span> <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_permc_spec&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">Version</span><span class="p">(</span><span class="n">scipy</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">version</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">Version</span><span class="p">(</span><span class="s1">&#39;0.19&#39;</span><span class="p">):</span>
+            <span class="n">ilu</span> <span class="o">=</span> <span class="n">spilu</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">drop_tol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_drop_tol&#39;</span><span class="p">],</span> <span class="n">fill_factor</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_fill_factor&#39;</span><span class="p">],</span>
+                        <span class="n">drop_rule</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_drop_rule&#39;</span><span class="p">],</span> <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_permc_spec&#39;</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_drop_rule&#39;</span><span class="p">]:</span>
+                <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.operators.numpy._apply_inverse&#39;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;ignoring drop_rule in ilu factorization due to old SciPy&quot;</span><span class="p">)</span>
+            <span class="n">ilu</span> <span class="o">=</span> <span class="n">spilu</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">drop_tol</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_drop_tol&#39;</span><span class="p">],</span> <span class="n">fill_factor</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_fill_factor&#39;</span><span class="p">],</span>
+                        <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;spilu_permc_spec&#39;</span><span class="p">])</span>
         <span class="n">precond</span> <span class="o">=</span> <span class="n">LinearOperator</span><span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">ilu</span><span class="o">.</span><span class="n">solve</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">VV</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
             <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">info</span> <span class="o">=</span> <span class="n">bicgstab</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">VV</span><span class="p">,</span> <span class="n">initial_guess</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">initial_guess</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
@@ -270,23 +280,43 @@
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">can_cast</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">fdtype</span><span class="p">,</span> <span class="n">casting</span><span class="o">=</span><span class="s1">&#39;safe&#39;</span><span class="p">):</span>
                     <span class="k">del</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span>
 
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="s1">&#39;factorization&#39;</span><span class="p">):</span>
-                <span class="c1"># we may use a complex factorization of a real matrix to</span>
-                <span class="c1"># apply it to a real vector. In that case, we downcast</span>
-                <span class="c1"># the result here, removing the imaginary part,</span>
-                <span class="c1"># which should be zero.</span>
-                <span class="n">R</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">promoted_type</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;keep_factorization&#39;</span><span class="p">]:</span>
-                <span class="c1"># the matrix is always converted to the promoted type.</span>
-                <span class="c1"># if matrix.dtype == promoted_type, this is a no_op</span>
-                <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span> <span class="o">=</span> <span class="n">splu</span><span class="p">(</span><span class="n">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">tocsc</span><span class="p">(),</span> <span class="n">promoted_type</span><span class="p">),</span>
-                                            <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;permc_spec&#39;</span><span class="p">])</span>
-                <span class="n">matrix</span><span class="o">.</span><span class="n">factorizationdtype</span> <span class="o">=</span> <span class="n">promoted_type</span>
-                <span class="n">R</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="k">if</span> <span class="n">Version</span><span class="p">(</span><span class="n">scipy</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">version</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">Version</span><span class="p">(</span><span class="s1">&#39;0.14&#39;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="s1">&#39;factorization&#39;</span><span class="p">):</span>
+                    <span class="c1"># we may use a complex factorization of a real matrix to</span>
+                    <span class="c1"># apply it to a real vector. In that case, we downcast</span>
+                    <span class="c1"># the result here, removing the imaginary part,</span>
+                    <span class="c1"># which should be zero.</span>
+                    <span class="n">R</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">promoted_type</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;keep_factorization&#39;</span><span class="p">]:</span>
+                    <span class="c1"># the matrix is always converted to the promoted type.</span>
+                    <span class="c1"># if matrix.dtype == promoted_type, this is a no_op</span>
+                    <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span> <span class="o">=</span> <span class="n">splu</span><span class="p">(</span><span class="n">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">tocsc</span><span class="p">(),</span> <span class="n">promoted_type</span><span class="p">),</span>
+                                                <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;permc_spec&#39;</span><span class="p">])</span>
+                    <span class="n">matrix</span><span class="o">.</span><span class="n">factorizationdtype</span> <span class="o">=</span> <span class="n">promoted_type</span>
+                    <span class="n">R</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># the matrix is always converted to the promoted type.</span>
+                    <span class="c1"># if matrix.dtype == promoted_type, this is a no_op</span>
+                    <span class="n">R</span> <span class="o">=</span> <span class="n">spsolve</span><span class="p">(</span><span class="n">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">promoted_type</span><span class="p">),</span> <span class="n">V</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;permc_spec&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># the matrix is always converted to the promoted type.</span>
-                <span class="c1"># if matrix.dtype == promoted_type, this is a no_op</span>
-                <span class="n">R</span> <span class="o">=</span> <span class="n">spsolve</span><span class="p">(</span><span class="n">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">promoted_type</span><span class="p">),</span> <span class="n">V</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;permc_spec&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+                <span class="c1"># see if-part for documentation</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="s1">&#39;factorization&#39;</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">VV</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+                        <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">VV</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">promoted_type</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;keep_factorization&#39;</span><span class="p">]:</span>
+                    <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span> <span class="o">=</span> <span class="n">splu</span><span class="p">(</span><span class="n">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">tocsc</span><span class="p">(),</span> <span class="n">promoted_type</span><span class="p">),</span>
+                                                <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;permc_spec&#39;</span><span class="p">])</span>
+                    <span class="n">matrix</span><span class="o">.</span><span class="n">factorizationdtype</span> <span class="o">=</span> <span class="n">promoted_type</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">VV</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+                        <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">.</span><span class="n">factorization</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">VV</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">factorization</span> <span class="o">=</span> <span class="n">splu</span><span class="p">(</span><span class="n">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">tocsc</span><span class="p">(),</span> <span class="n">promoted_type</span><span class="p">),</span>
+                                         <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;permc_spec&#39;</span><span class="p">])</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">VV</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+                        <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">factorization</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">VV</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">R</span> <span class="o">=</span> <span class="n">spsolve</span><span class="p">(</span><span class="n">matrix_astype_nocopy</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">promoted_type</span><span class="p">),</span> <span class="n">V</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+                                <span class="n">permc_spec</span><span class="o">=</span><span class="n">options</span><span class="p">[</span><span class="s1">&#39;permc_spec&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">InversionError</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">options</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;scipy_lgmres&#39;</span><span class="p">:</span>
@@ -631,7 +661,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2rc0+1334.ge573e3d3 Manual</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2rc0+1332.g3a5053a0 Manual</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
       </ul>
     </div>
