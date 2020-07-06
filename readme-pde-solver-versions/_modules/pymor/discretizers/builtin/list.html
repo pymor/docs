@@ -1,0 +1,148 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.discretizers.builtin.list &#8212; pyMOR v2019.2rc0+1316.gb2581ed1 Manual</title>
+    <link rel="stylesheet" href="../../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/language_data.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pyMOR v2019.2rc0+1316.gb2581ed1 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.discretizers.builtin.list</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2020 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.preassemble</span> <span class="kn">import</span> <span class="n">preassemble</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.rules</span> <span class="kn">import</span> <span class="n">RuleTable</span><span class="p">,</span> <span class="n">match_class</span>
+<span class="kn">from</span> <span class="nn">pymor.models.interface</span> <span class="kn">import</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="p">(</span><span class="n">AdjointOperator</span><span class="p">,</span> <span class="n">AffineOperator</span><span class="p">,</span> <span class="n">Concatenation</span><span class="p">,</span>
+                                           <span class="n">FixedParameterOperator</span><span class="p">,</span> <span class="n">LincombOperator</span><span class="p">,</span>
+                                           <span class="n">SelectionOperator</span><span class="p">,</span> <span class="n">VectorArrayOperator</span><span class="p">,</span>
+                                           <span class="n">VectorFunctional</span><span class="p">,</span> <span class="n">VectorOperator</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.list</span> <span class="kn">import</span> <span class="n">NumpyListVectorArrayMatrixOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.list</span> <span class="kn">import</span> <span class="n">NumpyListVectorSpace</span>
+
+
+<div class="viewcode-block" id="convert_to_numpy_list_vector_array"><a class="viewcode-back" href="../../../../generated/pymor.discretizers.builtin.html#pymor.discretizers.builtin.list.convert_to_numpy_list_vector_array">[docs]</a><span class="k">def</span> <span class="nf">convert_to_numpy_list_vector_array</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Use NumpyListVectorArrayMatrixOperator instead of NumpyMatrixOperator.</span>
+
+<span class="sd">    This simple function recursively converts |NumpyMatrixOperators| to corresponding</span>
+<span class="sd">    :class:`NumpyListVectorArrayMatrixOperators &lt;pymor.operators.list.NumpyListVectorArrayMatrixOperator&gt;`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    obj</span>
+<span class="sd">        Either an |Operator|, e.g. |NumpyMatrixOperator| or a |LincombOperator| of</span>
+<span class="sd">        |NumpyMatrixOperators|, or an entire |Model| that is to be converted.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    The converted |Operator| or |Model|.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">preassemble</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ConvertToNumpyListVectorArrayRules</span><span class="p">()</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ConvertToNumpyListVectorArrayRules"><a class="viewcode-back" href="../../../../generated/pymor.discretizers.builtin.html#pymor.discretizers.builtin.list.ConvertToNumpyListVectorArrayRules">[docs]</a><span class="k">class</span> <span class="nc">ConvertToNumpyListVectorArrayRules</span><span class="p">(</span><span class="n">RuleTable</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">use_caching</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">AdjointOperator</span><span class="p">,</span> <span class="n">AffineOperator</span><span class="p">,</span> <span class="n">Concatenation</span><span class="p">,</span>
+                 <span class="n">FixedParameterOperator</span><span class="p">,</span> <span class="n">LincombOperator</span><span class="p">,</span> <span class="n">SelectionOperator</span><span class="p">,</span>
+                 <span class="n">Model</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_recurse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">replace_children</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">NumpyMatrixOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_NumpyMatrixOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">vector</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">functional</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">vector</span> <span class="ow">and</span> <span class="n">functional</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="k">if</span> <span class="n">vector</span><span class="p">:</span>
+            <span class="n">space</span> <span class="o">=</span> <span class="n">NumpyListVectorSpace</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">VectorOperator</span><span class="p">(</span><span class="n">space</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))),</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">functional</span><span class="p">:</span>
+            <span class="n">space</span> <span class="o">=</span> <span class="n">NumpyListVectorSpace</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">VectorFunctional</span><span class="p">(</span><span class="n">space</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">ravel</span><span class="p">()),</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">new_type</span><span class="o">=</span><span class="n">NumpyListVectorArrayMatrixOperator</span><span class="p">)</span>
+
+    <span class="nd">@match_class</span><span class="p">(</span><span class="n">VectorArrayOperator</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">action_VectorArrayOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="n">space</span> <span class="o">=</span> <span class="n">NumpyListVectorSpace</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">space</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">with_</span><span class="p">(</span><span class="n">new_type</span><span class="o">=</span><span class="n">VectorArrayOperator</span><span class="p">,</span>
+                        <span class="n">array</span><span class="o">=</span><span class="n">space</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()))</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pyMOR v2019.2rc0+1316.gb2581ed1 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2020 pyMOR developers and contributors.
+      Last updated on Jul 03, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.4.4.
+    </div>
+  </body>
+</html>
