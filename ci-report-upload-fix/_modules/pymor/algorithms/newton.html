@@ -1,0 +1,304 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.newton &#8212; pyMOR v2019.2rc0+1329.gae07fa36 Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/jupyter-sphinx.css" />
+    
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://unpkg.com/@jupyter-widgets/html-manager@^0.18.0/dist/embed-amd.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2rc0+1329.gae07fa36 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.newton</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2020 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.line_search</span> <span class="kn">import</span> <span class="n">armijo</span>
+
+<span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
+<span class="kn">from</span> <span class="nn">pymor.core.exceptions</span> <span class="kn">import</span> <span class="n">InversionError</span><span class="p">,</span> <span class="n">NewtonError</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+
+
+<div class="viewcode-block" id="newton"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.newton.newton">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;miniter&#39;</span><span class="p">,</span> <span class="s1">&#39;maxiter&#39;</span><span class="p">,</span> <span class="s1">&#39;rtol&#39;</span><span class="p">,</span> <span class="s1">&#39;atol&#39;</span><span class="p">,</span> <span class="s1">&#39;relax&#39;</span><span class="p">,</span> <span class="s1">&#39;stagnation_window&#39;</span><span class="p">,</span> <span class="s1">&#39;stagnation_threshold&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">newton</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">initial_guess</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">range_product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">source_product</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+           <span class="n">miniter</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">maxiter</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">,</span> <span class="n">relax</span><span class="o">=</span><span class="s1">&#39;armijo&#39;</span><span class="p">,</span> <span class="n">line_search_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+           <span class="n">stagnation_window</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">stagnation_threshold</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">error_measure</span><span class="o">=</span><span class="s1">&#39;update&#39;</span><span class="p">,</span>
+           <span class="n">return_stages</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">return_residuals</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Newton algorithm.</span>
+
+<span class="sd">    This method solves the nonlinear equation ::</span>
+
+<span class="sd">        A(U, mu) = V</span>
+
+<span class="sd">    for `U` using the Newton method.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    operator</span>
+<span class="sd">        The |Operator| `A`. `A` must implement the</span>
+<span class="sd">        :meth:`~pymor.operators.interface.Operator.jacobian` interface method.</span>
+<span class="sd">    rhs</span>
+<span class="sd">        |VectorArray| of length 1 containing the vector `V`.</span>
+<span class="sd">    initial_guess</span>
+<span class="sd">        If not `None`, a |VectorArray| of length 1 containing an initial guess for the</span>
+<span class="sd">        solution `U`.</span>
+<span class="sd">    mu</span>
+<span class="sd">        The |parameter values| for which to solve the equation.</span>
+<span class="sd">    range_product</span>
+<span class="sd">        The inner product `Operator` on `operator.range` with which the norm</span>
+<span class="sd">        of the resiudal is computed. If `None`, the Euclidean inner product</span>
+<span class="sd">        is used.</span>
+<span class="sd">    source_product</span>
+<span class="sd">        The inner product `Operator` on `operator.source` with which the norm</span>
+<span class="sd">        of the solution and update vectors is computed. If `None`, the Euclidean inner</span>
+<span class="sd">        product is used.</span>
+<span class="sd">    least_squares</span>
+<span class="sd">        If `True`, use a least squares linear solver (e.g. for residual minimization).</span>
+<span class="sd">    miniter</span>
+<span class="sd">        Minimum amount of iterations to perform.</span>
+<span class="sd">    maxiter</span>
+<span class="sd">        Fail if the iteration count reaches this value without converging.</span>
+<span class="sd">    atol</span>
+<span class="sd">        Finish when the error measure is below this threshold.</span>
+<span class="sd">    rtol</span>
+<span class="sd">        Finish when the error measure has been reduced by this factor</span>
+<span class="sd">        relative to the norm of the initial residual resp. the norm of the current solution.</span>
+<span class="sd">    relax</span>
+<span class="sd">        If real valued, relaxation factor for Newton updates; otherwise `&#39;armijo&#39;` to</span>
+<span class="sd">        indicate that the :func:`~pymor.algorithms.line_search.armijo` line search algorithm</span>
+<span class="sd">        shall be used.</span>
+<span class="sd">    line_search_params</span>
+<span class="sd">        Dictionary of additional parameters passed to the line search method.</span>
+<span class="sd">    stagnation_window</span>
+<span class="sd">        Finish when the error measure has not been reduced by a factor of</span>
+<span class="sd">        `stagnation_threshold` during the last `stagnation_window` iterations.</span>
+<span class="sd">    stagnation_threshold</span>
+<span class="sd">        See `stagnation_window`.</span>
+<span class="sd">    error_measure</span>
+<span class="sd">        If `&#39;residual&#39;`, convergence depends on the norm of the residual. If</span>
+<span class="sd">        `&#39;update&#39;`, convergence depends on the norm of the update vector.</span>
+<span class="sd">    return_stages</span>
+<span class="sd">        If `True`, return a |VectorArray| of the intermediate approximations of `U`</span>
+<span class="sd">        after each iteration.</span>
+<span class="sd">    return_residuals</span>
+<span class="sd">        If `True`, return a |VectorArray| of all residual vectors which have been computed</span>
+<span class="sd">        during the Newton iterations.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    U</span>
+<span class="sd">        |VectorArray| of length 1 containing the computed solution</span>
+<span class="sd">    data</span>
+<span class="sd">        Dict containing the following fields:</span>
+
+<span class="sd">            :solution_norms:  |NumPy array| of the solution norms after each iteration.</span>
+<span class="sd">            :update_norms:    |NumPy array| of the norms of the update vectors for each iteration.</span>
+<span class="sd">            :residual_norms:  |NumPy array| of the residual norms after each iteration.</span>
+<span class="sd">            :stages:          See `return_stages`.</span>
+<span class="sd">            :residuals:       See `return_residuals`.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NewtonError</span>
+<span class="sd">        Raised if the Newton algorithm failed to converge.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">error_measure</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;residual&#39;</span><span class="p">,</span> <span class="s1">&#39;update&#39;</span><span class="p">)</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.newton&#39;</span><span class="p">)</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">if</span> <span class="n">initial_guess</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">initial_guess</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">zeros</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">return_stages</span><span class="p">:</span>
+        <span class="n">data</span><span class="p">[</span><span class="s1">&#39;stages&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">return_residuals</span><span class="p">:</span>
+        <span class="n">data</span><span class="p">[</span><span class="s1">&#39;residuals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+
+    <span class="n">U</span> <span class="o">=</span> <span class="n">initial_guess</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">residual</span> <span class="o">=</span> <span class="n">rhs</span> <span class="o">-</span> <span class="n">operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="c1"># compute norms</span>
+    <span class="n">solution_norm</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">source_product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">solution_norms</span> <span class="o">=</span> <span class="p">[</span><span class="n">solution_norm</span><span class="p">]</span>
+    <span class="n">update_norms</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">residual_norm</span> <span class="o">=</span> <span class="n">residual</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">range_product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">residual_norms</span> <span class="o">=</span> <span class="p">[</span><span class="n">residual_norm</span><span class="p">]</span>
+
+    <span class="c1"># select error measure for convergence criteria</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">residual_norm</span> <span class="k">if</span> <span class="n">error_measure</span> <span class="o">==</span> <span class="s1">&#39;residual&#39;</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="n">err_scale_factor</span> <span class="o">=</span> <span class="n">err</span>
+    <span class="n">errs</span> <span class="o">=</span> <span class="n">residual_norms</span> <span class="k">if</span> <span class="n">error_measure</span> <span class="o">==</span> <span class="s1">&#39;residual&#39;</span> <span class="k">else</span> <span class="n">update_norms</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;     norm:</span><span class="si">{</span><span class="n">solution_norm</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1">                                 res:</span><span class="si">{</span><span class="n">residual_norm</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="n">iteration</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="c1"># check for convergence / failure of convergence</span>
+        <span class="k">if</span> <span class="n">iteration</span> <span class="o">&gt;=</span> <span class="n">miniter</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">residual_norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># handle the corner case where error_norm == update, U is the exact solution</span>
+                <span class="c1"># and the jacobian of operator is not invertible at the exact solution</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Norm of residual exactly zero. Converged.&#39;</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="n">err</span> <span class="o">&lt;</span> <span class="n">atol</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Absolute tolerance of </span><span class="si">{</span><span class="n">atol</span><span class="si">}</span><span class="s1"> for norm of </span><span class="si">{</span><span class="n">error_measure</span><span class="si">}</span><span class="s1"> reached. Converged.&#39;</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="n">err</span> <span class="o">&lt;</span> <span class="n">rtol</span> <span class="o">*</span> <span class="n">err_scale_factor</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Relative tolerance of </span><span class="si">{</span><span class="n">rtol</span><span class="si">}</span><span class="s1"> for norm of </span><span class="si">{</span><span class="n">error_measure</span><span class="si">}</span><span class="s1"> reached. Converged.&#39;</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">errs</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">stagnation_window</span> <span class="o">+</span> <span class="mi">1</span>
+                    <span class="ow">and</span> <span class="n">err</span> <span class="o">&gt;</span> <span class="n">stagnation_threshold</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="n">errs</span><span class="p">[</span><span class="o">-</span><span class="n">stagnation_window</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:])):</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Norm of </span><span class="si">{</span><span class="n">error_measure</span><span class="si">}</span><span class="s1"> is stagnating (threshold: </span><span class="si">{</span><span class="n">stagnation_threshold</span><span class="si">:</span><span class="s1">5e</span><span class="si">}</span><span class="s1">, &#39;</span>
+                            <span class="sa">f</span><span class="s1">&#39;window: </span><span class="si">{</span><span class="n">stagnation_window</span><span class="si">}</span><span class="s1">). Converged.&#39;</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="n">iteration</span> <span class="o">&gt;=</span> <span class="n">maxiter</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">NewtonError</span><span class="p">(</span><span class="s1">&#39;Failed to converge after </span><span class="si">{iteration}</span><span class="s1"> iterations.&#39;</span><span class="p">)</span>
+
+        <span class="n">iteration</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># store convergence history</span>
+        <span class="k">if</span> <span class="n">iteration</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">return_stages</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">[</span><span class="s1">&#39;stages&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">U</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">return_residuals</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">[</span><span class="s1">&#39;residuals&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">residual</span><span class="p">)</span>
+
+        <span class="c1"># compute update</span>
+        <span class="n">jacobian</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">update</span> <span class="o">=</span> <span class="n">jacobian</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">residual</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">InversionError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NewtonError</span><span class="p">(</span><span class="s1">&#39;Could not invert jacobian&#39;</span><span class="p">)</span>
+
+        <span class="c1"># compute step size</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">relax</span><span class="p">,</span> <span class="n">Number</span><span class="p">):</span>
+            <span class="n">step_size</span> <span class="o">=</span> <span class="n">relax</span>
+        <span class="k">elif</span> <span class="n">relax</span> <span class="o">==</span> <span class="s1">&#39;armijo&#39;</span><span class="p">:</span>
+            <span class="k">def</span> <span class="nf">res</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="n">residual_vec</span> <span class="o">=</span> <span class="n">rhs</span> <span class="o">-</span> <span class="n">operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">residual_vec</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">range_product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">range_product</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">grad</span> <span class="o">=</span> <span class="o">-</span> <span class="p">(</span><span class="n">jacobian</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">residual</span><span class="p">)</span> <span class="o">+</span> <span class="n">jacobian</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">residual</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">grad</span> <span class="o">=</span> <span class="o">-</span> <span class="p">(</span><span class="n">jacobian</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">range_product</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">residual</span><span class="p">))</span>
+                          <span class="o">+</span> <span class="n">jacobian</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">range_product</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">residual</span><span class="p">)))</span>
+            <span class="n">step_size</span> <span class="o">=</span> <span class="n">armijo</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">update</span><span class="p">,</span> <span class="n">grad</span><span class="o">=</span><span class="n">grad</span><span class="p">,</span> <span class="n">initial_value</span><span class="o">=</span><span class="n">residual_norm</span><span class="p">,</span> <span class="o">**</span><span class="p">(</span><span class="n">line_search_params</span> <span class="ow">or</span> <span class="p">{}))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unknown line search method&#39;</span><span class="p">)</span>
+
+        <span class="c1"># update solution and residual</span>
+        <span class="n">U</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="n">update</span><span class="p">)</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="n">rhs</span> <span class="o">-</span> <span class="n">operator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+
+        <span class="c1"># compute norms</span>
+        <span class="n">solution_norm</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">source_product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">solution_norms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">solution_norm</span><span class="p">)</span>
+        <span class="n">update_norm</span> <span class="o">=</span> <span class="n">update</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">source_product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">step_size</span>
+        <span class="n">update_norms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">update_norm</span><span class="p">)</span>
+        <span class="n">residual_norm</span> <span class="o">=</span> <span class="n">residual</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">range_product</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">residual_norms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">residual_norm</span><span class="p">)</span>
+
+        <span class="c1"># select error measure for next iteration</span>
+        <span class="n">err</span> <span class="o">=</span> <span class="n">residual_norm</span> <span class="k">if</span> <span class="n">error_measure</span> <span class="o">==</span> <span class="s1">&#39;residual&#39;</span> <span class="k">else</span> <span class="n">update_norm</span>
+        <span class="k">if</span> <span class="n">error_measure</span> <span class="o">==</span> <span class="s1">&#39;update&#39;</span><span class="p">:</span>
+            <span class="n">err_scale_factor</span> <span class="o">=</span> <span class="n">solution_norm</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;it:</span><span class="si">{</span><span class="n">iteration</span><span class="si">}</span><span class="s1"> &#39;</span>
+                    <span class="sa">f</span><span class="s1">&#39;norm:</span><span class="si">{</span><span class="n">solution_norm</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1"> &#39;</span>
+                    <span class="sa">f</span><span class="s1">&#39;upd:</span><span class="si">{</span><span class="n">update_norm</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1"> &#39;</span>
+                    <span class="sa">f</span><span class="s1">&#39;rel_upd:</span><span class="si">{</span><span class="n">update_norm</span> <span class="o">/</span> <span class="n">solution_norm</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1"> &#39;</span>
+                    <span class="sa">f</span><span class="s1">&#39;res:</span><span class="si">{</span><span class="n">residual_norm</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1"> &#39;</span>
+                    <span class="sa">f</span><span class="s1">&#39;red:</span><span class="si">{</span><span class="n">residual_norm</span> <span class="o">/</span> <span class="n">residual_norms</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1"> &#39;</span>
+                    <span class="sa">f</span><span class="s1">&#39;tot_red:</span><span class="si">{</span><span class="n">residual_norm</span> <span class="o">/</span> <span class="n">residual_norms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">residual_norm</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">solution_norm</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">NewtonError</span><span class="p">(</span><span class="s1">&#39;Failed to converge&#39;</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;solution_norms&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">solution_norms</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;update_norms&#39;</span><span class="p">]</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">update_norms</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;residual_norms&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">residual_norms</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">U</span><span class="p">,</span> <span class="n">data</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2rc0+1329.gae07fa36 Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2020 pyMOR developers and contributors.
+      Last updated on Jul 06, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.0.3.
+    </div>
+  </body>
+</html>
