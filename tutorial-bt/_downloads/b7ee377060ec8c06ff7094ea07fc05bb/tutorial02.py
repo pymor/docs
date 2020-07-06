@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sps
-from pymor.basic import LTIModel, BTReductor
+from pymor.models.iosys import LTIModel
+from pymor.reductors.bt import BTReductor
 
 k = 50
 n = 2 * k + 1
