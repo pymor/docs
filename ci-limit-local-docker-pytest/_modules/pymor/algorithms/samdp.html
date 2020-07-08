@@ -1,0 +1,584 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>pymor.algorithms.samdp &#8212; pyMOR v2019.2rc0+1358.g87878d1d Manual</title>
+    <link rel="stylesheet" href="../../../_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/jupyter-sphinx.css" />
+    
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://unpkg.com/@jupyter-widgets/html-manager@^0.18.0/dist/embed-amd.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2rc0+1358.g87878d1d Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymor.algorithms.samdp</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
+<span class="c1"># Copyright 2013-2020 pyMOR developers and contributors. All rights reserved.</span>
+<span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.linalg</span> <span class="k">as</span> <span class="nn">spla</span>
+
+<span class="kn">from</span> <span class="nn">pymor.algorithms.gram_schmidt</span> <span class="kn">import</span> <span class="n">gram_schmidt</span>
+<span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
+<span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">getLogger</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">IdentityOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.interface</span> <span class="kn">import</span> <span class="n">Operator</span>
+
+
+<div class="viewcode-block" id="samdp"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.samdp.samdp">[docs]</a><span class="nd">@defaults</span><span class="p">(</span><span class="s1">&#39;which&#39;</span><span class="p">,</span> <span class="s1">&#39;tol&#39;</span><span class="p">,</span> <span class="s1">&#39;imagtol&#39;</span><span class="p">,</span> <span class="s1">&#39;conjtol&#39;</span><span class="p">,</span> <span class="s1">&#39;dorqitol&#39;</span><span class="p">,</span> <span class="s1">&#39;rqitol&#39;</span><span class="p">,</span> <span class="s1">&#39;maxrestart&#39;</span><span class="p">,</span> <span class="s1">&#39;krestart&#39;</span><span class="p">,</span> <span class="s1">&#39;init_shifts&#39;</span><span class="p">,</span>
+          <span class="s1">&#39;rqi_maxiter&#39;</span><span class="p">,</span> <span class="s1">&#39;seed&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">samdp</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">nwanted</span><span class="p">,</span> <span class="n">init_shifts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">which</span><span class="o">=</span><span class="s1">&#39;LR&#39;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">imagtol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">conjtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span>
+          <span class="n">dorqitol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">rqitol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">maxrestart</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">krestart</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">rqi_maxiter</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute the dominant pole triplets and residues of the transfer function of an LTI system.</span>
+
+<span class="sd">    This function uses the subspace accelerated dominant pole (SAMDP) algorithm as described in</span>
+<span class="sd">    [RM06]_ in Algorithm 2 in order to compute dominant pole triplets and residues of the transfer</span>
+<span class="sd">    function</span>
+
+<span class="sd">    .. math::</span>
+<span class="sd">        H(s) = C (s E - A)^{-1} B</span>
+
+<span class="sd">    of an LTI system. It is possible to take advantage of prior knowledge about the poles</span>
+<span class="sd">    by specifying shift parameters, which are injected after a new pole has been found.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The |Operator| A.</span>
+<span class="sd">    E</span>
+<span class="sd">        The |Operator| E or `None`.</span>
+<span class="sd">    B</span>
+<span class="sd">        The operator B as a |VectorArray| from `A.source`.</span>
+<span class="sd">    C</span>
+<span class="sd">        The operator C as a |VectorArray| from `A.source`.</span>
+<span class="sd">    nwanted</span>
+<span class="sd">        The number of dominant poles that should be computed.</span>
+<span class="sd">    init_shifts</span>
+<span class="sd">        A |NumPy array| containing shifts which are injected after a new pole has been found.</span>
+<span class="sd">    which</span>
+<span class="sd">        A string specifying the strategy by which the dominant poles and residues are selected.</span>
+<span class="sd">        Possible values are:</span>
+
+<span class="sd">        - `&#39;LR&#39;`: select poles with largest norm(residual) / abs(Re(pole))</span>
+<span class="sd">        - `&#39;LS&#39;`: select poles with largest norm(residual) / abs(pole)</span>
+<span class="sd">        - `&#39;LM&#39;`: select poles with largest norm(residual)</span>
+<span class="sd">    tol</span>
+<span class="sd">        Tolerance for the residual of the poles.</span>
+<span class="sd">    imagtol</span>
+<span class="sd">        Relative tolerance for imaginary parts of pairs of complex conjugate eigenvalues.</span>
+<span class="sd">    conjtol</span>
+<span class="sd">        Tolerance for the residual of the complex conjugate of a pole.</span>
+<span class="sd">    dorqitol</span>
+<span class="sd">        If the residual is smaller than dorqitol the two-sided Rayleigh quotient iteration</span>
+<span class="sd">        is executed.</span>
+<span class="sd">    rqitol</span>
+<span class="sd">        Tolerance for the relative change of a pole in the two-sided Rayleigh quotient</span>
+<span class="sd">        iteration.</span>
+<span class="sd">    maxrestart</span>
+<span class="sd">        The maximum number of restarts.</span>
+<span class="sd">    krestart</span>
+<span class="sd">        Maximum dimension of search space before performing a restart.</span>
+<span class="sd">    rqi_maxiter</span>
+<span class="sd">        Maximum number of iterations for the two-sided Rayleigh quotient iteration.</span>
+<span class="sd">    seed</span>
+<span class="sd">        Random seed which is used for computing the initial shift and random restarts.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    poles</span>
+<span class="sd">        A 1D |NumPy array| containing the computed dominant poles.</span>
+<span class="sd">    residues</span>
+<span class="sd">        A 3D |NumPy array| of shape `(len(poles), len(C), len(B))` containing the computed residues.</span>
+<span class="sd">    rightev</span>
+<span class="sd">        A |VectorArray| containing the right eigenvectors of the computed poles.</span>
+<span class="sd">    leftev</span>
+<span class="sd">        A |VectorArray| containing the left eigenvectors of the computed poles.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pymor.algorithms.samdp.samdp&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">E</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="n">IdentityOperator</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">Operator</span><span class="p">)</span> <span class="ow">and</span> <span class="n">A</span><span class="o">.</span><span class="n">linear</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">A</span><span class="o">.</span><span class="n">parametric</span>
+    <span class="k">assert</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">A</span><span class="o">.</span><span class="n">range</span>
+    <span class="k">if</span> <span class="n">E</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">Operator</span><span class="p">)</span> <span class="ow">and</span> <span class="n">E</span><span class="o">.</span><span class="n">linear</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">E</span><span class="o">.</span><span class="n">parametric</span>
+        <span class="k">assert</span> <span class="n">E</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">E</span><span class="o">.</span><span class="n">range</span>
+        <span class="k">assert</span> <span class="n">E</span><span class="o">.</span><span class="n">source</span> <span class="o">==</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span>
+    <span class="k">assert</span> <span class="n">B</span> <span class="ow">in</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span>
+    <span class="k">assert</span> <span class="n">C</span> <span class="ow">in</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span>
+
+    <span class="n">B_defl</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">C_defl</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">nrestart</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">nr_converged</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+
+    <span class="n">X</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="n">Q</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="n">Qt</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="n">Qs</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="n">Qts</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="n">AX</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+
+    <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">G</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">poles</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">init_shifts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">st</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">()</span> <span class="o">*</span> <span class="mf">10.</span><span class="n">j</span>
+        <span class="n">shift_nr</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">nr_shifts</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">st</span> <span class="o">=</span> <span class="n">init_shifts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">shift_nr</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">nr_shifts</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">init_shifts</span><span class="p">)</span>
+
+    <span class="n">shifts</span> <span class="o">=</span> <span class="n">init_shifts</span>
+
+    <span class="k">while</span> <span class="n">nrestart</span> <span class="o">&lt;</span> <span class="n">maxrestart</span><span class="p">:</span>
+        <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="n">sEmA</span> <span class="o">=</span> <span class="n">st</span> <span class="o">*</span> <span class="n">E</span> <span class="o">-</span> <span class="n">A</span>
+        <span class="n">sEmAB</span> <span class="o">=</span> <span class="n">sEmA</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">B_defl</span><span class="p">)</span>
+        <span class="n">Hs</span> <span class="o">=</span> <span class="n">C_defl</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">sEmAB</span><span class="p">)</span>
+
+        <span class="n">y_all</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">u_all</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">Hs</span><span class="p">)</span>
+
+        <span class="n">u</span> <span class="o">=</span> <span class="n">u_all</span><span class="o">.</span><span class="n">conj</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">y_all</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="n">sEmAB</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">sEmA</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">C_defl</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+
+        <span class="n">X</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">V</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">AX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">k</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+
+        <span class="k">if</span> <span class="n">k</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">H</span><span class="p">,</span> <span class="n">V</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">k</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">AX</span><span class="p">[</span><span class="n">k</span><span class="o">-</span><span class="mi">1</span><span class="p">])))</span>
+        <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">H</span><span class="p">,</span> <span class="n">V</span><span class="p">[</span><span class="n">k</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">AX</span><span class="p">)))</span>
+        <span class="n">EX</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">G</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">G</span><span class="p">,</span> <span class="n">V</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">k</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">EX</span><span class="p">[</span><span class="n">k</span><span class="o">-</span><span class="mi">1</span><span class="p">])))</span>
+        <span class="n">G</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">G</span><span class="p">,</span> <span class="n">V</span><span class="p">[</span><span class="n">k</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">EX</span><span class="p">)))</span>
+
+        <span class="n">SH</span><span class="p">,</span> <span class="n">UR</span><span class="p">,</span> <span class="n">URt</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">_select_max_eig</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">B_defl</span><span class="p">,</span> <span class="n">C_defl</span><span class="p">,</span> <span class="n">which</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">res</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">eps</span><span class="p">):</span>
+            <span class="n">st</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">()</span> <span class="o">*</span> <span class="mf">10.</span><span class="n">j</span>
+            <span class="n">found</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">found</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">do_rqi</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">while</span> <span class="n">found</span><span class="p">:</span>
+            <span class="n">theta</span> <span class="o">=</span> <span class="n">SH</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">schurvec</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">UR</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+            <span class="n">schurvec</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">schurvec</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+            <span class="n">lschurvec</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">URt</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+            <span class="n">lschurvec</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">lschurvec</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+
+            <span class="n">st</span> <span class="o">=</span> <span class="n">theta</span>
+
+            <span class="n">nres</span> <span class="o">=</span> <span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">schurvec</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">schurvec</span><span class="p">)</span> <span class="o">*</span> <span class="n">theta</span><span class="p">))</span><span class="o">.</span><span class="n">norm</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Step: </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">, Theta: </span><span class="si">{</span><span class="n">theta</span><span class="si">:</span><span class="s1">.5e</span><span class="si">}</span><span class="s1">, Residual: </span><span class="si">{</span><span class="n">nres</span><span class="si">:</span><span class="s1">.5e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">nres</span> <span class="o">&lt;</span> <span class="n">dorqitol</span> <span class="ow">and</span> <span class="n">do_rqi</span><span class="p">:</span>
+                <span class="n">schurvec</span><span class="p">,</span> <span class="n">lschurvec</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">nres</span> <span class="o">=</span> <span class="n">_twosided_rqi</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">schurvec</span><span class="p">,</span> <span class="n">lschurvec</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">nres</span><span class="p">,</span>
+                                                                 <span class="n">imagtol</span><span class="p">,</span> <span class="n">rqitol</span><span class="p">,</span> <span class="n">rqi_maxiter</span><span class="p">)</span>
+                <span class="n">do_rqi</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">imagtol</span><span class="p">:</span>
+                    <span class="n">rres</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">schurvec</span><span class="o">.</span><span class="n">real</span><span class="p">)</span> <span class="o">-</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">schurvec</span><span class="o">.</span><span class="n">real</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+                    <span class="n">nrr</span> <span class="o">=</span> <span class="n">rres</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">nrr</span> <span class="o">-</span> <span class="n">nres</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">eps</span><span class="p">:</span>
+                        <span class="n">schurvec</span> <span class="o">=</span> <span class="n">schurvec</span><span class="o">.</span><span class="n">real</span>
+                        <span class="n">lschurvec</span> <span class="o">=</span> <span class="n">lschurvec</span><span class="o">.</span><span class="n">real</span>
+                        <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+                        <span class="n">nres</span> <span class="o">=</span> <span class="n">nrr</span>
+                <span class="k">if</span> <span class="n">nres</span> <span class="o">&gt;=</span> <span class="n">tol</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Two-sided RQI did not reach desired tolerance.&#39;</span><span class="p">)</span>
+
+            <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">imagtol</span><span class="p">:</span>
+                <span class="n">rres</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">schurvec</span><span class="o">.</span><span class="n">real</span><span class="p">)</span> <span class="o">-</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">schurvec</span><span class="o">.</span><span class="n">real</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+                <span class="n">nrr</span> <span class="o">=</span> <span class="n">rres</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">nrr</span> <span class="o">-</span> <span class="n">nres</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">eps</span><span class="p">:</span>
+                    <span class="n">schurvec</span> <span class="o">=</span> <span class="n">schurvec</span><span class="o">.</span><span class="n">real</span>
+                    <span class="n">lschurvec</span> <span class="o">=</span> <span class="n">lschurvec</span><span class="o">.</span><span class="n">real</span>
+                    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+                    <span class="n">nres</span> <span class="o">=</span> <span class="n">nrr</span>
+            <span class="n">found</span> <span class="o">=</span> <span class="n">nr_converged</span> <span class="o">&lt;</span> <span class="n">nwanted</span> <span class="ow">and</span> <span class="n">nres</span> <span class="o">&lt;</span> <span class="n">tol</span>
+
+            <span class="k">if</span> <span class="n">found</span><span class="p">:</span>
+                <span class="n">poles</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">poles</span><span class="p">,</span> <span class="n">theta</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Pole: </span><span class="si">{</span><span class="n">theta</span><span class="si">:</span><span class="s1">.5e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+                <span class="n">Q</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">schurvec</span><span class="p">)</span>
+                <span class="n">Qt</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lschurvec</span><span class="p">)</span>
+                <span class="n">Esch</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">schurvec</span><span class="p">)</span>
+                <span class="n">Qs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Esch</span><span class="p">)</span>
+                <span class="n">Qts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">lschurvec</span><span class="p">))</span>
+
+                <span class="n">nqqt</span> <span class="o">=</span> <span class="n">lschurvec</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Esch</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">Q</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">nqqt</span><span class="p">)</span>
+                <span class="n">Qs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">nqqt</span><span class="p">)</span>
+
+                <span class="n">nr_converged</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="k">if</span> <span class="n">k</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">UR</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+                    <span class="n">V</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">URt</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">X</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+                    <span class="n">V</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">imagtol</span><span class="p">:</span>
+                    <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+                <span class="n">B_defl</span> <span class="o">-=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">Q</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Qt</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B_defl</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+                <span class="n">C_defl</span> <span class="o">-=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">Qt</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Q</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">C_defl</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+
+                <span class="n">k</span> <span class="o">-=</span> <span class="mi">1</span>
+
+                <span class="n">cce</span> <span class="o">=</span> <span class="n">theta</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">cce</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">cce</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">imagtol</span><span class="p">:</span>
+
+                    <span class="n">ccv</span> <span class="o">=</span> <span class="n">schurvec</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span>
+                    <span class="n">ccv</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">ccv</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+
+                    <span class="n">r</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">ccv</span><span class="p">)</span> <span class="o">-</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">ccv</span><span class="p">)</span> <span class="o">*</span> <span class="n">cce</span>
+
+                    <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">cce</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">conjtol</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Conjugate Pole: </span><span class="si">{</span><span class="n">cce</span><span class="si">:</span><span class="s1">.5e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                        <span class="n">poles</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">poles</span><span class="p">,</span> <span class="n">cce</span><span class="p">)</span>
+
+                        <span class="n">Q</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ccv</span><span class="p">)</span>
+                        <span class="n">ccvt</span> <span class="o">=</span> <span class="n">lschurvec</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span>
+                        <span class="n">Qt</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ccvt</span><span class="p">)</span>
+
+                        <span class="n">Esch</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">ccv</span><span class="p">)</span>
+                        <span class="n">Qs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Esch</span><span class="p">)</span>
+                        <span class="n">Qts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">ccvt</span><span class="p">))</span>
+
+                        <span class="n">nqqt</span> <span class="o">=</span> <span class="n">ccvt</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">ccv</span><span class="p">))[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">Q</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">nqqt</span><span class="p">)</span>
+                        <span class="n">Qs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">nqqt</span><span class="p">)</span>
+
+                        <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                        <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+                        <span class="n">B_defl</span> <span class="o">-=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">Q</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Qt</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B_defl</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+                        <span class="n">C_defl</span> <span class="o">-=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">Qt</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Q</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">C_defl</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+
+                <span class="n">AX</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">G</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
+                    <span class="n">H</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">AX</span><span class="p">)</span>
+                    <span class="n">SH</span><span class="p">,</span> <span class="n">UR</span><span class="p">,</span> <span class="n">URt</span><span class="p">,</span> <span class="n">residues</span> <span class="o">=</span> <span class="n">_select_max_eig</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">B_defl</span><span class="p">,</span> <span class="n">C_defl</span><span class="p">,</span> <span class="n">which</span><span class="p">)</span>
+                    <span class="n">found</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">res</span> <span class="o">&gt;=</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">G</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+                    <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+                    <span class="n">found</span> <span class="o">=</span> <span class="kc">False</span>
+
+                <span class="k">if</span> <span class="n">nr_converged</span> <span class="o">&lt;</span> <span class="n">nwanted</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">found</span><span class="p">:</span>
+                        <span class="n">st</span> <span class="o">=</span> <span class="n">SH</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">st</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">()</span> <span class="o">*</span> <span class="mf">10.</span><span class="n">j</span>
+
+                    <span class="k">if</span> <span class="n">shift_nr</span> <span class="o">&lt;</span> <span class="n">nr_shifts</span><span class="p">:</span>
+                        <span class="n">st</span> <span class="o">=</span> <span class="n">shifts</span><span class="p">[</span><span class="n">shift_nr</span><span class="p">]</span>
+                        <span class="n">shift_nr</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">elif</span> <span class="n">k</span> <span class="o">&gt;=</span> <span class="n">krestart</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Perform restart...&#39;</span><span class="p">)</span>
+                <span class="n">EX</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+                <span class="n">RR</span> <span class="o">=</span> <span class="n">AX</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">UR</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">-</span> <span class="n">EX</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">UR</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">SH</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+                <span class="n">minidx</span> <span class="o">=</span> <span class="n">RR</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span><span class="o">.</span><span class="n">argmin</span><span class="p">()</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="mi">1</span>
+
+                <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">UR</span><span class="p">[:,</span> <span class="n">minidx</span><span class="p">])</span>
+                <span class="n">V</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">URt</span><span class="p">[:,</span> <span class="n">minidx</span><span class="p">])</span>
+
+                <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+                <span class="n">G</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
+                <span class="n">AX</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+                <span class="n">H</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">AX</span><span class="p">)</span>
+                <span class="n">nrestart</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="n">k</span> <span class="o">&gt;=</span> <span class="n">krestart</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Perform restart...&#39;</span><span class="p">)</span>
+            <span class="n">EX</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+            <span class="n">RR</span> <span class="o">=</span> <span class="n">AX</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">UR</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">-</span> <span class="n">EX</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">UR</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">SH</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+            <span class="n">minidx</span> <span class="o">=</span> <span class="n">RR</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span><span class="o">.</span><span class="n">argmin</span><span class="p">()</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="mi">1</span>
+
+            <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">UR</span><span class="p">[:,</span> <span class="n">minidx</span><span class="p">])</span>
+            <span class="n">V</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">URt</span><span class="p">[:,</span> <span class="n">minidx</span><span class="p">])</span>
+
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">gram_schmidt</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+            <span class="n">G</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
+            <span class="n">AX</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+            <span class="n">H</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">AX</span><span class="p">)</span>
+            <span class="n">nrestart</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="n">nr_converged</span> <span class="o">==</span> <span class="n">nwanted</span> <span class="ow">or</span> <span class="n">nrestart</span> <span class="o">==</span> <span class="n">maxrestart</span><span class="p">:</span>
+            <span class="n">rightev</span> <span class="o">=</span> <span class="n">Q</span>
+            <span class="n">leftev</span> <span class="o">=</span> <span class="n">Qt</span>
+            <span class="n">absres</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">poles</span><span class="p">))</span>
+            <span class="n">residues</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">poles</span><span class="p">)):</span>
+                <span class="n">leftev</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">leftev</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">rightev</span><span class="p">[</span><span class="n">i</span><span class="p">]))[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">residues</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">C</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">rightev</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">@</span> <span class="n">leftev</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="p">))</span>
+                <span class="n">absres</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">residues</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="nb">ord</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">residues</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">residues</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">which</span> <span class="o">==</span> <span class="s1">&#39;LR&#39;</span><span class="p">:</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">absres</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">poles</span><span class="p">)))</span>
+            <span class="k">elif</span> <span class="n">which</span> <span class="o">==</span> <span class="s1">&#39;LS&#39;</span><span class="p">:</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">absres</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">poles</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="n">which</span> <span class="o">==</span> <span class="s1">&#39;LM&#39;</span><span class="p">:</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">absres</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unknown SAMDP selection strategy.&#39;</span><span class="p">)</span>
+
+            <span class="n">residues</span> <span class="o">=</span> <span class="n">residues</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+            <span class="n">poles</span> <span class="o">=</span> <span class="n">poles</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+            <span class="n">rightev</span> <span class="o">=</span> <span class="n">rightev</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+            <span class="n">leftev</span> <span class="o">=</span> <span class="n">leftev</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">nr_converged</span> <span class="o">&lt;</span> <span class="n">nwanted</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;The specified number of poles could not be computed.&#39;</span><span class="p">)</span>
+            <span class="k">break</span>
+
+    <span class="k">return</span> <span class="n">poles</span><span class="p">,</span> <span class="n">residues</span><span class="p">,</span> <span class="n">rightev</span><span class="p">,</span> <span class="n">leftev</span></div>
+
+
+<div class="viewcode-block" id="_twosided_rqi"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.samdp._twosided_rqi">[docs]</a><span class="k">def</span> <span class="nf">_twosided_rqi</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">init_res</span><span class="p">,</span> <span class="n">imagtol</span><span class="p">,</span> <span class="n">rqitol</span><span class="p">,</span> <span class="n">maxiter</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Refine an initial guess for an eigentriplet of the matrix pair (A, E).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A</span>
+<span class="sd">        The |Operator| A from the LTI system.</span>
+<span class="sd">    E</span>
+<span class="sd">        The |Operator| E from the LTI system.</span>
+<span class="sd">    x</span>
+<span class="sd">        Initial guess for right eigenvector of matrix pair (A, E).</span>
+<span class="sd">    y</span>
+<span class="sd">        Initial guess for left eigenvector of matrix pair (A, E).</span>
+<span class="sd">    theta</span>
+<span class="sd">        Initial guess for eigenvalue of matrix pair (A, E).</span>
+<span class="sd">    init_res</span>
+<span class="sd">        Residual of initial guess.</span>
+<span class="sd">    imagtol</span>
+<span class="sd">        Relative tolerance for imaginary parts of pairs of complex conjugate eigenvalues.</span>
+<span class="sd">    rqitol</span>
+<span class="sd">        Convergence tolerance for the relative change of the pole.</span>
+<span class="sd">    maxiter</span>
+<span class="sd">        Maximum number of iteration.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    x</span>
+<span class="sd">        Refined right eigenvector of matrix pair (A, E).</span>
+<span class="sd">    y</span>
+<span class="sd">        Refined left eigenvector of matrix pair (A, E).</span>
+<span class="sd">    theta</span>
+<span class="sd">        Refined eigenvalue of matrix pair (A, E).</span>
+<span class="sd">    residual</span>
+<span class="sd">        Residual of the computed triplet.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">nrq</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">maxiter</span><span class="p">:</span>
+        <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">Ex</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">Ey</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+        <span class="n">tEmA</span> <span class="o">=</span> <span class="n">theta</span> <span class="o">*</span> <span class="n">E</span> <span class="o">-</span> <span class="n">A</span>
+        <span class="n">x_rqi</span> <span class="o">=</span> <span class="n">tEmA</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">Ex</span><span class="p">)</span>
+        <span class="n">v_rqi</span> <span class="o">=</span> <span class="n">tEmA</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">Ey</span><span class="p">)</span>
+
+        <span class="n">x_rqi</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">x_rqi</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+        <span class="n">v_rqi</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">v_rqi</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+
+        <span class="n">Ax_rqi</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">x_rqi</span><span class="p">)</span>
+        <span class="n">Ex_rqi</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">x_rqi</span><span class="p">)</span>
+
+        <span class="n">x_rq</span> <span class="o">=</span> <span class="p">(</span><span class="n">v_rqi</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Ax_rqi</span><span class="p">)</span> <span class="o">/</span> <span class="n">v_rqi</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Ex_rqi</span><span class="p">))[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">x_rq</span><span class="p">):</span>
+            <span class="n">x_rqi</span> <span class="o">=</span> <span class="n">x</span>
+            <span class="n">v_rqi</span> <span class="o">=</span> <span class="n">y</span>
+            <span class="n">x_rq</span> <span class="o">=</span> <span class="n">theta</span> <span class="o">+</span> <span class="mf">1e-10</span>
+
+        <span class="n">rqi_res</span> <span class="o">=</span> <span class="n">Ax_rqi</span> <span class="o">-</span> <span class="n">Ex_rqi</span> <span class="o">*</span> <span class="n">x_rq</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">x_rq</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x_rq</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">imagtol</span><span class="p">:</span>
+            <span class="n">rx_rqi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">x_rqi</span><span class="p">)</span>
+            <span class="n">rx_rqi</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">rx_rqi</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+
+            <span class="n">rres</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">rx_rqi</span><span class="p">)</span> <span class="o">-</span> <span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">rx_rqi</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">x_rq</span><span class="p">)</span>
+            <span class="n">nrr</span> <span class="o">=</span> <span class="n">rres</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">nrr</span> <span class="o">&lt;</span> <span class="n">rqi_res</span><span class="o">.</span><span class="n">norm</span><span class="p">():</span>
+                <span class="n">x_rqi</span> <span class="o">=</span> <span class="n">rx_rqi</span>
+                <span class="n">v_rqi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">v_rqi</span><span class="p">)</span>
+                <span class="n">v_rqi</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">v_rqi</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+                <span class="n">x_rq</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">x_rq</span><span class="p">)</span>
+                <span class="n">rqi_res</span> <span class="o">=</span> <span class="n">rres</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x_rqi</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">v_rqi</span>
+        <span class="n">nrq</span> <span class="o">=</span> <span class="n">rqi_res</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x_rq</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">theta</span> <span class="o">-</span> <span class="n">x_rq</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x_rq</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">rqitol</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">theta</span> <span class="o">=</span> <span class="n">x_rq</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">nrq</span><span class="p">):</span>
+            <span class="n">nrq</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">nrq</span> <span class="o">&lt;</span> <span class="n">init_res</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x_rqi</span><span class="p">,</span> <span class="n">v_rqi</span><span class="p">,</span> <span class="n">x_rq</span><span class="p">,</span> <span class="n">nrq</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">init_res</span></div>
+
+
+<div class="viewcode-block" id="_select_max_eig"><a class="viewcode-back" href="../../../generated/pymor.algorithms.html#pymor.algorithms.samdp._select_max_eig">[docs]</a><span class="k">def</span> <span class="nf">_select_max_eig</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">which</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute poles sorted from largest to smallest residual.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    H</span>
+<span class="sd">        The |Numpy array| H from the SAMDP algorithm.</span>
+<span class="sd">    G</span>
+<span class="sd">        The |Numpy array| G from the SAMDP algorithm.</span>
+<span class="sd">    X</span>
+<span class="sd">        A |VectorArray| describing the orthogonal search space used in the SAMDP algorithm.</span>
+<span class="sd">    V</span>
+<span class="sd">        A |VectorArray| describing the orthogonal search space used in the SAMDP algorithm.</span>
+<span class="sd">    B</span>
+<span class="sd">        The |VectorArray| B from the corresponding LTI system modified by deflation.</span>
+<span class="sd">    C</span>
+<span class="sd">        The |VectorArray| C from the corresponding LTI system modified by deflation.</span>
+<span class="sd">    which</span>
+<span class="sd">        A string that indicates which poles to select. See :func:`samdp`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    poles</span>
+<span class="sd">        A |NumPy array| containing poles sorted according to the chosen strategy.</span>
+<span class="sd">    rightevs</span>
+<span class="sd">        A |NumPy array| containing the right eigenvectors of the computed poles.</span>
+<span class="sd">    leftevs</span>
+<span class="sd">        A |NumPy array| containing the left eigenvectors of the computed poles.</span>
+<span class="sd">    residue</span>
+<span class="sd">        A 1D |NumPy array| containing the norms of the residues.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">D</span><span class="p">,</span> <span class="n">Vt</span><span class="p">,</span> <span class="n">Vs</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">D</span><span class="p">)</span>
+    <span class="n">DP</span> <span class="o">=</span> <span class="n">D</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+    <span class="n">Vs</span> <span class="o">=</span> <span class="n">Vs</span><span class="p">[:,</span> <span class="n">idx</span><span class="p">]</span>
+    <span class="n">Vt</span> <span class="o">=</span> <span class="n">Vt</span><span class="p">[:,</span> <span class="n">idx</span><span class="p">]</span>
+
+    <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Vs</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">lincomb</span><span class="p">(</span><span class="n">Vt</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+    <span class="n">V</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">V</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+    <span class="n">X</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">X</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+    <span class="n">residue</span> <span class="o">=</span> <span class="n">spla</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">C</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">spla</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">which</span> <span class="o">==</span> <span class="s1">&#39;LR&#39;</span><span class="p">:</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">residue</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">DP</span><span class="p">)))</span>
+    <span class="k">elif</span> <span class="n">which</span> <span class="o">==</span> <span class="s1">&#39;LS&#39;</span><span class="p">:</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">residue</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">DP</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">which</span> <span class="o">==</span> <span class="s1">&#39;LM&#39;</span><span class="p">:</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">residue</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unknown SAMDP selection strategy.&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">DP</span><span class="p">[</span><span class="n">idx</span><span class="p">]),</span> <span class="n">Vs</span><span class="p">[:,</span> <span class="n">idx</span><span class="p">],</span> <span class="n">Vt</span><span class="p">[:,</span> <span class="n">idx</span><span class="p">],</span> <span class="n">residue</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pyMOR v2019.2rc0+1358.g87878d1d Manual</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2020 pyMOR developers and contributors.
+      Last updated on Jul 08, 2020.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.0.3.
+    </div>
+  </body>
+</html>
