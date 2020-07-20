@@ -1,0 +1,712 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tutorial: Binding an external PDE solver to pyMOR &#8212; pyMOR v2019.2rc0+1449.gcd17e370 Manual</title>
+    <link rel="stylesheet" href="_static/pymor.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/jupyter-sphinx.css" />
+    
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://unpkg.com/@jupyter-widgets/html-manager@^0.18.0/dist/embed-amd.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Environment Variables" href="environment.html" />
+    <link rel="prev" title="Tutorial: Model order reduction with artificial neural networks" href="tutorial_mor_with_anns.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="environment.html" title="Environment Variables"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="tutorial_mor_with_anns.html" title="Tutorial: Model order reduction with artificial neural networks"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">pyMOR v2019.2rc0+1449.gcd17e370 Manual</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Tutorial: Binding an external PDE solver to pyMOR</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="tutorial-binding-an-external-pde-solver-to-pymor">
+<h1>Tutorial: Binding an external PDE solver to pyMOR<a class="headerlink" href="#tutorial-binding-an-external-pde-solver-to-pymor" title="Permalink to this headline">¶</a></h1>
+<p>One of pyMOR’s main features is easy integration of external solvers that implement the full-order model. In this tutorial
+we will do this step-by-step for a custom toy solver written in C++.
+If you use the <a class="reference external" href="https://fenicsproject.org">FEniCS</a> or <a class="reference external" href="https://ngsolve.org">NGSovle</a> PDE solver libraries,
+you can find ready-to-use pyMOR bindings in the <a class="reference internal" href="generated/pymor.bindings.html#module-pymor.bindings" title="pymor.bindings"><code class="xref py py-mod docutils literal notranslate"><span class="pre">bindings</span></code></a> package. pyMOR support for
+<a class="reference external" href="https://dealii.org">deal.II</a> can be found in a <a class="reference external" href="https://github.com/pymor/pymor-deal.II">separate repository</a>.</p>
+<div class="section" id="defining-the-pde-solver">
+<h2>Defining the PDE solver<a class="headerlink" href="#defining-the-pde-solver" title="Permalink to this headline">¶</a></h2>
+<p>Our solver discretizes the one-dimensional Laplace equation <span class="math notranslate nohighlight">\(u''(x)=0\)</span> on the interval <span class="math notranslate nohighlight">\([\text{left},\text{right}]\)</span>
+using a central differences scheme with <span class="math notranslate nohighlight">\(h=\frac{|\text{right}-\text{left}|}{n}\)</span>.
+First, we need a class to store our data in and with some basic linear algebra operations
+declared on it.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span> <span class="cpf">&lt;vector&gt;</span><span class="cp"></span>
+
+
+<span class="k">class</span> <span class="nc">Vector</span> <span class="p">{</span>
+  <span class="k">friend</span> <span class="k">class</span> <span class="nc">DiffusionOperator</span><span class="p">;</span>
+<span class="k">public</span><span class="o">:</span>
+  <span class="n">Vector</span><span class="p">(</span><span class="kt">int</span> <span class="n">dim</span><span class="p">,</span> <span class="kt">double</span> <span class="n">value</span><span class="p">);</span>
+  <span class="n">Vector</span><span class="p">(</span><span class="k">const</span> <span class="n">Vector</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">);</span>
+  <span class="k">const</span> <span class="kt">int</span> <span class="n">dim</span><span class="p">;</span>
+  <span class="kt">void</span> <span class="nf">scal</span><span class="p">(</span><span class="kt">double</span> <span class="n">val</span><span class="p">);</span>
+  <span class="kt">void</span> <span class="nf">axpy</span><span class="p">(</span><span class="kt">double</span> <span class="n">a</span><span class="p">,</span> <span class="k">const</span> <span class="n">Vector</span><span class="o">&amp;</span> <span class="n">x</span><span class="p">);</span>
+  <span class="kt">double</span> <span class="nf">dot</span><span class="p">(</span><span class="k">const</span> <span class="n">Vector</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span> <span class="k">const</span><span class="p">;</span>
+  <span class="kt">double</span><span class="o">*</span> <span class="nf">data</span><span class="p">();</span>
+<span class="k">private</span><span class="o">:</span>
+  <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">_data</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>Next, we need the operator that discretizes our PDE.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">DiffusionOperator</span> <span class="p">{</span>
+<span class="k">public</span><span class="o">:</span>
+  <span class="n">DiffusionOperator</span><span class="p">(</span><span class="kt">int</span> <span class="n">n</span><span class="p">,</span> <span class="kt">double</span> <span class="n">left</span><span class="p">,</span> <span class="kt">double</span> <span class="n">right</span><span class="p">);</span>
+  <span class="k">const</span> <span class="kt">int</span> <span class="n">dim_source</span><span class="p">;</span>
+  <span class="k">const</span> <span class="kt">int</span> <span class="n">dim_range</span><span class="p">;</span>
+  <span class="kt">void</span> <span class="nf">apply</span><span class="p">(</span><span class="k">const</span> <span class="n">Vector</span><span class="o">&amp;</span> <span class="n">U</span><span class="p">,</span> <span class="n">Vector</span><span class="o">&amp;</span> <span class="n">R</span><span class="p">)</span> <span class="k">const</span><span class="p">;</span>
+<span class="k">private</span><span class="o">:</span>
+  <span class="k">const</span> <span class="kt">double</span> <span class="n">h</span><span class="p">;</span>
+  <span class="k">const</span> <span class="kt">double</span> <span class="n">left</span><span class="p">;</span>
+  <span class="k">const</span> <span class="kt">double</span> <span class="n">right</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>Together with some header guards, these two snippets make up our <a class="reference download internal" download="" href="_downloads/4b760bfe83044bfca1cce7bedfd70380/model.hh"><code class="xref download docutils literal notranslate"><span class="pre">model.hh</span></code></a>.</p>
+<p>The definitions for the <code class="docutils literal notranslate"><span class="pre">Vector</span></code> class are pretty straightforward:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">Vector</span><span class="o">::</span><span class="n">Vector</span><span class="p">(</span><span class="kt">int</span> <span class="n">dim</span><span class="p">,</span> <span class="kt">double</span> <span class="n">value</span><span class="p">)</span> <span class="o">:</span> <span class="n">_data</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">value</span><span class="p">),</span> <span class="n">dim</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span> <span class="p">{}</span>
+
+<span class="n">Vector</span><span class="o">::</span><span class="n">Vector</span><span class="p">(</span><span class="k">const</span> <span class="n">Vector</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span> <span class="o">:</span> <span class="n">_data</span><span class="p">(</span><span class="n">other</span><span class="p">.</span><span class="n">_data</span><span class="p">),</span> <span class="n">dim</span><span class="p">(</span><span class="n">other</span><span class="p">.</span><span class="n">dim</span><span class="p">)</span> <span class="p">{}</span>
+
+<span class="kt">void</span> <span class="n">Vector</span><span class="o">::</span><span class="n">scal</span><span class="p">(</span><span class="kt">double</span> <span class="n">val</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">dim</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*=</span> <span class="n">val</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="n">Vector</span><span class="o">::</span><span class="n">axpy</span><span class="p">(</span><span class="kt">double</span> <span class="n">a</span><span class="p">,</span> <span class="k">const</span> <span class="n">Vector</span><span class="o">&amp;</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">dim</span> <span class="o">==</span> <span class="n">dim</span><span class="p">);</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">dim</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">x</span><span class="p">.</span><span class="n">_data</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kt">double</span> <span class="n">Vector</span><span class="o">::</span><span class="n">dot</span><span class="p">(</span><span class="k">const</span> <span class="n">Vector</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">other</span><span class="p">.</span><span class="n">dim</span> <span class="o">==</span> <span class="n">dim</span><span class="p">);</span>
+  <span class="kt">double</span> <span class="n">result</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">dim</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">result</span> <span class="o">+=</span> <span class="n">_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">other</span><span class="p">.</span><span class="n">_data</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+  <span class="p">}</span>
+  <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">double</span><span class="o">*</span> <span class="n">Vector</span><span class="o">::</span><span class="n">data</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="n">_data</span><span class="p">.</span><span class="n">data</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Just like the diffusion operator that computes a central differences stencil:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">DiffusionOperator</span><span class="o">::</span><span class="n">DiffusionOperator</span><span class="p">(</span><span class="kt">int</span> <span class="n">n</span><span class="p">,</span> <span class="kt">double</span> <span class="n">left</span><span class="p">,</span> <span class="kt">double</span> <span class="n">right</span><span class="p">)</span>
+  <span class="o">:</span> <span class="n">dim_source</span><span class="p">(</span><span class="n">n</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="n">dim_range</span><span class="p">(</span><span class="n">n</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="n">h</span><span class="p">(</span><span class="mf">1.</span><span class="o">/</span><span class="n">n</span><span class="p">),</span> <span class="n">left</span><span class="p">(</span><span class="n">left</span><span class="p">),</span> <span class="n">right</span><span class="p">(</span><span class="n">right</span><span class="p">)</span> <span class="p">{}</span>
+
+<span class="kt">void</span> <span class="n">DiffusionOperator</span><span class="o">::</span><span class="n">apply</span><span class="p">(</span><span class="k">const</span> <span class="n">Vector</span><span class="o">&amp;</span> <span class="n">U</span><span class="p">,</span> <span class="n">Vector</span><span class="o">&amp;</span> <span class="n">R</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+  <span class="k">const</span> <span class="kt">double</span> <span class="n">one_over_h2</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="p">(</span><span class="n">h</span> <span class="o">*</span> <span class="n">h</span><span class="p">);</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">dim_range</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">((</span><span class="n">i</span> <span class="o">*</span> <span class="n">h</span> <span class="o">&gt;</span> <span class="n">left</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">i</span> <span class="o">*</span> <span class="n">h</span> <span class="o">&lt;=</span> <span class="n">right</span><span class="p">))</span> <span class="p">{</span>
+      <span class="n">R</span><span class="p">.</span><span class="n">_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">U</span><span class="p">.</span><span class="n">_data</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">U</span><span class="p">.</span><span class="n">_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">U</span><span class="p">.</span><span class="n">_data</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="n">one_over_h2</span><span class="p">;</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This completes all the C++ code needed for the toy solver itself. Next, we will make this code usable from Python.
+We utilize the <a class="reference external" href="https://github.com/pybind/pybind11">pybind11</a> library to create a Python
+<a class="reference external" href="https://docs.python.org/3/extending/extending.html">extension module</a> named <code class="docutils literal notranslate"><span class="pre">model</span></code>, that allows us to manipulate
+instances of the C++ <code class="docutils literal notranslate"><span class="pre">Vector</span></code> and <code class="docutils literal notranslate"><span class="pre">DiffusionOperator</span></code> classes.</p>
+<p>Compiling the PDE solver as a shared library and creating Python bindings for it using
+<a class="reference external" href="https://github.com/pybind/pybind11">pybind11</a>, <a class="reference external" href="https://cython.org">Cython</a> or
+<a class="reference external" href="https://docs.python.org/3/library/ctypes.html">ctypes</a> is the preferred way of integrating
+external solvers, as it offers maximal flexibility and performance. For instance, in this
+example we will actually completely implement the <a class="reference internal" href="generated/pymor.models.html#pymor.models.interface.Model" title="pymor.models.interface.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">Model</span></code></a> in Python using a
+<a class="reference internal" href="generated/pymor.algorithms.html#module-pymor.algorithms.timestepping" title="pymor.algorithms.timestepping"><code class="xref py py-mod docutils literal notranslate"><span class="pre">time</span> <span class="pre">stepper</span></code></a> from pyMOR to
+<a class="reference internal" href="generated/pymor.models.html#pymor.models.interface.Model.solve" title="pymor.models.interface.Model.solve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">solve</span></code></a> the <a class="reference internal" href="generated/pymor.models.html#pymor.models.interface.Model" title="pymor.models.interface.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">Model</span></code></a>.</p>
+<p>When this is not an option,
+<a class="reference external" href="https://en.wikipedia.org/wiki/Remote_procedure_call">RPC</a>-based approaches are
+possible as well. For small to medium-sized linear problems, another option it to import
+system matrices and snapshot data into pyMOR via file exchange and to use NumPy-based
+<a class="reference internal" href="generated/pymor.operators.html#module-pymor.operators.numpy" title="pymor.operators.numpy"><code class="xref py py-mod docutils literal notranslate"><span class="pre">Operators</span></code></a> and <a class="reference internal" href="generated/pymor.vectorarrays.html#module-pymor.vectorarrays.numpy" title="pymor.vectorarrays.numpy"><code class="xref py py-mod docutils literal notranslate"><span class="pre">VectorArrays</span></code></a>
+to represent the full-order model.</p>
+</div>
+<div class="section" id="binding-the-solver-to-python">
+<h2>Binding the solver to Python<a class="headerlink" href="#binding-the-solver-to-python" title="Permalink to this headline">¶</a></h2>
+<p>All of the C++ code related to the extension module is defined inside a scope started with</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">PYBIND11_MODULE</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
+<span class="p">{</span>
+</pre></div>
+</div>
+<p>This tells pybind11 to make the contained symbols accessible in the module instance <code class="docutils literal notranslate"><span class="pre">m</span></code> that will be importable by the
+name <code class="docutils literal notranslate"><span class="pre">model</span></code>. Now we create a new pybind11 <code class="docutils literal notranslate"><span class="pre">class_</span></code> object that wraps the <code class="docutils literal notranslate"><span class="pre">DiffusionOperator</span></code>. Note that the module
+instance is passed to the constructor alongside a name for the Python class and a docstring. The second
+line shows how to define an init function for the Python object by using the special <code class="docutils literal notranslate"><span class="pre">py:init</span></code> object to
+forward arguments to the C++ constructor.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span>    <span class="n">py</span><span class="o">::</span><span class="n">class_</span><span class="o">&lt;</span><span class="n">DiffusionOperator</span><span class="o">&gt;</span> <span class="n">op</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s">&quot;DiffusionOperator&quot;</span><span class="p">,</span> <span class="s">&quot;DiffusionOperator Docstring&quot;</span><span class="p">);</span>
+    <span class="n">op</span><span class="p">.</span><span class="n">def</span><span class="p">(</span><span class="n">py</span><span class="o">::</span><span class="n">init</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span> <span class="kt">double</span><span class="p">,</span> <span class="kt">double</span><span class="o">&gt;</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>Next, we define read-only properties on the Python side named after and delegated to the members of the C++ class.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span>    <span class="n">op</span><span class="p">.</span><span class="n">def_readonly</span><span class="p">(</span><span class="s">&quot;dim_source&quot;</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">DiffusionOperator</span><span class="o">::</span><span class="n">dim_source</span><span class="p">);</span>
+    <span class="n">op</span><span class="p">.</span><span class="n">def_readonly</span><span class="p">(</span><span class="s">&quot;dim_range&quot;</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">DiffusionOperator</span><span class="o">::</span><span class="n">dim_range</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The last <code class="docutils literal notranslate"><span class="pre">DiffusionOperator</span></code>-related line exposes the function call to apply in the same way:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span>    <span class="n">op</span><span class="p">.</span><span class="n">def</span><span class="p">(</span><span class="s">&quot;apply&quot;</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">DiffusionOperator</span><span class="o">::</span><span class="n">apply</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>This is everything that is needed to expose the operator to Python. We will now do the same for the <code class="docutils literal notranslate"><span class="pre">Vector</span></code>,
+with a few more advanced techniques added.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span>    <span class="n">py</span><span class="o">::</span><span class="n">class_</span><span class="o">&lt;</span><span class="n">Vector</span><span class="o">&gt;</span> <span class="n">vec</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s">&quot;Vector&quot;</span><span class="p">,</span> <span class="s">&quot;Vector Docstring&quot;</span><span class="p">,</span> <span class="n">py</span><span class="o">::</span><span class="n">buffer_protocol</span><span class="p">());</span>
+    <span class="n">vec</span><span class="p">.</span><span class="n">def</span><span class="p">(</span><span class="n">py</span><span class="o">::</span><span class="n">init</span><span class="p">([](</span><span class="kt">int</span> <span class="n">size</span><span class="p">,</span> <span class="kt">double</span> <span class="n">value</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">Vector</span><span class="o">&gt;</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">value</span><span class="p">);</span> <span class="p">}));</span>
+    <span class="n">vec</span><span class="p">.</span><span class="n">def</span><span class="p">(</span><span class="n">py</span><span class="o">::</span><span class="n">init</span><span class="p">([](</span><span class="k">const</span> <span class="n">Vector</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">Vector</span><span class="o">&gt;</span><span class="p">(</span><span class="n">other</span><span class="p">);</span> <span class="p">}));</span>
+</pre></div>
+</div>
+<p>Again we define a <code class="docutils literal notranslate"><span class="pre">py:class_</span></code> with appropiate name and docstring, but now we also indicate to pybind11
+that this class will implement the <a class="reference external" href="https://docs.python.org/3/c-api/buffer.html">buffer protocol</a>, which basically
+exposes direct access to the chunk of memory associated with a <code class="docutils literal notranslate"><span class="pre">Vector</span></code> instance to Python. We also see how we can dispatch multiple init functions
+by using <code class="docutils literal notranslate"><span class="pre">py:init</span></code> objects with C++ lambda functions.
+Note that direct memory access to the vector data from Python is not required to integrate a solver with pyMOR.
+It is, however, useful for debugging and quickly modifying or extending the solver from within Python. For instance,
+in our toy example we will use the direct memory access to quickly define a visualization of the solutions and to
+construct the right-hand side vector for our problem.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span>    <span class="n">vec</span><span class="p">.</span><span class="n">def_readonly</span><span class="p">(</span><span class="s">&quot;dim&quot;</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">Vector</span><span class="o">::</span><span class="n">dim</span><span class="p">);</span>
+    <span class="n">vec</span><span class="p">.</span><span class="n">def</span><span class="p">(</span><span class="s">&quot;scal&quot;</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">Vector</span><span class="o">::</span><span class="n">scal</span><span class="p">);</span>
+    <span class="n">vec</span><span class="p">.</span><span class="n">def</span><span class="p">(</span><span class="s">&quot;axpy&quot;</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">Vector</span><span class="o">::</span><span class="n">axpy</span><span class="p">);</span>
+    <span class="n">vec</span><span class="p">.</span><span class="n">def</span><span class="p">(</span><span class="s">&quot;dot&quot;</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">Vector</span><span class="o">::</span><span class="n">dot</span><span class="p">);</span>
+    <span class="n">vec</span><span class="p">.</span><span class="n">def</span><span class="p">(</span><span class="s">&quot;data&quot;</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">Vector</span><span class="o">::</span><span class="n">data</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span>    <span class="n">vec</span><span class="p">.</span><span class="n">def_buffer</span><span class="p">([](</span><span class="n">Vector</span><span class="o">&amp;</span> <span class="n">vec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">py</span><span class="o">::</span><span class="n">buffer_info</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">py</span><span class="o">::</span><span class="n">buffer_info</span><span class="p">(</span>
+            <span class="n">vec</span><span class="p">.</span><span class="n">data</span><span class="p">(),</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">double</span><span class="p">),</span> <span class="n">py</span><span class="o">::</span><span class="n">format_descriptor</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">format</span><span class="p">(),</span> <span class="mi">1</span><span class="p">,</span> <span class="p">{</span><span class="n">vec</span><span class="p">.</span><span class="n">dim</span><span class="p">},</span> <span class="p">{</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">double</span><span class="p">)});</span>
+    <span class="p">});</span>
+</pre></div>
+</div>
+<p>This completes the <a class="reference download internal" download="" href="_downloads/3f0417b8c986ec4216e3256a068e55ca/model.cc"><code class="xref download docutils literal notranslate"><span class="pre">model.cc</span></code></a>.</p>
+<p>This extension module needs to be compiled to a shared object that the Python interpreter can import.
+We use a minimal <a class="reference external" href="http://cmake.org/">CMake</a> project that generates makefiles for us to achieve this.</p>
+<p>First we make sure pybind11 can be used:</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span><span class="nb">cmake_minimum_required</span><span class="p">(</span><span class="s">VERSION</span> <span class="s">3.1</span><span class="p">)</span>
+
+<span class="nb">project</span><span class="p">(</span><span class="s">minimal-cpp-demo</span><span class="p">)</span>
+
+<span class="nb">find_package</span><span class="p">(</span><span class="s">pybind11</span> <span class="s">CONFIG</span> <span class="s">REQUIRED</span><span class="p">)</span>
+<span class="nb">message</span><span class="p">(</span><span class="s">STATUS</span> <span class="s2">&quot;Found pybind11 v${pybind11_VERSION}: ${pybind11_INCLUDE_DIRS}&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Next, we define a new library with our <code class="docutils literal notranslate"><span class="pre">model.cc</span></code> as the single source file and let pybind11 set the proper compile
+flags.</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span><span class="nb">add_library</span><span class="p">(</span><span class="s">model</span> <span class="s">MODULE</span> <span class="s">model.cc</span><span class="p">)</span>
+<span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">model</span> <span class="s">pybind11::module</span><span class="p">)</span>
+<span class="nb">set_target_properties</span><span class="p">(</span><span class="s">model</span> <span class="s">PROPERTIES</span> <span class="s">PREFIX</span> <span class="s2">&quot;${PYTHON_MODULE_PREFIX}&quot;</span><span class="p">)</span>
+<span class="nb">set_target_properties</span><span class="p">(</span><span class="s">model</span> <span class="s">PROPERTIES</span> <span class="s">SUFFIX</span> <span class="s2">&quot;${PYTHON_MODULE_EXTENSION}&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>That is all that is needed for <a class="reference download internal" download="" href="_downloads/9e0411430c987028998fa60d7dd29315/CMakeLists.txt"><code class="xref download docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code></a>.
+In the next step, we will switch to a bash terminal and actually compile this module.</p>
+<p>After creating a build directory for the module, we let cmake initialize the build and call make to execute the
+compilation.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mkdir</span> <span class="o">-</span><span class="n">p</span> <span class="n">source</span><span class="o">/</span><span class="n">minimal_cpp_demo</span><span class="o">/</span><span class="n">build</span>
+<span class="n">cd</span> <span class="n">source</span><span class="o">/</span><span class="n">minimal_cpp_demo</span><span class="o">/</span><span class="n">build</span>
+<span class="n">cmake</span> <span class="o">..</span> <span class="o">-</span><span class="n">DCMAKE_COLOR_MAKEFILE</span><span class="o">=</span><span class="n">OFF</span> <span class="c1"># prevent bash control chars in output</span>
+<span class="n">make</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- The C compiler identification is GNU 8.3.0
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- The CXX compiler identification is GNU 8.3.0
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Check for working C compiler: /usr/bin/cc
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Check for working C compiler: /usr/bin/cc -- works
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting C compiler ABI info
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting C compiler ABI info - done
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting C compile features
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting C compile features - done
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Check for working CXX compiler: /usr/bin/c++
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Check for working CXX compiler: /usr/bin/c++ -- works
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting CXX compiler ABI info
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting CXX compiler ABI info - done
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting CXX compile features
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting CXX compile features - done
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Found PythonInterp: /usr/local/bin/python3.7 (found version &quot;3.7.8&quot;) 
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Found PythonLibs: /usr/local/lib/libpython3.7m.so
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Performing Test HAS_CPP14_FLAG
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Performing Test HAS_CPP14_FLAG - Success
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Found pybind11 v2.4.3: /usr/local/include;/usr/local/include/python3.7m
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Configuring done
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Generating done
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Build files have been written to: /pymor/docs/source/minimal_cpp_demo/build
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[2]: Entering directory &#39;/pymor/docs/source/minimal_cpp_demo/build&#39;
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[3]: Entering directory &#39;/pymor/docs/source/minimal_cpp_demo/build&#39;
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[4]: Entering directory &#39;/pymor/docs/source/minimal_cpp_demo/build&#39;
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>Scanning dependencies of target model
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[4]: Leaving directory &#39;/pymor/docs/source/minimal_cpp_demo/build&#39;
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[4]: Entering directory &#39;/pymor/docs/source/minimal_cpp_demo/build&#39;
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>[ 50%] Building CXX object CMakeFiles/model.dir/model.cc.o
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>[100%] Linking CXX shared module model.cpython-37m-x86_64-linux-gnu.so
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[4]: Leaving directory &#39;/pymor/docs/source/minimal_cpp_demo/build&#39;
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>[100%] Built target model
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[3]: Leaving directory &#39;/pymor/docs/source/minimal_cpp_demo/build&#39;
+</pre></div>
+</div>
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[2]: Leaving directory &#39;/pymor/docs/source/minimal_cpp_demo/build&#39;
+</pre></div>
+</div>
+</div>
+</div>
+<p>You can download this snippet as a notebook file to be used with a bash kernel <a class="reference download internal" download="" href="_downloads/39df787d670326b103a594ba8f799f12/make.ipynb">make.ipynb</a>.</p>
+<p>To be able to use this extension module we need to insert the build directory into the path where the Python
+interpreter looks for things to import. Afterwards we can import the module and create and use the exported classes.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;source/minimal_cpp_demo/build&#39;</span><span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">model</span>
+<span class="n">mymodel</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">DiffusionOperator</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">myvector</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">Vector</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">mymodel</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">myvector</span><span class="p">,</span> <span class="n">myvector</span><span class="p">)</span>
+<span class="nb">dir</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-none notranslate"><div class="highlight"><pre><span></span>[&#39;DiffusionOperator&#39;,
+ &#39;Vector&#39;,
+ &#39;__doc__&#39;,
+ &#39;__file__&#39;,
+ &#39;__loader__&#39;,
+ &#39;__name__&#39;,
+ &#39;__package__&#39;,
+ &#39;__spec__&#39;]
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="using-the-exported-python-classes-with-pymor">
+<h2>Using the exported Python classes with pyMOR<a class="headerlink" href="#using-the-exported-python-classes-with-pymor" title="Permalink to this headline">¶</a></h2>
+<p>All of pyMOR’s algorithms operate on <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a> and <a class="reference internal" href="generated/pymor.operators.html#pymor.operators.interface.Operator" title="pymor.operators.interface.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a> objects that all share the same programming interface. To be able to use
+our Python <code class="docutils literal notranslate"><span class="pre">model.Vector</span></code> and <code class="docutils literal notranslate"><span class="pre">model.DiffusionOperator</span></code> in pyMOR, we have to provide implementations of
+<a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a>, <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorSpace" title="pymor.vectorarrays.interface.VectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorSpace</span></code></a> and <a class="reference internal" href="generated/pymor.operators.html#pymor.operators.interface.Operator" title="pymor.operators.interface.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a> that wrap the classes defined in the extension module
+and translate calls to the interface methods into operations on <code class="docutils literal notranslate"><span class="pre">model.Vector</span></code> and <code class="docutils literal notranslate"><span class="pre">model.DiffusionOperator</span></code>.</p>
+<p>Instead of writing a full implementaion of a <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a> that manages multiple <code class="docutils literal notranslate"><span class="pre">model.Vector</span></code>
+instances, we can instead implement a wrapper <code class="docutils literal notranslate"><span class="pre">WrappedVector</span></code> for a single <code class="docutils literal notranslate"><span class="pre">model.Vector</span></code> instance based on
+<a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.list.CopyOnWriteVector" title="pymor.vectorarrays.list.CopyOnWriteVector"><code class="xref py py-class docutils literal notranslate"><span class="pre">CopyOnWriteVector</span></code></a> which will be used to create
+<a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.list.ListVectorArray" title="pymor.vectorarrays.list.ListVectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">ListVectorArrays</span></code></a> via a <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.list.ListVectorSpace" title="pymor.vectorarrays.list.ListVectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">ListVectorSpace</span></code></a>-based <code class="docutils literal notranslate"><span class="pre">WrappedVectorSpace</span></code>.</p>
+<p>The <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.list.CopyOnWriteVector" title="pymor.vectorarrays.list.CopyOnWriteVector"><code class="xref py py-class docutils literal notranslate"><span class="pre">CopyOnWriteVector</span></code></a> base class manages a reference count for
+us and automatically copies data when necessary in methods <code class="xref py py-meth docutils literal notranslate"><span class="pre">scal</span></code>
+and <code class="xref py py-meth docutils literal notranslate"><span class="pre">axpy</span></code>. To use this, we need to implement
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">_scal</span></code>
+and <code class="xref py py-meth docutils literal notranslate"><span class="pre">_axpy</span></code> in addition to all the abstract
+methods from  <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.list.CopyOnWriteVector" title="pymor.vectorarrays.list.CopyOnWriteVector"><code class="xref py py-class docutils literal notranslate"><span class="pre">CopyOnWriteVector</span></code></a>. We can get away
+with using just a stub that raises an <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#NotImplementedError" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">NotImplementedError</span></code></a> in some methods that are not actually called in our example.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pymor.operators.interface</span> <span class="kn">import</span> <span class="n">Operator</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.list</span> <span class="kn">import</span> <span class="n">CopyOnWriteVector</span><span class="p">,</span> <span class="n">ListVectorSpace</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">Vector</span><span class="p">,</span> <span class="n">DiffusionOperator</span>
+
+
+<span class="k">class</span> <span class="nc">WrappedVector</span><span class="p">(</span><span class="n">CopyOnWriteVector</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vector</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">vector</span><span class="p">,</span> <span class="n">Vector</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span> <span class="o">=</span> <span class="n">vector</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_instance</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">instance</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">instance</span><span class="o">.</span><span class="n">_impl</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">to_numpy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ensure_copy</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="c1"># Note how this uses the buffer protocol setup to allow efficient</span>
+        <span class="c1"># data access as a Numpy Vector</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ensure_copy</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="k">def</span> <span class="nf">_copy_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># This uses the second exposed &#39;init&#39; signature to delegate to the C++ copy constructor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span> <span class="o">=</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_scal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">scal</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_axpy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">_impl</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">dot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">_impl</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">l1_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">l2_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">l2_norm2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">sup_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">dofs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dof_indices</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">amax</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>The implementation of the <code class="docutils literal notranslate"><span class="pre">WrappedVectorSpace</span></code> is very short as most of the necessary methods
+of <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorSpace" title="pymor.vectorarrays.interface.VectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorSpace</span></code></a> are implemented in <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.list.ListVectorSpace" title="pymor.vectorarrays.list.ListVectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">ListVectorSpace</span></code></a>.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">WrappedVectorSpace</span><span class="p">(</span><span class="n">ListVectorSpace</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">dim</span>
+
+    <span class="k">def</span> <span class="nf">zero_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">WrappedVector</span><span class="p">(</span><span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">make_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="c1"># obj is a `model.Vector` instance</span>
+        <span class="k">return</span> <span class="n">WrappedVector</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">is</span> <span class="n">WrappedVectorSpace</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">dim</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>Wrapping the <code class="docutils literal notranslate"><span class="pre">model.DiffusionOperator</span></code> is straightforward as well. We just need to attach
+suitable <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorSpace" title="pymor.vectorarrays.interface.VectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorSpaces</span></code></a> to the class and implement the application of the operator on a <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a>
+as a sequence of applications on single vectors.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">WrappedDiffusionOperator</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">DiffusionOperator</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">op</span> <span class="o">=</span> <span class="n">op</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">WrappedVectorSpace</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">dim_source</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">WrappedVectorSpace</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">dim_range</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">DiffusionOperator</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
+
+        <span class="k">def</span> <span class="nf">apply_one_vector</span><span class="p">(</span><span class="n">u</span><span class="p">):</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">_impl</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">v</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">([</span><span class="n">apply_one_vector</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">U</span><span class="o">.</span><span class="n">_list</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+</div>
+<div class="section" id="putting-it-all-together">
+<h2>Putting it all together<a class="headerlink" href="#putting-it-all-together" title="Permalink to this headline">¶</a></h2>
+<p>As a demonstration, we will use our toy Laplace solver to compute an approximation for
+the transient diffusion equation</p>
+<div class="math notranslate nohighlight">
+\[\frac{\partial u}{\partial t} =
+{\alpha_\mu} \frac{\partial^2 u}{\partial x^2},\]</div>
+<p>with explicit timestepping provided by pyMOR, with a parameterized, block-wise defined,  diffusion
+coefficient  <span class="math notranslate nohighlight">\(\alpha_\mu\)</span>.</p>
+<p>First up, we implement a <code class="docutils literal notranslate"><span class="pre">discretize</span></code> function that uses the <code class="docutils literal notranslate"><span class="pre">WrappedDiffusionOperator</span></code> and <code class="docutils literal notranslate"><span class="pre">WrappedVectorSpace</span></code>
+to assemble an <a class="reference internal" href="generated/pymor.models.html#pymor.models.basic.InstationaryModel" title="pymor.models.basic.InstationaryModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">InstationaryModel</span></code></a>.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pymor.algorithms.pod</span> <span class="kn">import</span> <span class="n">pod</span>
+<span class="kn">from</span> <span class="nn">pymor.algorithms.timestepping</span> <span class="kn">import</span> <span class="n">ExplicitEulerTimeStepper</span>
+<span class="kn">from</span> <span class="nn">pymor.discretizers.builtin.gui.visualizers</span> <span class="kn">import</span> <span class="n">OnedVisualizer</span>
+<span class="kn">from</span> <span class="nn">pymor.models.basic</span> <span class="kn">import</span> <span class="n">InstationaryModel</span>
+<span class="kn">from</span> <span class="nn">pymor.discretizers.builtin</span> <span class="kn">import</span> <span class="n">OnedGrid</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">VectorOperator</span><span class="p">,</span> <span class="n">LincombOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.functionals</span> <span class="kn">import</span> <span class="n">ProjectionParameterFunctional</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.basic</span> <span class="kn">import</span> <span class="n">InstationaryRBReductor</span>
+
+
+<span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">nt</span><span class="p">,</span> <span class="n">blocks</span><span class="p">):</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">blocks</span>
+    <span class="n">ops</span> <span class="o">=</span> <span class="p">[</span><span class="n">WrappedDiffusionOperator</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">h</span> <span class="o">*</span> <span class="n">i</span><span class="p">,</span> <span class="n">h</span> <span class="o">*</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">blocks</span><span class="p">)]</span>
+    <span class="n">pfs</span> <span class="o">=</span> <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">&#39;diffusion_coefficients&#39;</span><span class="p">,</span> <span class="n">blocks</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">blocks</span><span class="p">)]</span>
+    <span class="n">operator</span> <span class="o">=</span> <span class="n">LincombOperator</span><span class="p">(</span><span class="n">ops</span><span class="p">,</span> <span class="n">pfs</span><span class="p">)</span>
+
+    <span class="n">initial_data</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">zeros</span><span class="p">()</span>
+
+    <span class="n">rhs_vec</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">zeros</span><span class="p">()</span>
+    <span class="n">rhs_data</span> <span class="o">=</span> <span class="n">rhs_vec</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">rhs_data</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rhs_data</span><span class="p">))</span>
+    <span class="n">rhs_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">rhs_data</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">rhs_data</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">rhs</span> <span class="o">=</span> <span class="n">VectorOperator</span><span class="p">(</span><span class="n">rhs_vec</span><span class="p">)</span>
+
+    <span class="c1"># we can re-use pyMOR&#39;s builtin grid and visualizer for our demonstration</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">OnedGrid</span><span class="p">(</span><span class="n">domain</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">num_intervals</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">visualizer</span> <span class="o">=</span> <span class="n">OnedVisualizer</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+
+    <span class="n">time_stepper</span> <span class="o">=</span> <span class="n">ExplicitEulerTimeStepper</span><span class="p">(</span><span class="n">nt</span><span class="p">)</span>
+
+    <span class="n">fom</span> <span class="o">=</span> <span class="n">InstationaryModel</span><span class="p">(</span><span class="n">T</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">operator</span><span class="o">=</span><span class="n">operator</span><span class="p">,</span> <span class="n">rhs</span><span class="o">=</span><span class="n">rhs</span><span class="p">,</span> <span class="n">initial_data</span><span class="o">=</span><span class="n">initial_data</span><span class="p">,</span>
+                            <span class="n">time_stepper</span><span class="o">=</span><span class="n">time_stepper</span><span class="p">,</span> <span class="n">num_values</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+                            <span class="n">visualizer</span><span class="o">=</span><span class="n">visualizer</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;C++-Model&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fom</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>Now we can build a reduced basis for our model. Note that this code is not specific to our wrapped classes.
+Those wrapped classes are only directly used in the <code class="docutils literal notranslate"><span class="pre">discretize</span></code> call.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+<span class="c1"># discretize</span>
+<span class="n">fom</span> <span class="o">=</span> <span class="n">discretize</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">parameter_space</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">space</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+<span class="c1"># generate solution snapshots</span>
+<span class="n">snapshots</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_uniformly</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+    <span class="n">snapshots</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">))</span>
+
+<span class="c1"># apply POD</span>
+<span class="n">reduced_basis</span> <span class="o">=</span> <span class="n">pod</span><span class="p">(</span><span class="n">snapshots</span><span class="p">,</span> <span class="n">modes</span><span class="o">=</span><span class="mi">4</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="c1"># reduce the model</span>
+<span class="n">reductor</span> <span class="o">=</span> <span class="n">InstationaryRBReductor</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reduced_basis</span><span class="p">,</span> <span class="n">check_orthonormality</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">rom</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">()</span>
+
+<span class="c1"># stochastic error estimation</span>
+<span class="n">mu_max</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">err_max</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.</span>
+<span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">U_RB</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">))</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">((</span><span class="n">U_RB</span><span class="o">-</span><span class="n">U</span><span class="p">)</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">&gt;</span> <span class="n">err_max</span><span class="p">:</span>
+        <span class="n">err_max</span> <span class="o">=</span> <span class="n">err</span>
+        <span class="n">mu_max</span> <span class="o">=</span> <span class="n">mu</span>
+
+<span class="c1"># visualize maximum error solution</span>
+<span class="n">U_RB</span> <span class="o">=</span> <span class="p">(</span><span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu_max</span><span class="p">)))</span>
+<span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu_max</span><span class="p">)</span>
+<span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">((</span><span class="n">U_RB</span><span class="p">,</span> <span class="n">U</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;reduced&#39;</span><span class="p">,</span> <span class="s1">&#39;detailed&#39;</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<script type="application/vnd.jupyter.widget-view+json">
+{"version_major": 2, "version_minor": 0, "model_id": "89e5d951f23a4a94b30a842aa456a0b3"}
+</script></div>
+</div>
+<p>As you can see in this comparison, we get a good approximation of the full-order model here and
+the error plot confirms it:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">((</span><span class="n">U</span><span class="o">-</span><span class="n">U_RB</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>You can download this demonstration plus the wrapper definitions as a
+notebook <a class="reference download internal" download="" href="_downloads/36d790e69b87fb8012d42aadb38afd2c/tutorial_external_solver.ipynb">tutorial_external_solver.ipynb</a> or
+as a plain Python script <a class="reference download internal" download="" href="_downloads/a9bdbbb7b861ba62db14c536d1cde2a6/tutorial_external_solver.py">tutorial_external_solver.py</a>.</p>
+</div>
+</div>
+
+
+<script type="application/vnd.jupyter.widget-state+json">
+{"state": {"7a8bb5fcaa3540fdaa206941e58b5161": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "2153e124267f48468dbdb5d8831edd2d": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "0b21d5da3c03428090a7674e4933296f": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_7a8bb5fcaa3540fdaa206941e58b5161", "placeholder": "\u200b", "style": "IPY_MODEL_2153e124267f48468dbdb5d8831edd2d", "value": ""}}, "ba3ae23897604249a431d466fe8518b5": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "b9ff5da94cf147498223d496c985635a": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_0b21d5da3c03428090a7674e4933296f"], "layout": "IPY_MODEL_ba3ae23897604249a431d466fe8518b5", "selected_index": null}}, "06b0fcc893ff455189db072b308036e8": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "7f226cd202aa41c398cf938f7c5e705a": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "d2819f8a098e497a994a093f544878e9": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_06b0fcc893ff455189db072b308036e8", "placeholder": "\u200b", "style": "IPY_MODEL_7f226cd202aa41c398cf938f7c5e705a", "value": ""}}, "338cd9862fa242cdbd5347dc458fcc7f": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "7a7933d3158a451e976dce6f2b4d65b7": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_d2819f8a098e497a994a093f544878e9"], "layout": "IPY_MODEL_338cd9862fa242cdbd5347dc458fcc7f", "selected_index": null}}, "49fb34b0dfcf43d3a3b48c13141c42ee": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "8dee0c137be7413eab2867f9cf3b20af": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "9b86b88fe4e348aa90b01f8eb9d356d8": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_49fb34b0dfcf43d3a3b48c13141c42ee", "placeholder": "\u200b", "style": "IPY_MODEL_8dee0c137be7413eab2867f9cf3b20af", "value": ""}}, "74ddc82fc1204ef3b02976240521e892": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "2b5520e514eb48568b9cadae46db6c55": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_9b86b88fe4e348aa90b01f8eb9d356d8"], "layout": "IPY_MODEL_74ddc82fc1204ef3b02976240521e892", "selected_index": null}}, "ae1df86a095e44978108ce4bb045cadf": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "220efc5a16a9438aba9da3a675cbfb03": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "394dd087d17a4373aaefca31714eef2a": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_ae1df86a095e44978108ce4bb045cadf", "placeholder": "\u200b", "style": "IPY_MODEL_220efc5a16a9438aba9da3a675cbfb03", "value": ""}}, "6788829bc3874299b6d8d9a9a3e566fc": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "bf3444b45d2a45c0ab5ef153403f51d2": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_394dd087d17a4373aaefca31714eef2a"], "layout": "IPY_MODEL_6788829bc3874299b6d8d9a9a3e566fc", "selected_index": null}}, "6e60608686bd43c2aac73d0244d89924": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "2eb64874d6854aa0ac05770f22bb3526": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "df8a2fd76a7c414a84efddb542408975": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_6e60608686bd43c2aac73d0244d89924", "placeholder": "\u200b", "style": "IPY_MODEL_2eb64874d6854aa0ac05770f22bb3526", "value": ""}}, "a6a88c02658e4009a8409af7a3039abf": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "6bb5e39a51614a8db96407500d64cd51": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_df8a2fd76a7c414a84efddb542408975"], "layout": "IPY_MODEL_a6a88c02658e4009a8409af7a3039abf", "selected_index": null}}, "fd39e6ab590f425b931abf6685dba667": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "453d7663e57a495c941fbf800b0f5d2f": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "1de6efd5e3394a25882d2aa3313a1a6c": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_fd39e6ab590f425b931abf6685dba667", "placeholder": "\u200b", "style": "IPY_MODEL_453d7663e57a495c941fbf800b0f5d2f", "value": "<p style=\"line-height:120%\">00:00 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:03 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:06 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:08 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:11 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:14 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:16 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:19 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:22 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:24 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:27 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:30 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:32 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:35 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:37 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:40 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:43 <bold>pod</bold>: Computing SVD ...</p><p style=\"line-height:120%\">00:43 |   <bold>method_of_snapshots</bold>: Computing Gramian (320 vectors) ...</p><p style=\"line-height:120%\">00:43 |   <bold>method_of_snapshots</bold>: Computing eigenvalue decomposition ...</p><p style=\"line-height:120%\">00:43 |   <bold>method_of_snapshots</bold>: Computing left-singular vectors (4 vectors) ...</p><p style=\"line-height:120%\">00:43 <bold>pod</bold>: Checking orthonormality ...</p><p style=\"line-height:120%\">00:43 <bold>InstationaryRBReductor</bold>: Operator projection ...</p><p style=\"line-height:120%\">00:43 <bold>InstationaryRBReductor</bold>: Building ROM ...</p><p style=\"line-height:120%\">00:43 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.4370861069626263, 0.9556428757689246, 0.7587945476302645, 0.6387926357773329]} ...</p><p style=\"line-height:120%\">00:46 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.24041677639819287, 0.2403950683025824, 0.15227525095137953, 0.8795585311974417]} ...</p><p style=\"line-height:120%\">00:49 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6410035105688879, 0.737265320016441, 0.1185260448662222, 0.9729188669457949]} ...</p><p style=\"line-height:120%\">00:52 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.8491983767203796, 0.29110519961044856, 0.26364247048639056, 0.2650640588680905]} ...</p><p style=\"line-height:120%\">00:55 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.373818018663584, 0.5722807884690141, 0.48875051677790415, 0.36210622617823773]} ...</p><p style=\"line-height:120%\">00:58 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6506676052501416, 0.22554447458683766, 0.3629301836816964, 0.4297256589643226]} ...</p><p style=\"line-height:120%\">01:01 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.5104629857953323, 0.8066583652537123, 0.2797064039425238, 0.5628109945722505]} ...</p><p style=\"line-height:120%\">01:04 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6331731119758383, 0.14180537144799796, 0.6467903667112945, 0.2534717113185624]} ...</p><p style=\"line-height:120%\">01:08 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1585464336867516, 0.9539969835279999, 0.9690688297671034, 0.827557613304815]} ...</p><p style=\"line-height:120%\">01:11 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.3741523922560336, 0.1879049026057455, 0.7158097238609412, 0.4961372443656412]} ...</p><p style=\"line-height:120%\">01:14 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1585464336867516, 0.9539969835279999, 0.9690688297671034, 0.827557613304815]} ...</p>"}}, "1c4cf82cb494487fa3d0809216769c47": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "89e5d951f23a4a94b30a842aa456a0b3": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_1de6efd5e3394a25882d2aa3313a1a6c"], "layout": "IPY_MODEL_1c4cf82cb494487fa3d0809216769c47", "selected_index": null}}, "bec2d48813ad4d4ba715a6334033fd62": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "566ff819aef743289505addf80412f63": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "8d14897d0ae64a1c938f05de01ccffcb": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_bec2d48813ad4d4ba715a6334033fd62", "placeholder": "\u200b", "style": "IPY_MODEL_566ff819aef743289505addf80412f63", "value": ""}}, "086f5c8c66424c6db55595cdce8aa9be": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "10811946b11a4f838f86ed4e2435e30e": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_8d14897d0ae64a1c938f05de01ccffcb"], "layout": "IPY_MODEL_086f5c8c66424c6db55595cdce8aa9be", "selected_index": null}}}, "version_major": 2, "version_minor": 0}
+</script>
+
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Tutorial: Binding an external PDE solver to pyMOR</a><ul>
+<li><a class="reference internal" href="#defining-the-pde-solver">Defining the PDE solver</a></li>
+<li><a class="reference internal" href="#binding-the-solver-to-python">Binding the solver to Python</a></li>
+<li><a class="reference internal" href="#using-the-exported-python-classes-with-pymor">Using the exported Python classes with pyMOR</a></li>
+<li><a class="reference internal" href="#putting-it-all-together">Putting it all together</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="tutorial_mor_with_anns.html"
+                        title="previous chapter">Tutorial: Model order reduction with artificial neural networks</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="environment.html"
+                        title="next chapter">Environment Variables</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/tutorial_external_solver.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="environment.html" title="Environment Variables"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="tutorial_mor_with_anns.html" title="Tutorial: Model order reduction with artificial neural networks"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">pyMOR v2019.2rc0+1449.gcd17e370 Manual</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Tutorial: Binding an external PDE solver to pyMOR</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2020 pyMOR developers and contributors.
+      Last updated on Jul 20, 2020.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.1.2.
+    </div>
+  </body>
+</html>
