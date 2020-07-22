@@ -8,8 +8,10 @@ import os
 import subprocess
 from collections import defaultdict
 from pathlib import Path
+from pprint import pformat
 
 ROOT = Path(os.path.abspath(os.path.dirname(__file__)))
+BLOCKLIST = [".git"]
 
 @contextlib.contextmanager
 def remember_cwd(dirname):
@@ -37,9 +39,10 @@ def _update_refs():
     subprocess.check_call(['git', 'update-ref', '-d', 'refs/original/refs/heads/master'])
 
 
-def _prune_branch(branches):
+def _prune_branches(branches):
     os.chdir(ROOT)
     branches = ' '.join(branches)
+    print(f'pruning: {branches}')
     env = os.environ.copy()
     env['FILTER_BRANCH_SQUELCH_WARNING=1'] = "1"
     cmd = ['git', 'filter-branch', '-f', '--tree-filter', rf'rm -rf {branches}', '--prune-empty', 'HEAD']
@@ -49,11 +52,14 @@ def _prune_branch(branches):
 
 def _get_to_prune_branches():
     branches, tags = _get_pymor_branches()
+    print(f'Active branches: {" ".join(branches)}\nTags: {" ".join(tags)}')
     subs = [d.name for d in os.scandir(ROOT) if d.is_dir()]
-    return [s for s in subs if s not in branches and s not in tags]
+    def _filter(br):
+        return br not in branches and br not in tags and br not in BLOCKLIST
+    return [s for s in subs if not _filter(s)]
 
 
 dels = _get_to_prune_branches()
-_prune_branch(dels)
+_prune_branches(dels)
 subprocess.check_call(['echo', 'git', 'gc', '--aggressive'])
 subprocess.check_call(['echo', 'git', 'push', 'origin','-f'])
