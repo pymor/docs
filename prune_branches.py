@@ -31,6 +31,7 @@ def _get_pymor_branches():
         os.chdir('pymor')
         branches = [b.replace('origin/', '') for b in
                     subprocess.check_output(['git', 'branch', '-r'], universal_newlines=True).split()]
+        branches = [b for b in branches if "HEAD" not in b]
         tags = subprocess.check_output(['git', 'tag', '-l'], universal_newlines=True).split()
         return branches, tags
 
