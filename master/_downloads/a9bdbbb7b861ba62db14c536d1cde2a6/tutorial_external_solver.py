@@ -1,3 +1,13 @@
+%matplotlib inline
+
+import pymor.tools.random
+pymor.tools.random._default_random_state = None
+
+from IPython import get_ipython
+ip = get_ipython()
+if ip is not None:
+    ip.run_line_magic('load_ext', 'pymor.discretizers.builtin.gui.jupyter')
+
 import sys
 sys.path.insert(0, 'source/minimal_cpp_demo/build')
 
