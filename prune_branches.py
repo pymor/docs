@@ -40,8 +40,10 @@ def _update_refs():
 def _prune_branch(branches):
     os.chdir(ROOT)
     branches = ' '.join(branches)
+    env = os.environ.copy()
+    env['FILTER_BRANCH_SQUELCH_WARNING=1'] = "1"
     cmd = ['git', 'filter-branch', '-f', '--tree-filter', rf'rm -rf {branches}', '--prune-empty', 'HEAD']
-    subprocess.check_call(cmd, universal_newlines=True)
+    subprocess.check_call(cmd, universal_newlines=True, env=env)
     _update_refs()
 
 
