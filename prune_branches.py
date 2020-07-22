@@ -45,7 +45,7 @@ def _prune_branches(branches):
     branches = ' '.join(branches)
     print(f'pruning: {branches}')
     env = os.environ.copy()
-    env['FILTER_BRANCH_SQUELCH_WARNING=1'] = "1"
+    env['FILTER_BRANCH_SQUELCH_WARNING'] = "1"
     cmd = ['git', 'filter-branch', '-f', '--tree-filter', rf'rm -rf {branches}', '--prune-empty', 'HEAD']
     subprocess.check_call(cmd, universal_newlines=True, env=env)
     _update_refs()
@@ -55,9 +55,9 @@ def _get_to_prune_branches():
     branches, tags = _get_pymor_branches()
     print(f'Active branches: {" ".join(branches)}\nTags: {" ".join(tags)}')
     subs = [d.name for d in os.scandir(ROOT) if d.is_dir()]
-    def _filter(br):
+    def _ok(br):
         return br not in branches and br not in tags and br not in BLOCKLIST
-    return [s for s in subs if not _filter(s)]
+    return [s for s in subs if _ok(s)]
 
 
 dels = _get_to_prune_branches()
