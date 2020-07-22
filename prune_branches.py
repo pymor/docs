@@ -27,28 +27,31 @@ def _get_pymor_branches():
         os.chdir(tp)
         subprocess.check_call(['git', 'clone', 'https://github.com/pymor/pymor.git', 'pymor'])
         os.chdir('pymor')
-        return [b.replace('origin/', '') for b in subprocess.check_output(['git', 'branch', '-r'], universal_newlines=True).split()]
+        branches = [b.replace('origin/', '') for b in
+                    subprocess.check_output(['git', 'branch', '-r'], universal_newlines=True).split()]
+        tags = subprocess.check_output(['git', 'tag', '-l'], universal_newlines=True).split()
+        return branches, tags
 
 
 def _update_refs():
     subprocess.check_call(['git', 'update-ref', '-d', 'refs/original/refs/heads/master'])
 
 
-def _prune_branch(branch):
+def _prune_branch(branches):
     os.chdir(ROOT)
-    cmd = ['git', 'filter-branch', '-f', '--tree-filter', r'rm -rf branches/{}'.format(branch), '--prune-empty', 'HEAD']
+    branches = ' '.join(branches)
+    cmd = ['git', 'filter-branch', '-f', '--tree-filter', rf'rm -rf {branches}', '--prune-empty', 'HEAD']
     subprocess.check_call(cmd, universal_newlines=True)
     _update_refs()
 
 
 def _get_to_prune_branches():
-    pymor = _get_pymor_branches()
-    subs = [d.name for d in os.scandir(ROOT / 'branches') if d.is_dir()]
-    return [s for s in subs if s not in pymor]
+    branches, tags = _get_pymor_branches()
+    subs = [d.name for d in os.scandir(ROOT) if d.is_dir()]
+    return [s for s in subs if s not in branches and s not in tags]
 
 
 dels = _get_to_prune_branches()
-for b in dels:
-    _prune_branch(b)
-# subprocess.check_call(['git', 'gc', '--aggressive'])
-# subprocess.check_call(['echo', 'git', 'push', 'origin','-f'])
+_prune_branch(dels)
+subprocess.check_call(['echo', 'git', 'gc', '--aggressive'])
+subprocess.check_call(['echo', 'git', 'push', 'origin','-f'])
