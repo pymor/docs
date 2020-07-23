@@ -1,0 +1,730 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <meta name="lang:clipboard.copy" content="Copy to clipboard">
+  <meta name="lang:clipboard.copied" content="Copied to clipboard">
+  <meta name="lang:search.language" content="en">
+  <meta name="lang:search.pipeline.stopwords" content="True">
+  <meta name="lang:search.pipeline.trimmer" content="True">
+  <meta name="lang:search.result.none" content="No matching documents">
+  <meta name="lang:search.result.one" content="1 matching document">
+  <meta name="lang:search.result.other" content="# matching documents">
+  <meta name="lang:search.tokenizer" content="[\s\-]+">
+
+  
+    <link href="https://fonts.gstatic.com/" rel="preconnect" crossorigin>
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,700|Roboto:300,400,400i,700&display=fallback" rel="stylesheet">
+
+    <style>
+      body,
+      input {
+        font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif
+      }
+
+      code,
+      kbd,
+      pre {
+        font-family: "Roboto Mono", "Courier New", Courier, monospace
+      }
+    </style>
+  
+
+  <link rel="stylesheet" href="_static/stylesheets/application.css"/>
+  <link rel="stylesheet" href="_static/stylesheets/application-palette.css"/>
+  <link rel="stylesheet" href="_static/stylesheets/application-fixes.css"/>
+  
+  <link rel="stylesheet" href="_static/fonts/material-icons.css"/>
+  
+  <meta name="theme-color" content="58c9f5">
+  <script src="_static/javascripts/modernizr.js"></script>
+  
+  
+  
+    <title>Tutorial: Reducing a heat equation using balanced truncation &#8212; pyMOR v2020.1.1 Manual</title>
+    <link rel="stylesheet" href="_static/material.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/jupyter-sphinx.css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://unpkg.com/@jupyter-widgets/html-manager@^0.18.0/dist/embed-amd.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tutorial: Model order reduction with artificial neural networks" href="tutorial_mor_with_anns.html" />
+    <link rel="prev" title="Tutorial: Building a Reduced Basis" href="tutorial_basis_generation.html" />
+
+
+  
+   
+
+<link rel="stylesheet" href="_static/pymor.css"/>
+  </head>
+  <body dir=ltr
+        data-md-color-primary=light-blue data-md-color-accent=blue>
+  
+  <svg class="md-svg">
+    <defs data-children-count="0">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="416" height="448" viewBox="0 0 416 448" id="__github"><path fill="currentColor" d="M160 304q0 10-3.125 20.5t-10.75 19T128 352t-18.125-8.5-10.75-19T96 304t3.125-20.5 10.75-19T128 256t18.125 8.5 10.75 19T160 304zm160 0q0 10-3.125 20.5t-10.75 19T288 352t-18.125-8.5-10.75-19T256 304t3.125-20.5 10.75-19T288 256t18.125 8.5 10.75 19T320 304zm40 0q0-30-17.25-51T296 232q-10.25 0-48.75 5.25Q229.5 240 208 240t-39.25-2.75Q130.75 232 120 232q-29.5 0-46.75 21T56 304q0 22 8 38.375t20.25 25.75 30.5 15 35 7.375 37.25 1.75h42q20.5 0 37.25-1.75t35-7.375 30.5-15 20.25-25.75T360 304zm56-44q0 51.75-15.25 82.75-9.5 19.25-26.375 33.25t-35.25 21.5-42.5 11.875-42.875 5.5T212 416q-19.5 0-35.5-.75t-36.875-3.125-38.125-7.5-34.25-12.875T37 371.5t-21.5-28.75Q0 312 0 260q0-59.25 34-99-6.75-20.5-6.75-42.5 0-29 12.75-54.5 27 0 47.5 9.875t47.25 30.875Q171.5 96 212 96q37 0 70 8 26.25-20.5 46.75-30.25T376 64q12.75 25.5 12.75 54.5 0 21.75-6.75 42 34 40 34 99.5z"/></svg>
+      
+    </defs>
+  </svg>
+  
+  <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer">
+  <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search">
+  <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
+  <a href="#tutorial_bt" tabindex="1" class="md-skip"> Skip to content </a>
+  <header class="md-header" data-md-component="header">
+  <nav class="md-header-nav md-grid">
+    <div class="md-flex navheader">
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <a href="index.html" title="pyMOR v2020.1.1 Manual"
+           class="md-header-nav__button md-logo">
+          
+            <i class="md-icon">&#xe869</i>
+          
+        </a>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
+      </div>
+      <div class="md-flex__cell md-flex__cell--stretch">
+        <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+          <span class="md-header-nav__topic">pyMOR Documentation</span>
+          <span class="md-header-nav__topic"> Tutorial: Reducing a heat equation using balanced truncation </span>
+        </div>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
+        
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" action="search.html" method="GET" name="search">
+      <input type="text" class="md-search__input" name="q" placeholder="Search"
+             autocapitalize="off" autocomplete="off" spellcheck="false"
+             data-md-component="query" data-md-state="active">
+      <label class="md-icon md-search__icon" for="__search"></label>
+      <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
+        &#xE5CD;
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="result">
+          <div class="md-search-result__meta">
+            Type to start searching
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+      </div>
+      
+      
+  
+  <script src="_static/javascripts/version_dropdown.js"></script>
+  <script>
+    var json_loc = "/versions.json",
+        target_loc = "../",
+        text = "Versions";
+    $( document ).ready( add_version_dropdown(json_loc, target_loc, text));
+  </script>
+  
+
+    </div>
+  </nav>
+</header>
+
+  
+  <div class="md-container">
+    
+    
+    
+  <nav class="md-tabs" data-md-component="tabs">
+    <div class="md-tabs__inner md-grid">
+      <ul class="md-tabs__list">
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">pyMOR v2020.1.1 Manual</a></li>
+          <li class="md-tabs__item"><a href="tutorials.html" class="md-tabs__link">pyMOR Tutorials</a></li>
+      </ul>
+    </div>
+  </nav>
+    <main class="md-main">
+      <div class="md-main__inner md-grid" data-md-component="container">
+        
+          <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                <nav class="md-nav md-nav--primary" data-md-level="0">
+  <label class="md-nav__title md-nav__title--site" for="__drawer">
+    <a href="index.html" title="pyMOR v2020.1.1 Manual" class="md-nav__button md-logo">
+      
+        <i class="md-icon">&#xe869</i>
+      
+    </a>
+    <a href="index.html"
+       title="pyMOR v2020.1.1 Manual">pyMOR Documentation</a>
+  </label>
+  
+
+  
+  <ul class="md-nav__list">
+    <li class="md-nav__item">
+    
+    
+      <a href="getting_started.html" class="md-nav__link">Getting started</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="technical_overview.html" class="md-nav__link">Technical Overview</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="environment.html" class="md-nav__link">Environment Variables</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="tutorials.html" class="md-nav__link">pyMOR Tutorials</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="tutorial_builtin_discretizer.html" class="md-nav__link">Tutorial: Using pyMOR’s discretization toolkit</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="tutorial_basis_generation.html" class="md-nav__link">Tutorial: Building a Reduced Basis</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    <label class="md-nav__link md-nav__link--active" for="__toc"> Tutorial: Reducing a heat equation using balanced truncation </label>
+    
+      <a href="#" class="md-nav__link md-nav__link--active">Tutorial: Reducing a heat equation using balanced truncation</a>
+      
+        
+<nav class="md-nav md-nav--secondary">
+  <ul class="md-nav__list" data-md-scrollfix="">
+    
+<li class="md-nav__item"><a class="md-nav__extra_link" href="_sources/tutorial_bt.rst.txt">Show Source</a> </li>
+
+  </ul>
+</nav>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="#heat-equation" class="md-nav__link">Heat equation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#discretized-model" class="md-nav__link">Discretized model</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#running-balanced-truncation" class="md-nav__link">Running balanced truncation</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="tutorial_mor_with_anns.html" class="md-nav__link">Tutorial: Model order reduction with artificial neural networks</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="tutorial_external_solver.html" class="md-nav__link">Tutorial: Binding an external PDE solver to pyMOR</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="release_notes.html" class="md-nav__link">Release Notes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="bibliography.html" class="md-nav__link">Bibliography</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="generated/pymor.html" class="md-nav__link">pymor package</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="generated/pymordemos.html" class="md-nav__link">pymordemos package</a>
+      
+    
+    </li>
+  </ul>
+  
+
+</nav>
+              </div>
+            </div>
+          </div>
+          <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                
+<nav class="md-nav md-nav--secondary">
+  <ul class="md-nav__list" data-md-scrollfix="">
+    
+<li class="md-nav__item"><a class="md-nav__extra_link" href="_sources/tutorial_bt.rst.txt">Show Source</a> </li>
+
+<li id="searchbox" class="md-nav__item"></li>
+
+  </ul>
+</nav>
+              </div>
+            </div>
+          </div>
+        
+        <div class="md-content">
+          <article class="md-content__inner md-typeset" role="main">
+            
+  
+<h1 id="tutorial-bt--page-root">Tutorial: Reducing a heat equation using balanced truncation<a class="headerlink" href="#tutorial-bt--page-root" title="Permalink to this headline">¶</a></h1>
+<div class="jupyter_cell docutils container">
+<div class="cell_output docutils container">
+</div>
+</div>
+
+<h2 id="heat-equation">Heat equation<a class="headerlink" href="#heat-equation" title="Permalink to this headline">¶</a></h2>
+<p>We consider the following one-dimensional heat equation over <span class="math notranslate nohighlight">\((0, 1)\)</span> with
+two inputs <span class="math notranslate nohighlight">\(u_1, u_2\)</span> and three outputs <span class="math notranslate nohighlight">\(y_1, y_2, y_2\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{align}
+    \partial_t T(\xi, t) &amp; = \partial_{\xi \xi} T(\xi, t) + u_1(t),
+    &amp; 0 &lt; \xi &lt; 1,\ t &gt; 0, \\
+    -\partial_\xi T(0, t) &amp; = -T(0, t) + u_2(t),
+    &amp; t &gt; 0, \\
+    \partial_\xi T(1, t) &amp; = -T(1, t),
+    &amp; t &gt; 0, \\
+    y_1(t) &amp; = T(0, t),
+    &amp; t &gt; 0, \\
+    y_2(t) &amp; = T(0.5, t),
+    &amp; t &gt; 0, \\
+    y_3(t) &amp; = T(1, t),
+    &amp; t &gt; 0.
+\end{align}\end{split}\]</div>
+<p>In the following, we will create a discretized <a class="reference internal" href="generated/pymor.models.html#pymor.models.interface.Model" title="pymor.models.interface.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">Model</span></code></a> and reduce it using the
+balanced truncation method to approximate the mapping from inputs
+<span class="math notranslate nohighlight">\(u = (u_1, u_2)\)</span> to outputs <span class="math notranslate nohighlight">\(y = (y_1, y_2, y_3)\)</span>.</p>
+
+
+<h2 id="discretized-model">Discretized model<a class="headerlink" href="#discretized-model" title="Permalink to this headline">¶</a></h2>
+<p>We need to construct a linear time-invariant (LTI) system</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{align}
+    E \dot{x}(t) &amp; = A x(t) + B u(t), \\
+    y(t) &amp; = C x(t) + D u(t).
+\end{align}\end{split}\]</div>
+<p>In pyMOR, these models are captured by <a class="reference internal" href="generated/pymor.models.html#pymor.models.iosys.LTIModel" title="pymor.models.iosys.LTIModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">LTIModels</span></code></a> from the
+<a class="reference internal" href="generated/pymor.models.html#module-pymor.models.iosys" title="pymor.models.iosys"><code class="xref py py-mod docutils literal notranslate"><span class="pre">pymor.models.iosys</span></code></a> module.</p>
+<p>There are many ways of building an <a class="reference internal" href="generated/pymor.models.html#pymor.models.iosys.LTIModel" title="pymor.models.iosys.LTIModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">LTIModel</span></code></a>.
+Here, we show how to build one from custom matrices instead of using a
+discretizer as in <a class="reference internal" href="tutorial_builtin_discretizer.html"><span class="doc">Tutorial: Using pyMOR’s discretization toolkit</span></a> and the
+<a class="reference internal" href="generated/pymor.models.html#pymor.models.basic.InstationaryModel.to_lti" title="pymor.models.basic.InstationaryModel.to_lti"><code class="xref py py-meth docutils literal notranslate"><span class="pre">to_lti</span></code></a> of <a class="reference internal" href="generated/pymor.models.html#pymor.models.basic.InstationaryModel" title="pymor.models.basic.InstationaryModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">InstationaryModel</span></code></a>.
+In particular, we will use the
+<a class="reference internal" href="generated/pymor.models.html#pymor.models.iosys.LTIModel.from_matrices" title="pymor.models.iosys.LTIModel.from_matrices"><code class="xref py py-meth docutils literal notranslate"><span class="pre">from_matrices</span></code></a> method of <a class="reference internal" href="generated/pymor.models.html#pymor.models.iosys.LTIModel" title="pymor.models.iosys.LTIModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">LTIModel</span></code></a>, which
+instantiates an <a class="reference internal" href="generated/pymor.models.html#pymor.models.iosys.LTIModel" title="pymor.models.iosys.LTIModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">LTIModel</span></code></a> from NumPy or SciPy matrices.</p>
+<p>First, we do the necessary imports.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">from</span> <span class="nn">pymor.models.iosys</span> <span class="kn">import</span> <span class="n">LTIModel</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.bt</span> <span class="kn">import</span> <span class="n">BTReductor</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>Next, we can assemble the matrices based on a centered finite difference
+approximation:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">k</span> <span class="o">=</span> <span class="mi">50</span>
+<span class="n">n</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span>
+
+<span class="n">A</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span>
+    <span class="p">[(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">[(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">],</span> <span class="n">n</span> <span class="o">*</span> <span class="p">[</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">],</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">[(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">]],</span>
+    <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+    <span class="nb">format</span><span class="o">=</span><span class="s1">'lil'</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">A</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">A</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">n</span> <span class="o">*</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">A</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">A</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+
+<span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">B</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">B</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+<span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+<span class="n">C</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">C</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">C</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>Then, we can create an <a class="reference internal" href="generated/pymor.models.html#pymor.models.iosys.LTIModel" title="pymor.models.iosys.LTIModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">LTIModel</span></code></a>:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fom</span> <span class="o">=</span> <span class="n">LTIModel</span><span class="o">.</span><span class="n">from_matrices</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>We can get the internal representation of the <a class="reference internal" href="generated/pymor.models.html#pymor.models.iosys.LTIModel" title="pymor.models.iosys.LTIModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">LTIModel</span></code></a> <code class="docutils literal notranslate"><span class="pre">fom</span></code></p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fom</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-none notranslate"><div class="highlight"><pre><span></span>LTIModel(
+    NumpyMatrixOperator(&lt;101x101 sparse, 301 nnz&gt;, source_id='STATE', range_id='STATE'),
+    NumpyMatrixOperator(&lt;101x2 dense&gt;, range_id='STATE'),
+    NumpyMatrixOperator(&lt;3x101 dense&gt;, source_id='STATE'),
+    D=ZeroOperator(NumpyVectorSpace(3), NumpyVectorSpace(2)),
+    E=IdentityOperator(NumpyVectorSpace(101, id='STATE')))
+</pre></div>
+</div>
+</div>
+</div>
+<p>From this, we see that the matrices were wrapped in <a class="reference internal" href="generated/pymor.operators.html#pymor.operators.numpy.NumpyMatrixOperator" title="pymor.operators.numpy.NumpyMatrixOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">NumpyMatrixOperators</span></code></a>,
+while default values were chosen for <span class="math notranslate nohighlight">\(D\)</span> and <span class="math notranslate nohighlight">\(E\)</span> matrices
+(respectively, zero and identity). The operators in an <a class="reference internal" href="generated/pymor.models.html#pymor.models.iosys.LTIModel" title="pymor.models.iosys.LTIModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">LTIModel</span></code></a> can be
+accessed directly, e.g., <code class="docutils literal notranslate"><span class="pre">fom.A</span></code>.</p>
+<p>We can also see some basic information from <code class="docutils literal notranslate"><span class="pre">fom</span></code>’s string representation</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">fom</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>LTIModel
+    class: LTIModel
+    number of equations: 101
+    number of inputs:    2
+    number of outputs:   3
+    continuous-time
+    linear time-invariant
+    solution_space:  NumpyVectorSpace(101, id='STATE')
+</pre></div>
+</div>
+</div>
+</div>
+<p>To visualize the behavior of the <code class="docutils literal notranslate"><span class="pre">fom</span></code>, we can draw its magnitude plot, i.e.,
+a visualization of the mapping <span class="math notranslate nohighlight">\(\omega \mapsto H(i \omega)\)</span>, where
+<span class="math notranslate nohighlight">\(H(s) = C (s E - A)^{-1} B + D\)</span> is the transfer function of the system.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">50</span><span class="p">)</span>
+<span class="n">fom</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/tutorial_bt_6_0.png" src="_images/tutorial_bt_6_0.png"/>
+</div>
+</div>
+<p>Plotting the Hankel singular values shows us how well an LTI system can be
+approximated by a reduced-order model</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">hsv</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">hsv</span><span class="p">()</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">hsv</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">hsv</span><span class="p">,</span> <span class="s1">'.-'</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Hankel singular values'</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/tutorial_bt_7_0.png" src="_images/tutorial_bt_7_0.png"/>
+</div>
+</div>
+<p>As expected for a heat equation, the Hankel singular values decay rapidly.</p>
+
+
+<h2 id="running-balanced-truncation">Running balanced truncation<a class="headerlink" href="#running-balanced-truncation" title="Permalink to this headline">¶</a></h2>
+<p>The balanced truncation method consists of finding a balanced realization of the
+full-order LTI system and truncating it to obtain a reduced-order model. In
+particular, there exist invertible transformation matrices
+<span class="math notranslate nohighlight">\(T, S \in \mathbb{R}^{n \times n}\)</span> such that the equivalent full-order
+model with
+<span class="math notranslate nohighlight">\(\widetilde{E} = S^T E T = I\)</span>,
+<span class="math notranslate nohighlight">\(\widetilde{A} = S^T A T\)</span>,
+<span class="math notranslate nohighlight">\(\widetilde{B} = S^T B\)</span>,
+<span class="math notranslate nohighlight">\(\widetilde{C} = C T\)</span>
+has Gramians <span class="math notranslate nohighlight">\(\widetilde{P}\)</span> and <span class="math notranslate nohighlight">\(\widetilde{Q}\)</span>, i.e., solutions to
+Lyapunov equations</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{align}
+    \widetilde{A} \widetilde{P}
+    + \widetilde{P} \widetilde{A}^T
+    + \widetilde{B} \widetilde{B}^T
+    &amp; = 0, \\
+    \widetilde{A}^T \widetilde{Q}
+    + \widetilde{Q} \widetilde{A}
+    + \widetilde{C}^T \widetilde{C}
+    &amp; = 0, \\
+\end{align}\end{split}\]</div>
+<p>such that
+<span class="math notranslate nohighlight">\(\widetilde{P} = \widetilde{Q} = \Sigma = \operatorname{diag}(\sigma_i)\)</span>,
+where <span class="math notranslate nohighlight">\(\sigma_i\)</span> are the Hankel singular values.
+Then, taking as basis matrices <span class="math notranslate nohighlight">\(V, W \in \mathbb{R}^{n \times r}\)</span> the
+first <span class="math notranslate nohighlight">\(r\)</span> columns of <span class="math notranslate nohighlight">\(T\)</span> and <span class="math notranslate nohighlight">\(S\)</span> (possibly after
+orthonormalization), gives a reduced-order model</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{align}
+    \widehat{E} \dot{\widehat{x}}(t)
+    &amp; = \widehat{A} \widehat{x}(t) + \widehat{B} u(t), \\
+    \widehat{y}(t)
+    &amp; = \widehat{C} \widehat{x}(t) + D u(t),
+\end{align}\end{split}\]</div>
+<p>with
+<span class="math notranslate nohighlight">\(\widehat{E} = W^T E V\)</span>,
+<span class="math notranslate nohighlight">\(\widehat{A} = W^T A V\)</span>,
+<span class="math notranslate nohighlight">\(\widehat{B} = W^T B\)</span>,
+<span class="math notranslate nohighlight">\(\widehat{C} = C V\)</span>,
+which satisfies the <span class="math notranslate nohighlight">\(\mathcal{H}_\infty\)</span> (i.e., induced
+<span class="math notranslate nohighlight">\(\mathcal{L}_2\)</span>) error bound</p>
+<div class="math notranslate nohighlight">
+\[\sup_{u \neq 0} \frac{\lVert y - \widehat{y} \rVert_{\mathcal{L}_2}}{\lVert u \rVert_{\mathcal{L}_2}}
+\leqslant 2 \sum_{i = r + 1}^n \sigma_i.\]</div>
+<p>Note that any reduced-order model (not only from balanced truncation) satisfies
+the lower bound</p>
+<div class="math notranslate nohighlight">
+\[\sup_{u \neq 0} \frac{\lVert y - \widehat{y} \rVert_{\mathcal{L}_2}}{\lVert u \rVert_{\mathcal{L}_2}}
+\geqslant \sigma_{r + 1}.\]</div>
+<p>To run balanced truncation in pyMOR, we first need the reductor object</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">bt</span> <span class="o">=</span> <span class="n">BTReductor</span><span class="p">(</span><span class="n">fom</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>Calling its <a class="reference internal" href="generated/pymor.reductors.html#pymor.reductors.bt.GenericBTReductor.reduce" title="pymor.reductors.bt.GenericBTReductor.reduce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">reduce</span></code></a> method runs the
+balanced truncation algorithm. This reductor additionally has an <code class="docutils literal notranslate"><span class="pre">error_bounds</span></code>
+method which can compute the a priori <span class="math notranslate nohighlight">\(\mathcal{H}_\infty\)</span> error bounds
+based on the Hankel singular values:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">error_bounds</span> <span class="o">=</span> <span class="n">bt</span><span class="o">.</span><span class="n">error_bounds</span><span class="p">()</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">error_bounds</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">error_bounds</span><span class="p">,</span> <span class="s1">'.-'</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">hsv</span><span class="p">)),</span> <span class="n">hsv</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="s1">'.-'</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">'Reduced order'</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s1">'Upper and lower $\mathcal</span><span class="si">{H}</span><span class="s1">_\infty$ error bounds'</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<script type="application/vnd.jupyter.widget-view+json">
+{"version_major": 2, "version_minor": 0, "model_id": "1082a23d54f64821aa85087e9549f749"}
+</script><img alt="_images/tutorial_bt_9_1.png" src="_images/tutorial_bt_9_1.png"/>
+</div>
+</div>
+<p>To get a reduced-order model of order 10, we call the <code class="docutils literal notranslate"><span class="pre">reduce</span></code> method with the
+appropriate argument:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">rom</span> <span class="o">=</span> <span class="n">bt</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<script type="application/vnd.jupyter.widget-view+json">
+{"version_major": 2, "version_minor": 0, "model_id": "3f351019a9c145a49443f67b59f11d61"}
+</script></div>
+</div>
+<p>Instead, or in addition, a tolerance for the <span class="math notranslate nohighlight">\(\mathcal{H}_\infty\)</span> error
+can be specified, as well as the projection algorithm (by default, the
+balancing-free square root method is used).
+The used Petrov-Galerkin bases are stored in <code class="docutils literal notranslate"><span class="pre">bt.V</span></code> and <code class="docutils literal notranslate"><span class="pre">bt.W</span></code>.</p>
+<p>We can compare the magnitude plots between the full-order and reduced-order
+models</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+<span class="n">fom</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">'FOM'</span><span class="p">)</span>
+<span class="n">rom</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">'--'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">'ROM'</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/tutorial_bt_11_0.png" src="_images/tutorial_bt_11_0.png"/>
+</div>
+</div>
+<p>and plot the magnitude plot of the error system</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">fom</span> <span class="o">-</span> <span class="n">rom</span><span class="p">)</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/tutorial_bt_12_0.png" src="_images/tutorial_bt_12_0.png"/>
+</div>
+</div>
+<p>We can compute the relative errors in <span class="math notranslate nohighlight">\(\mathcal{H}_\infty\)</span> or
+<span class="math notranslate nohighlight">\(\mathcal{H}_2\)</span> (or Hankel) norm</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Relative Hinf error: </span><span class="si">{</span><span class="p">(</span><span class="n">fom</span> <span class="o">-</span> <span class="n">rom</span><span class="p">)</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">fom</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">()</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Relative H2 error:   </span><span class="si">{</span><span class="p">(</span><span class="n">fom</span> <span class="o">-</span> <span class="n">rom</span><span class="p">)</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">fom</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">()</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>Relative Hinf error: 3.702e-05
+Relative H2 error:   6.399e-04
+</pre></div>
+</div>
+</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To compute the <span class="math notranslate nohighlight">\(\mathcal{H}_\infty\)</span> norms, pyMOR uses the dense solver
+from Slycot, and therefore all of the operators have to be converted to
+dense matrices. For large systems, this may be very expensive.</p>
+</div>
+<p>Download the code:
+<a class="reference download internal" download="" href="_downloads/e853903e5638bfb3d2026285c3a01e19/tutorial_bt.py">tutorial_bt.py</a>
+<a class="reference download internal" download="" href="_downloads/049752ef291d62bd7bcde4a95068666e/tutorial_bt.ipynb">tutorial_bt.ipynb</a></p>
+
+
+<script type="application/vnd.jupyter.widget-state+json">
+{"state": {"7ccbcf1b21b540fabab97c3865e7ab3c": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "504fff3db30640b19a48353098ed1889": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "c14d445d81f04e00817fde2670918426": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_7ccbcf1b21b540fabab97c3865e7ab3c", "placeholder": "\u200b", "style": "IPY_MODEL_504fff3db30640b19a48353098ed1889", "value": ""}}, "6f8abe807b604738a8adb4a2dc054e98": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "9d82a0ecc90e4b95bd5d10d7fb7b72cc": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_c14d445d81f04e00817fde2670918426"], "layout": "IPY_MODEL_6f8abe807b604738a8adb4a2dc054e98", "selected_index": null}}, "2cf84a9a890d4df3aed308952f93b42f": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "6bc0c9d2acad403491578dc488dd5ea1": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "dbc307d6aa0046ceaf9c0eaa77a3aa9d": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_2cf84a9a890d4df3aed308952f93b42f", "placeholder": "\u200b", "style": "IPY_MODEL_6bc0c9d2acad403491578dc488dd5ea1", "value": ""}}, "6c7bebfb10fe4e80b2556074f4090372": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "ecd47d95ed9e411f8c9742aac3a703ab": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_dbc307d6aa0046ceaf9c0eaa77a3aa9d"], "layout": "IPY_MODEL_6c7bebfb10fe4e80b2556074f4090372", "selected_index": null}}, "95be1dcae1d242b794aa297ee5ac37b4": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "f03ad828bb6d4330a7617d0fadd9577e": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "bba8a1cf29824735b3a669b9b6a922ff": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_95be1dcae1d242b794aa297ee5ac37b4", "placeholder": "\u200b", "style": "IPY_MODEL_f03ad828bb6d4330a7617d0fadd9577e", "value": ""}}, "561bc7fc2fdb4e309a57a551fd004d93": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "ab5408feba5d4c7c9b0da12b41f49df1": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_bba8a1cf29824735b3a669b9b6a922ff"], "layout": "IPY_MODEL_561bc7fc2fdb4e309a57a551fd004d93", "selected_index": null}}, "94eab8cabfa245beb3fe78a2323c0c4a": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "bf16c8b50ae5445da92fd6db1a73d642": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "4d6da47c61e64ac799420c2d29d9c3ab": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_94eab8cabfa245beb3fe78a2323c0c4a", "placeholder": "\u200b", "style": "IPY_MODEL_bf16c8b50ae5445da92fd6db1a73d642", "value": ""}}, "925628ac293d499b9b27c3fc3b13d23e": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "60107817a54d4ca699626040bd5a6355": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_4d6da47c61e64ac799420c2d29d9c3ab"], "layout": "IPY_MODEL_925628ac293d499b9b27c3fc3b13d23e", "selected_index": null}}, "9d785654efb74cfd9b56236acff6545f": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "78f0022b02b746be9ea79bd1daf747ca": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "33e8ffa9010d45519a0c80a2d31f2173": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_9d785654efb74cfd9b56236acff6545f", "placeholder": "\u200b", "style": "IPY_MODEL_78f0022b02b746be9ea79bd1daf747ca", "value": ""}}, "34a34e899db2426a9e218b432326287b": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "f85af71d2090498a86a8fca3d083afd0": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_33e8ffa9010d45519a0c80a2d31f2173"], "layout": "IPY_MODEL_34a34e899db2426a9e218b432326287b", "selected_index": null}}, "bf874683c0204d2f81a97c1c0402c805": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "e5ad176b7bbe4486a3b508e28f959999": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "7a208d826612400c8809bbaae01f8b08": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_bf874683c0204d2f81a97c1c0402c805", "placeholder": "\u200b", "style": "IPY_MODEL_e5ad176b7bbe4486a3b508e28f959999", "value": ""}}, "1e7d7023e3cc4ce187f598c377a9692f": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "6608ec50be714e50b1b8183e238baf40": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_7a208d826612400c8809bbaae01f8b08"], "layout": "IPY_MODEL_1e7d7023e3cc4ce187f598c377a9692f", "selected_index": null}}, "f1203d7d914a454493cfd56a5a0c332f": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "063a3b69b819429d946b4fc0957baf07": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "ba75c42e72ff4c03be0b85e71d134c51": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_f1203d7d914a454493cfd56a5a0c332f", "placeholder": "\u200b", "style": "IPY_MODEL_063a3b69b819429d946b4fc0957baf07", "value": ""}}, "c368deab816b4081978c270919672726": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "926849d3264942389cc6aea4ae44add5": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_ba75c42e72ff4c03be0b85e71d134c51"], "layout": "IPY_MODEL_c368deab816b4081978c270919672726", "selected_index": null}}, "67321422c07a41bc8987a2f55553aa07": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "31504e0a30954762b29fa708541599ac": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "59dd80c3e17b44b38541667d584510f9": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_67321422c07a41bc8987a2f55553aa07", "placeholder": "\u200b", "style": "IPY_MODEL_31504e0a30954762b29fa708541599ac", "value": ""}}, "ea327b561aff4cf5955fb24ae15e6424": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "4355a2301019404cae03a6ca3a863a85": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_59dd80c3e17b44b38541667d584510f9"], "layout": "IPY_MODEL_ea327b561aff4cf5955fb24ae15e6424", "selected_index": null}}, "09ce8789e06148d5bfd8704c57e847c9": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "4d33ce3dfdab4eab9147a4d3bcd4e439": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "8b3b3420b94a4134aafbdba339bf038c": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_09ce8789e06148d5bfd8704c57e847c9", "placeholder": "\u200b", "style": "IPY_MODEL_4d33ce3dfdab4eab9147a4d3bcd4e439", "value": ""}}, "c007b1a2b8334e0a828820a91fd67ac3": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "c5fd8166221e4f6aa572527b81f3ff81": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_8b3b3420b94a4134aafbdba339bf038c"], "layout": "IPY_MODEL_c007b1a2b8334e0a828820a91fd67ac3", "selected_index": null}}, "9046315cf43744ac812ce121d5695815": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "6bba1b8bedfb4d9680b745f247e8cbfe": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "8d7e498ee7ba4bda838ef10c3ac77da6": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_9046315cf43744ac812ce121d5695815", "placeholder": "\u200b", "style": "IPY_MODEL_6bba1b8bedfb4d9680b745f247e8cbfe", "value": "<p style=\"line-height:120%\">00:02 <span style=\"color:yellow;\">|WARNING|</span><bold>mathtext</bold>: Substituting symbol H from STIXNonUnicode</p><p style=\"line-height:120%\">00:02 <span style=\"color:yellow;\">|WARNING|</span><bold>mathtext</bold>: Substituting symbol H from STIXNonUnicode</p><p style=\"line-height:120%\">00:02 <span style=\"color:yellow;\">|WARNING|</span><bold>mathtext</bold>: Substituting symbol H from STIXNonUnicode</p><p style=\"line-height:120%\">00:02 <span style=\"color:yellow;\">|WARNING|</span><bold>mathtext</bold>: Substituting symbol H from STIXNonUnicode</p>"}}, "88dcb14c361e48a5ab11bc558dd39fb5": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "1082a23d54f64821aa85087e9549f749": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_8d7e498ee7ba4bda838ef10c3ac77da6"], "layout": "IPY_MODEL_88dcb14c361e48a5ab11bc558dd39fb5", "selected_index": null}}, "425e810c5ed045c88e6d15c074ceb98f": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "7d0452e43bc54fe89bc82393bfd7941b": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "de17667fcf01408b8ee04bb4556b604c": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_425e810c5ed045c88e6d15c074ceb98f", "placeholder": "\u200b", "style": "IPY_MODEL_7d0452e43bc54fe89bc82393bfd7941b", "value": "<p style=\"line-height:120%\">00:02 <bold>LTIPGReductor</bold>: Operator projection ...</p><p style=\"line-height:120%\">00:02 <bold>LTIPGReductor</bold>: Building ROM ...</p>"}}, "b5c13a3408244c3991a771232852da68": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "3f351019a9c145a49443f67b59f11d61": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_de17667fcf01408b8ee04bb4556b604c"], "layout": "IPY_MODEL_b5c13a3408244c3991a771232852da68", "selected_index": null}}, "966385fa19844b048532f0d73ea9d341": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "d43c056b4b574a4887159d500a311493": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "3fae27569d194dafb9d9d00fd5e82148": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_966385fa19844b048532f0d73ea9d341", "placeholder": "\u200b", "style": "IPY_MODEL_d43c056b4b574a4887159d500a311493", "value": ""}}, "c5a3d05dbda54178a818b03e692d2646": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "5e452c65ed7249d0a42a7170affebb71": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_3fae27569d194dafb9d9d00fd5e82148"], "layout": "IPY_MODEL_c5a3d05dbda54178a818b03e692d2646", "selected_index": null}}, "8d0ae955d64f46a0869f7284d3900f84": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "bccd5476dec34ecc9c2ef3af348552f8": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "339847c65e2f4c8c83779997987ec9ca": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_8d0ae955d64f46a0869f7284d3900f84", "placeholder": "\u200b", "style": "IPY_MODEL_bccd5476dec34ecc9c2ef3af348552f8", "value": ""}}, "33399389fd624cab92d0b77234de002a": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "146288377b86455a909f4d0c10f880b7": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_339847c65e2f4c8c83779997987ec9ca"], "layout": "IPY_MODEL_33399389fd624cab92d0b77234de002a", "selected_index": null}}, "818e292c2dd64cfca6c6aebb142e9498": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "cd912d8b5cda47d0a412af68e1a8698f": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "216e0015f30447bd9a9e2747b96c337b": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_818e292c2dd64cfca6c6aebb142e9498", "placeholder": "\u200b", "style": "IPY_MODEL_cd912d8b5cda47d0a412af68e1a8698f", "value": ""}}, "2985fa0f2c0d426f8a97cc22976c799a": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "491a8e68e80b4322a2a69f0393545dd0": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_216e0015f30447bd9a9e2747b96c337b"], "layout": "IPY_MODEL_2985fa0f2c0d426f8a97cc22976c799a", "selected_index": null}}}, "version_major": 2, "version_minor": 0}
+</script>
+
+
+          </article>
+        </div>
+      </div>
+    </main>
+  </div>
+  <footer class="md-footer">
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid">
+          
+            <a href="tutorial_basis_generation.html" title="Tutorial: Building a Reduced Basis"
+               class="md-flex md-footer-nav__link md-footer-nav__link--prev"
+               rel="prev">
+              <div class="md-flex__cell md-flex__cell--shrink">
+                <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+              </div>
+              <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+                <span class="md-flex__ellipsis">
+                  <span
+                      class="md-footer-nav__direction"> Previous </span> Tutorial: Building a Reduced Basis </span>
+              </div>
+            </a>
+          
+          
+            <a href="tutorial_mor_with_anns.html" title="Tutorial: Model order reduction with artificial neural networks"
+               class="md-flex md-footer-nav__link md-footer-nav__link--next"
+               rel="next">
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
+                class="md-flex__ellipsis"> <span
+                class="md-footer-nav__direction"> Next </span> Tutorial: Model order reduction with artificial neural networks </span>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink"><i
+                class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+            </div>
+          
+        </a>
+        
+      </nav>
+    </div>
+    <div class="md-footer-meta md-typeset">
+      <div class="md-footer-meta__inner md-grid">
+        <div class="md-footer-copyright">
+          <div class="md-footer-copyright__highlight">
+              &#169; Copyright 2013-2020 pyMOR developers and contributors.
+              
+          </div>
+            Last updated on
+              Jul 23, 2020.
+            <br/>
+            Created using
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.1.2.
+             and
+            <a href="https://github.com/bashtage/sphinx-material/">Material for
+              Sphinx</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="_static/javascripts/application.js"></script>
+  <script>app.initialize({version: "1.0.4", url: {base: ".."}})</script>
+  </body>
+</html>
