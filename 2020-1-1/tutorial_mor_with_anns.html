@@ -1,0 +1,723 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <meta name="lang:clipboard.copy" content="Copy to clipboard">
+  <meta name="lang:clipboard.copied" content="Copied to clipboard">
+  <meta name="lang:search.language" content="en">
+  <meta name="lang:search.pipeline.stopwords" content="True">
+  <meta name="lang:search.pipeline.trimmer" content="True">
+  <meta name="lang:search.result.none" content="No matching documents">
+  <meta name="lang:search.result.one" content="1 matching document">
+  <meta name="lang:search.result.other" content="# matching documents">
+  <meta name="lang:search.tokenizer" content="[\s\-]+">
+
+  
+    <link href="https://fonts.gstatic.com/" rel="preconnect" crossorigin>
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,700|Roboto:300,400,400i,700&display=fallback" rel="stylesheet">
+
+    <style>
+      body,
+      input {
+        font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif
+      }
+
+      code,
+      kbd,
+      pre {
+        font-family: "Roboto Mono", "Courier New", Courier, monospace
+      }
+    </style>
+  
+
+  <link rel="stylesheet" href="_static/stylesheets/application.css"/>
+  <link rel="stylesheet" href="_static/stylesheets/application-palette.css"/>
+  <link rel="stylesheet" href="_static/stylesheets/application-fixes.css"/>
+  
+  <link rel="stylesheet" href="_static/fonts/material-icons.css"/>
+  
+  <meta name="theme-color" content="58c9f5">
+  <script src="_static/javascripts/modernizr.js"></script>
+  
+  
+  
+    <title>Tutorial: Model order reduction with artificial neural networks &#8212; pyMOR v2020.1.1 Manual</title>
+    <link rel="stylesheet" href="_static/material.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/jupyter-sphinx.css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://unpkg.com/@jupyter-widgets/html-manager@^0.18.0/dist/embed-amd.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tutorial: Binding an external PDE solver to pyMOR" href="tutorial_external_solver.html" />
+    <link rel="prev" title="Tutorial: Reducing a heat equation using balanced truncation" href="tutorial_bt.html" />
+
+
+  
+   
+
+<link rel="stylesheet" href="_static/pymor.css"/>
+  </head>
+  <body dir=ltr
+        data-md-color-primary=light-blue data-md-color-accent=blue>
+  
+  <svg class="md-svg">
+    <defs data-children-count="0">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="416" height="448" viewBox="0 0 416 448" id="__github"><path fill="currentColor" d="M160 304q0 10-3.125 20.5t-10.75 19T128 352t-18.125-8.5-10.75-19T96 304t3.125-20.5 10.75-19T128 256t18.125 8.5 10.75 19T160 304zm160 0q0 10-3.125 20.5t-10.75 19T288 352t-18.125-8.5-10.75-19T256 304t3.125-20.5 10.75-19T288 256t18.125 8.5 10.75 19T320 304zm40 0q0-30-17.25-51T296 232q-10.25 0-48.75 5.25Q229.5 240 208 240t-39.25-2.75Q130.75 232 120 232q-29.5 0-46.75 21T56 304q0 22 8 38.375t20.25 25.75 30.5 15 35 7.375 37.25 1.75h42q20.5 0 37.25-1.75t35-7.375 30.5-15 20.25-25.75T360 304zm56-44q0 51.75-15.25 82.75-9.5 19.25-26.375 33.25t-35.25 21.5-42.5 11.875-42.875 5.5T212 416q-19.5 0-35.5-.75t-36.875-3.125-38.125-7.5-34.25-12.875T37 371.5t-21.5-28.75Q0 312 0 260q0-59.25 34-99-6.75-20.5-6.75-42.5 0-29 12.75-54.5 27 0 47.5 9.875t47.25 30.875Q171.5 96 212 96q37 0 70 8 26.25-20.5 46.75-30.25T376 64q12.75 25.5 12.75 54.5 0 21.75-6.75 42 34 40 34 99.5z"/></svg>
+      
+    </defs>
+  </svg>
+  
+  <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer">
+  <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search">
+  <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
+  <a href="#tutorial_mor_with_anns" tabindex="1" class="md-skip"> Skip to content </a>
+  <header class="md-header" data-md-component="header">
+  <nav class="md-header-nav md-grid">
+    <div class="md-flex navheader">
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <a href="index.html" title="pyMOR v2020.1.1 Manual"
+           class="md-header-nav__button md-logo">
+          
+            <i class="md-icon">&#xe869</i>
+          
+        </a>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
+      </div>
+      <div class="md-flex__cell md-flex__cell--stretch">
+        <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+          <span class="md-header-nav__topic">pyMOR Documentation</span>
+          <span class="md-header-nav__topic"> Tutorial: Model order reduction with artificial neural networks </span>
+        </div>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
+        
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" action="search.html" method="GET" name="search">
+      <input type="text" class="md-search__input" name="q" placeholder="Search"
+             autocapitalize="off" autocomplete="off" spellcheck="false"
+             data-md-component="query" data-md-state="active">
+      <label class="md-icon md-search__icon" for="__search"></label>
+      <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
+        &#xE5CD;
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="result">
+          <div class="md-search-result__meta">
+            Type to start searching
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+      </div>
+      
+      
+  
+  <script src="_static/javascripts/version_dropdown.js"></script>
+  <script>
+    var json_loc = "/versions.json",
+        target_loc = "../",
+        text = "Versions";
+    $( document ).ready( add_version_dropdown(json_loc, target_loc, text));
+  </script>
+  
+
+    </div>
+  </nav>
+</header>
+
+  
+  <div class="md-container">
+    
+    
+    
+  <nav class="md-tabs" data-md-component="tabs">
+    <div class="md-tabs__inner md-grid">
+      <ul class="md-tabs__list">
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">pyMOR v2020.1.1 Manual</a></li>
+          <li class="md-tabs__item"><a href="tutorials.html" class="md-tabs__link">pyMOR Tutorials</a></li>
+      </ul>
+    </div>
+  </nav>
+    <main class="md-main">
+      <div class="md-main__inner md-grid" data-md-component="container">
+        
+          <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                <nav class="md-nav md-nav--primary" data-md-level="0">
+  <label class="md-nav__title md-nav__title--site" for="__drawer">
+    <a href="index.html" title="pyMOR v2020.1.1 Manual" class="md-nav__button md-logo">
+      
+        <i class="md-icon">&#xe869</i>
+      
+    </a>
+    <a href="index.html"
+       title="pyMOR v2020.1.1 Manual">pyMOR Documentation</a>
+  </label>
+  
+
+  
+  <ul class="md-nav__list">
+    <li class="md-nav__item">
+    
+    
+      <a href="getting_started.html" class="md-nav__link">Getting started</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="technical_overview.html" class="md-nav__link">Technical Overview</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="environment.html" class="md-nav__link">Environment Variables</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="tutorials.html" class="md-nav__link">pyMOR Tutorials</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="tutorial_builtin_discretizer.html" class="md-nav__link">Tutorial: Using pyMOR’s discretization toolkit</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="tutorial_basis_generation.html" class="md-nav__link">Tutorial: Building a Reduced Basis</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="tutorial_bt.html" class="md-nav__link">Tutorial: Reducing a heat equation using balanced truncation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    <label class="md-nav__link md-nav__link--active" for="__toc"> Tutorial: Model order reduction with artificial neural networks </label>
+    
+      <a href="#" class="md-nav__link md-nav__link--active">Tutorial: Model order reduction with artificial neural networks</a>
+      
+        
+<nav class="md-nav md-nav--secondary">
+  <ul class="md-nav__list" data-md-scrollfix="">
+    
+<li class="md-nav__item"><a class="md-nav__extra_link" href="_sources/tutorial_mor_with_anns.rst.txt">Show Source</a> </li>
+
+  </ul>
+</nav>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="#feedforward-neural-networks" class="md-nav__link">Feedforward neural networks</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#a-non-intrusive-reduced-order-method-using-artificial-neural-networks" class="md-nav__link">A non-intrusive reduced order method using artificial neural networks</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="tutorial_external_solver.html" class="md-nav__link">Tutorial: Binding an external PDE solver to pyMOR</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="release_notes.html" class="md-nav__link">Release Notes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="bibliography.html" class="md-nav__link">Bibliography</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="generated/pymor.html" class="md-nav__link">pymor package</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="generated/pymordemos.html" class="md-nav__link">pymordemos package</a>
+      
+    
+    </li>
+  </ul>
+  
+
+</nav>
+              </div>
+            </div>
+          </div>
+          <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                
+<nav class="md-nav md-nav--secondary">
+  <ul class="md-nav__list" data-md-scrollfix="">
+    
+<li class="md-nav__item"><a class="md-nav__extra_link" href="_sources/tutorial_mor_with_anns.rst.txt">Show Source</a> </li>
+
+<li id="searchbox" class="md-nav__item"></li>
+
+  </ul>
+</nav>
+              </div>
+            </div>
+          </div>
+        
+        <div class="md-content">
+          <article class="md-content__inner md-typeset" role="main">
+            
+  
+<h1 id="tutorial-mor-with-anns--page-root">Tutorial: Model order reduction with artificial neural networks<a class="headerlink" href="#tutorial-mor-with-anns--page-root" title="Permalink to this headline">¶</a></h1>
+<div class="jupyter_cell docutils container">
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>Recent success of artificial neural networks led to the development of several
+methods for model order reduction using neural networks. pyMOR provides the
+functionality for a simple approach developed by Hesthaven and Ubbiali in <a class="reference internal" href="bibliography.html#hu18" id="id1"><span>[HU18]</span></a>.
+For training and evaluation of the neural networks, <a class="reference external" href="https://pytorch.org">PyTorch</a> is used.</p>
+<p>In this tutorial we will learn about feedforward neural networks, the basic
+idea of the approach by Hesthaven et al., and how to use it in pyMOR.</p>
+
+<h2 id="feedforward-neural-networks">Feedforward neural networks<a class="headerlink" href="#feedforward-neural-networks" title="Permalink to this headline">¶</a></h2>
+<p>We aim at approximating a mapping <span class="math notranslate nohighlight">\(h\colon\mathcal{P}\rightarrow Y\)</span>
+between some input space <span class="math notranslate nohighlight">\(\mathcal{P}\subset\mathbb{R}^p\)</span> (in our case the
+parameter space) and an output space <span class="math notranslate nohighlight">\(Y\subset\mathbb{R}^m\)</span> (in our case the
+reduced space), given a set <span class="math notranslate nohighlight">\(S=\{(\mu_i,h(\mu_i))\in\mathcal{P}\times Y: i=1,\dots,N\}\)</span>
+of samples, by means of an artificial neural network. In this context, neural
+networks serve as a special class of functions that are able to “learn” the
+underlying structure of the sample set <span class="math notranslate nohighlight">\(S\)</span> by adjusting their weights.
+More precisely, feedforward neural networks consist of several layers, each
+comprising a set of neurons that are connected to neurons in adjacent layers.
+A so called “weight” is assigned to each of those connections. The weights in
+the neural network can be adjusted while fitting the neural network to the
+given sample set. For a given input <span class="math notranslate nohighlight">\(\mu\in\mathcal{P}\)</span>, the weights between the
+input layer and the first hidden layer (the one after the input layer) are
+multiplied with the respective values in <span class="math notranslate nohighlight">\(\mu\)</span> and summed up. Subsequently,
+a so called “bias” (also adjustable during training) is added and the result is
+assigned to the corresponding neuron in the first hidden layer. Before passing
+those values to the following layer, a (non-linear) activation function
+<span class="math notranslate nohighlight">\(\rho\colon\mathbb{R}\rightarrow\mathbb{R}\)</span> is applied. If <span class="math notranslate nohighlight">\(\rho\)</span>
+is linear, the function implemented by the neural network is affine, since
+solely affine operations were performed. Hence, one usually chooses a
+non-linear activation function to introduce non-linearity in the neural network
+and thus increase its approximation capability. In some sense, the input
+<span class="math notranslate nohighlight">\(\mu\)</span> is passed through the neural network, affine-linearly combined with the
+other inputs and non-linearly transformed. These steps are repeated in several
+layers.</p>
+<p>The following figure shows a simple example of a neural network with two hidden
+layers, an input size of two and an output size of three. Each edge between
+neurons has a corresponding weight that is learnable in the training phase.</p>
+<img alt="_images/neural_network.png" src="_images/neural_network.png"/>
+<p>To train the neural network, one considers a so called “loss function”, that
+measures how the neural network performs on the training set <span class="math notranslate nohighlight">\(S\)</span>, i.e.
+how accurately the neural network reproduces the output <span class="math notranslate nohighlight">\(h(\mu_i)\)</span> given
+the input <span class="math notranslate nohighlight">\(\mu_i\)</span>. The weights of the neural network are adjusted
+iteratively such that the loss function is successively minimized. To this end,
+one typically uses a Quasi-Newton method for small neural networks or a
+(stochastic) gradient descent method for deep neural networks (those with many
+hidden layers).</p>
+<p>A possibility to use feedforward neural networks in combination with reduced
+basis methods will be introduced in the following section.</p>
+
+
+<h2 id="a-non-intrusive-reduced-order-method-using-artificial-neural-networks">A non-intrusive reduced order method using artificial neural networks<a class="headerlink" href="#a-non-intrusive-reduced-order-method-using-artificial-neural-networks" title="Permalink to this headline">¶</a></h2>
+<p>We now assume that we are given a parametric pyMOR <a class="reference internal" href="generated/pymor.models.html#pymor.models.interface.Model" title="pymor.models.interface.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">Model</span></code></a> for which we want
+to compute a reduced order surrogate <a class="reference internal" href="generated/pymor.models.html#pymor.models.interface.Model" title="pymor.models.interface.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">Model</span></code></a> using a neural network. In this
+example, we consider the following two-dimensional diffusion problem with
+parametrized diffusion, right hand side and Dirichlet boundary condition:</p>
+<div class="math notranslate nohighlight">
+\[-\nabla \cdot \big(\sigma(x, \mu) \nabla u(x, \mu) \big) = f(x, \mu),\quad x=(x_1,x_2) \in \Omega,\]</div>
+<p>on the domain <span class="math notranslate nohighlight">\(\Omega:= (0, 1)^2 \subset \mathbb{R}^2\)</span> with data
+functions <span class="math notranslate nohighlight">\(f((x_1, x_2), \mu) = 10 \cdot \mu + 0.1\)</span>,
+<span class="math notranslate nohighlight">\(\sigma((x_1, x_2), \mu) = (1 - x_1) \cdot \mu + x_1\)</span>, where
+<span class="math notranslate nohighlight">\(\mu \in (0.1, 1)\)</span> denotes the parameter. Further, we apply the
+Dirichlet boundary conditions</p>
+<div class="math notranslate nohighlight">
+\[u((x_1, x_2), \mu) = 2x_1\mu + 0.5,\quad x=(x_1, x_2) \in \partial\Omega.\]</div>
+<p>We discretize the problem using pyMOR’s builtin discretization toolkit as
+explained in <a class="reference internal" href="tutorial_builtin_discretizer.html"><span class="doc">Tutorial: Using pyMOR’s discretization toolkit</span></a>:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pymor.basic</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">StationaryProblem</span><span class="p">(</span>
+      <span class="n">domain</span><span class="o">=</span><span class="n">RectDomain</span><span class="p">(),</span>
+
+      <span class="n">rhs</span><span class="o">=</span><span class="n">LincombFunction</span><span class="p">(</span>
+          <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'ones(x.shape[:-1]) * 10'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="mi">2</span><span class="p">)],</span>
+          <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'mu'</span><span class="p">),</span> <span class="mf">0.1</span><span class="p">]),</span>
+
+      <span class="n">diffusion</span><span class="o">=</span><span class="n">LincombFunction</span><span class="p">(</span>
+          <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'1 - x[..., 0]'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span> <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'x[..., 0]'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">())],</span>
+          <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'mu'</span><span class="p">),</span> <span class="mi">1</span><span class="p">]),</span>
+
+      <span class="n">dirichlet_data</span><span class="o">=</span><span class="n">LincombFunction</span><span class="p">(</span>
+          <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'2 * x[..., 0]'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="mi">2</span><span class="p">)],</span>
+          <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'mu'</span><span class="p">),</span> <span class="mf">0.5</span><span class="p">]),</span>
+
+      <span class="n">name</span><span class="o">=</span><span class="s1">'2DProblem'</span>
+  <span class="p">)</span>
+
+<span class="n">fom</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">discretize_stationary_cg</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="mi">50</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<script type="application/vnd.jupyter.widget-view+json">
+{"version_major": 2, "version_minor": 0, "model_id": "fc210df7744e41bfa976799822752b05"}
+</script></div>
+</div>
+<p>Since we employ a single <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Parameters" title="pymor.parameters.base.Parameters"><code class="xref py py-class docutils literal notranslate"><span class="pre">Parameter</span></code></a>, and thus use the same range for each
+parameter, we can create the <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.ParameterSpace" title="pymor.parameters.base.ParameterSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterSpace</span></code></a> using the following line:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">parameter_space</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">space</span><span class="p">((</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>The main idea of the approach by Hesthaven et al. is to approximate the mapping
+from the <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Parameters" title="pymor.parameters.base.Parameters"><code class="xref py py-class docutils literal notranslate"><span class="pre">Parameters</span></code></a> to the coefficients of the respective solution in a
+reduced basis by means of a neural network. Thus, in the online phase, one
+performs a forward pass of the <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Parameters" title="pymor.parameters.base.Parameters"><code class="xref py py-class docutils literal notranslate"><span class="pre">Parameters</span></code></a> through the neural networks and
+obtains the approximated reduced coordinates. To derive the corresponding
+high-fidelity solution, one can further use the reduced basis and compute the
+linear combination defined by the reduced coefficients. The reduced basis is
+created via POD.</p>
+<p>The method described above is “non-intrusive”, which means that no deep insight
+into the model or its implementation is required and it is completely
+sufficient to be able to generate full order snapshots for a randomly chosen
+set of parameters. This is one of the main advantages of the proposed approach,
+since one can simply train a neural network, check its performance and resort
+to a different method if the neural network does not provide proper
+approximation results.</p>
+<p>In pyMOR, there exists a training routine for feedforward neural networks. This
+procedure is part of a reductor and it is not necessary to write a custom
+training algorithm for each specific problem. However, it is sometimes
+necessary to try different architectures for the neural network to find the one
+that best fits the problem at hand. In the reductor, one can easily adjust the
+number of layers and the number of neurons in each hidden layer, for instance.
+Furthermore, it is also possible to change the deployed activation function.</p>
+<p>To train the neural network, we create a training and a validation set
+consisting of 100 and 20 randomly chosen <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Mu" title="pymor.parameters.base.Mu"><code class="xref py py-class docutils literal notranslate"><span class="pre">parameter</span> <span class="pre">values</span></code></a>, respectively:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">training_set</span> <span class="o">=</span> <span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_uniformly</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">validation_set</span> <span class="o">=</span> <span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>In this tutorial, we construct the reduced basis such that no more modes than
+required to bound the l2-approximation error by a given value are used.
+The l2-approximation error is  the error of the orthogonal projection (in the
+l2-sense) of the training snapshots onto the reduced basis. That is, we
+prescribe <code class="docutils literal notranslate"><span class="pre">l2_err</span></code> in the reductor. It is also possible to determine a relative
+or absolute tolerance (in the singular values) that should not be exceeded on
+the training set. Further, one can preset the size of the reduced basis.</p>
+<p>The training is aborted when a neural network that guarantees our prescribed
+tolerance is found. If we set <code class="docutils literal notranslate"><span class="pre">ann_mse</span></code> to <code class="docutils literal notranslate"><span class="pre">None</span></code>, this function will
+automatically train several neural networks with different initial weights and
+select the one leading to the best results on the validation set. We can also
+set <code class="docutils literal notranslate"><span class="pre">ann_mse</span></code> to <code class="docutils literal notranslate"><span class="pre">'like_basis'</span></code>. Then, the algorithm tries to train a neural
+network that leads to a mean squared error on the training set that is as small
+as the error of the reduced basis. If the maximal number of restarts is reached
+without finding a network that fulfills the tolerances, an exception is raised.
+In such a case, one could try to change the architecture of the neural network
+or switch to <code class="docutils literal notranslate"><span class="pre">ann_mse=None</span></code> which is guaranteed to produce a reduced order
+model (perhaps with insufficient approximation properties).</p>
+<p>We can now construct a reductor with prescribed error for the basis and mean
+squared error of the neural network:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pymor.reductors.neural_network</span> <span class="kn">import</span> <span class="n">NeuralNetworkReductor</span>
+
+<span class="n">reductor</span> <span class="o">=</span> <span class="n">NeuralNetworkReductor</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span>
+                                 <span class="n">training_set</span><span class="p">,</span>
+                                 <span class="n">validation_set</span><span class="p">,</span>
+                                 <span class="n">l2_err</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
+                                 <span class="n">ann_mse</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>To reduce the model, i.e. compute a reduced basis via POD and train the neural
+network, we use the respective function of the
+<a class="reference internal" href="generated/pymor.reductors.html#pymor.reductors.neural_network.NeuralNetworkReductor" title="pymor.reductors.neural_network.NeuralNetworkReductor"><code class="xref py py-class docutils literal notranslate"><span class="pre">NeuralNetworkReductor</span></code></a>:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">rom</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">restarts</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<script type="application/vnd.jupyter.widget-view+json">
+{"version_major": 2, "version_minor": 0, "model_id": "70e04f21f8944bc8a2564f2f89f40c54"}
+</script></div>
+</div>
+<p>We are now ready to test our reduced model by solving for a random parameter value
+the full problem and the reduced model and visualize the result:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mu</span> <span class="o">=</span> <span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+<span class="n">U_red</span> <span class="o">=</span> <span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+<span class="n">U_red_recon</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">U_red</span><span class="p">)</span>
+
+<span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">((</span><span class="n">U</span><span class="p">,</span> <span class="n">U_red_recon</span><span class="p">),</span>
+              <span class="n">legend</span><span class="o">=</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Full solution for parameter </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">,</span> <span class="sa">f</span><span class="s1">'Reduced solution for parameter </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<script type="application/vnd.jupyter.widget-view+json">
+{"version_major": 2, "version_minor": 0, "model_id": "1fdc5ebfef0642999bfdcebda7f04c60"}
+</script><img alt="_images/tutorial_mor_with_anns_6_1.png" src="_images/tutorial_mor_with_anns_6_1.png"/>
+<img alt="_images/tutorial_mor_with_anns_6_2.png" src="_images/tutorial_mor_with_anns_6_2.png"/>
+<script type="application/vnd.jupyter.widget-view+json">
+{"version_major": 2, "version_minor": 0, "model_id": "570551d73df64354b767307b63dd6968"}
+</script></div>
+</div>
+<p>Finally, we measure the error of our neural network and the performance
+compared to the solution of the full order problem on a training set. To this
+end, we sample randomly some <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.Mu" title="pymor.parameters.base.Mu"><code class="xref py py-class docutils literal notranslate"><span class="pre">parameter</span> <span class="pre">values</span></code></a> from our <a class="reference internal" href="generated/pymor.parameters.html#pymor.parameters.base.ParameterSpace" title="pymor.parameters.base.ParameterSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterSpace</span></code></a>:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">test_set</span> <span class="o">=</span> <span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>Next, we create empty solution arrays for the full and reduced solutions and an
+empty list for the speedups:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">test_set</span><span class="p">))</span>
+<span class="n">U_red</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">test_set</span><span class="p">))</span>
+
+<span class="n">speedups</span> <span class="o">=</span> <span class="p">[]</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>Now, we iterate over the test set, compute full and reduced solutions to the
+respective parameters and measure the speedup:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">time</span>
+
+<span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">test_set</span><span class="p">:</span>
+    <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">U</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">))</span>
+    <span class="n">time_fom</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span>
+
+    <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">U_red</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)))</span>
+    <span class="n">time_red</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span>
+
+    <span class="n">speedups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time_fom</span> <span class="o">/</span> <span class="n">time_red</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<script type="application/vnd.jupyter.widget-view+json">
+{"version_major": 2, "version_minor": 0, "model_id": "60c1daafbfe940a69a65f227b17b6e79"}
+</script></div>
+</div>
+<p>We can now derive the absolute and relative errors on the training set as</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">absolute_errors</span> <span class="o">=</span> <span class="p">(</span><span class="n">U</span> <span class="o">-</span> <span class="n">U_red</span><span class="p">)</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span>
+<span class="n">relative_errors</span> <span class="o">=</span> <span class="p">(</span><span class="n">U</span> <span class="o">-</span> <span class="n">U_red</span><span class="p">)</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">U</span><span class="o">.</span><span class="n">l2_norm</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>The average absolute error amounts to</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">absolute_errors</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-none notranslate"><div class="highlight"><pre><span></span>0.0058657007619904765
+</pre></div>
+</div>
+</div>
+</div>
+<p>On the other hand, the average relative error is</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">relative_errors</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-none notranslate"><div class="highlight"><pre><span></span>7.555039406721176e-05
+</pre></div>
+</div>
+</div>
+</div>
+<p>Using neural networks results in the following median speedup compared to
+solving the full order problem:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">speedups</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-none notranslate"><div class="highlight"><pre><span></span>12.209603125275017
+</pre></div>
+</div>
+</div>
+</div>
+<p>Since <a class="reference internal" href="generated/pymor.reductors.html#pymor.reductors.neural_network.NeuralNetworkReductor" title="pymor.reductors.neural_network.NeuralNetworkReductor"><code class="xref py py-class docutils literal notranslate"><span class="pre">NeuralNetworkReductor</span></code></a> only calls
+the <a class="reference internal" href="generated/pymor.models.html#pymor.models.interface.Model.solve" title="pymor.models.interface.Model.solve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">solve</span></code></a> method of the <a class="reference internal" href="generated/pymor.models.html#pymor.models.interface.Model" title="pymor.models.interface.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">Model</span></code></a>, it can easily
+be applied to <a class="reference internal" href="generated/pymor.models.html#pymor.models.interface.Model" title="pymor.models.interface.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">Models</span></code></a> originating from external solvers, without requiring any access to
+<a class="reference internal" href="generated/pymor.operators.html#pymor.operators.interface.Operator" title="pymor.operators.interface.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operators</span></code></a> internal to the solver.</p>
+
+
+<script type="application/vnd.jupyter.widget-state+json">
+{"state": {"3db01592993547a9a007e6882bac04c1": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "c90ff9f69a464069820fd451e1ea1ac6": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "06b8af6533284202b24be914c43bc545": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_3db01592993547a9a007e6882bac04c1", "placeholder": "\u200b", "style": "IPY_MODEL_c90ff9f69a464069820fd451e1ea1ac6", "value": ""}}, "2b4b1ad1937e4f65a475fa40a02e072a": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "f2586703804345d6b915178fc67ee291": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_06b8af6533284202b24be914c43bc545"], "layout": "IPY_MODEL_2b4b1ad1937e4f65a475fa40a02e072a", "selected_index": null}}, "b2edb0ccda1e44bd9a4cc3d570ade570": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "4c83bc2f3b1b4435b34678f54fada09b": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "dcdc5b3589954cc387e6b0b885b16a24": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_b2edb0ccda1e44bd9a4cc3d570ade570", "placeholder": "\u200b", "style": "IPY_MODEL_4c83bc2f3b1b4435b34678f54fada09b", "value": "<p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Calulate gradients of shape functions transformed by reference map ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Calculate all local scalar products beween gradients ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Determine global dofs ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Boundary treatment ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Assemble system matrix ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Calulate gradients of shape functions transformed by reference map ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Calculate all local scalar products beween gradients ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Determine global dofs ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Boundary treatment ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Assemble system matrix ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Calulate gradients of shape functions transformed by reference map ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Calculate all local scalar products beween gradients ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Determine global dofs ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Boundary treatment ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Assemble system matrix ...</p><p style=\"line-height:120%\">00:00 <bold>L2ProductP1</bold>: Integrate the products of the shape functions on each element</p><p style=\"line-height:120%\">00:00 <bold>L2ProductP1</bold>: Determine global dofs ...</p><p style=\"line-height:120%\">00:00 <bold>L2ProductP1</bold>: Boundary treatment ...</p><p style=\"line-height:120%\">00:00 <bold>L2ProductP1</bold>: Assemble system matrix ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Calulate gradients of shape functions transformed by reference map ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Calculate all local scalar products beween gradients ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Determine global dofs ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Boundary treatment ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Assemble system matrix ...</p><p style=\"line-height:120%\">00:00 <bold>L2ProductP1</bold>: Integrate the products of the shape functions on each element</p><p style=\"line-height:120%\">00:00 <bold>L2ProductP1</bold>: Determine global dofs ...</p><p style=\"line-height:120%\">00:00 <bold>L2ProductP1</bold>: Boundary treatment ...</p><p style=\"line-height:120%\">00:00 <bold>L2ProductP1</bold>: Assemble system matrix ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Calulate gradients of shape functions transformed by reference map ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Calculate all local scalar products beween gradients ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Determine global dofs ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Boundary treatment ...</p><p style=\"line-height:120%\">00:00 <bold>DiffusionOperatorP1</bold>: Assemble system matrix ...</p>"}}, "1ce10bc938c949c48ccdac4d2dd3b616": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "fc210df7744e41bfa976799822752b05": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_dcdc5b3589954cc387e6b0b885b16a24"], "layout": "IPY_MODEL_1ce10bc938c949c48ccdac4d2dd3b616", "selected_index": null}}, "ad646c5d2d9245f79ea42603f2e48231": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "d2f4af52c9524d869083e27c706136da": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "b40251f051f5449c8bdce866f1441a27": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_ad646c5d2d9245f79ea42603f2e48231", "placeholder": "\u200b", "style": "IPY_MODEL_d2f4af52c9524d869083e27c706136da", "value": ""}}, "64eb8802ed8845428626f23ec91082fd": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "7a06319ef0c14e8ba19d5563b660924c": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_b40251f051f5449c8bdce866f1441a27"], "layout": "IPY_MODEL_64eb8802ed8845428626f23ec91082fd", "selected_index": null}}, "32a39fdc777e4c418e84e3329dce6959": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "4fd9613a381640fd9c6b16c458d2fa6e": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "4a0fbb3e27fe4864891916da3144512f": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_32a39fdc777e4c418e84e3329dce6959", "placeholder": "\u200b", "style": "IPY_MODEL_4fd9613a381640fd9c6b16c458d2fa6e", "value": ""}}, "72cf6f6dd5154dd7addafd95344e1612": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "3de233fd41a8403394c6cfd88ccba27a": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_4a0fbb3e27fe4864891916da3144512f"], "layout": "IPY_MODEL_72cf6f6dd5154dd7addafd95344e1612", "selected_index": null}}, "9110e315570940b89b156d969815a83a": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "7e99673557e2483381ba03308dec931f": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "8580cf5fc6c542309fa4618b9fb35a55": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_9110e315570940b89b156d969815a83a", "placeholder": "\u200b", "style": "IPY_MODEL_7e99673557e2483381ba03308dec931f", "value": ""}}, "5b482e6f729d4da99b1c29033913d184": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "82e54bb57c104af68650c4a05a156f5e": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_8580cf5fc6c542309fa4618b9fb35a55"], "layout": "IPY_MODEL_5b482e6f729d4da99b1c29033913d184", "selected_index": null}}, "0eac7aa7dd0543bb850000adf3076447": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "875ccc9e8b2f4bf6b8a443daa2b67110": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "e918a35569eb4f6698427e3a87d59061": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_0eac7aa7dd0543bb850000adf3076447", "placeholder": "\u200b", "style": "IPY_MODEL_875ccc9e8b2f4bf6b8a443daa2b67110", "value": "<p style=\"line-height:120%\">00:01 <bold>NeuralNetworkReductor</bold>: Building reduced basis ...</p><p style=\"line-height:120%\">00:01 |   <bold>NeuralNetworkReductor</bold>: Computing training snapshots ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.1]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.1090909090909091]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.1181818181818182]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.1272727272727273]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.13636363636363635]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.14545454545454545]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.15454545454545454]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.16363636363636364]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.17272727272727273]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.18181818181818182]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.19090909090909092]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.2]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.2090909090909091]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.2181818181818182]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.22727272727272727]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.23636363636363636]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.24545454545454545]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.2545454545454545]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.26363636363636367]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.2727272727272727]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.28181818181818186]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.2909090909090909]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.3]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.3090909090909091]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.3181818181818182]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.32727272727272727]} ...</p><p style=\"line-height:120%\">00:01 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.33636363636363636]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.34545454545454546]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.3545454545454545]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.36363636363636365]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.3727272727272727]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.38181818181818183]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.3909090909090909]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.4]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.40909090909090906]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.4181818181818182]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.42727272727272725]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.4363636363636364]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.44545454545454544]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.4545454545454546]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.4636363636363636]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.47272727272727266]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.4818181818181818]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.49090909090909085]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.509090909090909]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5181818181818182]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5272727272727272]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5363636363636364]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5454545454545454]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5545454545454546]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5636363636363636]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5727272727272728]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5818181818181818]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5909090909090909]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.609090909090909]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6181818181818182]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6272727272727272]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6363636363636364]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6454545454545454]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6545454545454545]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6636363636363636]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6727272727272727]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6818181818181818]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6909090909090908]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.7]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.709090909090909]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.7181818181818181]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.7272727272727272]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.7363636363636363]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.7454545454545454]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.7545454545454545]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.7636363636363636]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.7727272727272727]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.7818181818181817]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.7909090909090909]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.7999999999999999]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8090909090909091]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8181818181818181]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8272727272727273]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8363636363636363]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8454545454545453]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8545454545454545]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8636363636363635]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8727272727272727]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8818181818181817]} ...</p><p style=\"line-height:120%\">00:02 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8909090909090909]} ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8999999999999999]} ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.9090909090909091]} ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.9181818181818181]} ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.9272727272727272]} ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.9363636363636363]} ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.9454545454545454]} ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.9545454545454545]} ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.9636363636363636]} ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.9727272727272727]} ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.9818181818181817]} ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.9909090909090909]} ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [1.0]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>pod</bold>: Computing SVD ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>method_of_snapshots</bold>: Computing Gramian (100 vectors) ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>method_of_snapshots</bold>: Computing eigenvalue decomposition ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>method_of_snapshots</bold>: Computing left-singular vectors (9 vectors) ...</p><p style=\"line-height:120%\">00:03 |   <bold>pod</bold>: Checking orthonormality ...</p><p style=\"line-height:120%\">00:03 |   <bold>pod</bold>: Reorthogonalizing POD modes ...</p><p style=\"line-height:120%\">00:03 <bold>NeuralNetworkReductor</bold>: Computing validation snapshots ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.4370861069626263]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.9556428757689246]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.7587945476302645]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6387926357773329]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.24041677639819287]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.2403950683025824]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.15227525095137953]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8795585311974417]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6410035105688879]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.737265320016441]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.1185260448662222]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.9729188669457949]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8491983767203796]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.29110519961044856]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.26364247048639056]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.2650640588680905]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.373818018663584]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5722807884690141]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.48875051677790415]} ...</p><p style=\"line-height:120%\">00:03 |   <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.36210622617823773]} ...</p><p style=\"line-height:120%\">00:03 <bold>NeuralNetworkReductor</bold>: Performing 100 restarts for training ...</p><p style=\"line-height:120%\">00:03 |   <bold>NeuralNetworkReductor</bold>: Training the neural network ...</p><p style=\"line-height:120%\">00:03 |   |   <bold>FullyConnectedNN</bold>: Architecture of the neural network:\nFullyConnectedNN(\n  (layers): ModuleList(\n    (0): Linear(in_features=1, out_features=30, bias=True)\n    (1): Linear(in_features=30, out_features=30, bias=True)\n    (2): Linear(in_features=30, out_features=9, bias=True)\n  )\n)</p><p style=\"line-height:120%\">00:03 |   |   <bold>NeuralNetworkReductor</bold>: Starting optimization procedure ...</p><p style=\"line-height:120%\">00:09 |   |   <bold>NeuralNetworkReductor</bold>: Early stopping training process after 94 epochs ...</p><p style=\"line-height:120%\">00:09 |   |   <bold>NeuralNetworkReductor</bold>: Minimum validation loss: 3.3261295359740298e-06</p><p style=\"line-height:120%\">00:09 |   <bold>NeuralNetworkReductor</bold>: Checking tolerances for error of neural network ...</p><p style=\"line-height:120%\">00:09 |   |   <bold>NeuralNetworkReductor</bold>: Aborting training after 0 restarts ...</p><p style=\"line-height:120%\">00:09 |   |   <bold>NeuralNetworkReductor</bold>: Building ROM ...</p>"}}, "cefdc5a1007d4999975ce788e318fe9a": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "70e04f21f8944bc8a2564f2f89f40c54": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_e918a35569eb4f6698427e3a87d59061"], "layout": "IPY_MODEL_cefdc5a1007d4999975ce788e318fe9a", "selected_index": null}}, "11e17cdb6c2443c48a51af079bed9399": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "94bb19bc5b00421e8353865f082f2fc1": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "e876451d065942129937650a1e98be0b": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_11e17cdb6c2443c48a51af079bed9399", "placeholder": "\u200b", "style": "IPY_MODEL_94bb19bc5b00421e8353865f082f2fc1", "value": "<p style=\"line-height:120%\">00:09 <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6506676052501416]} ...</p><p style=\"line-height:120%\">00:09 <bold>NeuralNetworkModel</bold>: Solving 2DProblem_CG_reduced for {mu: [0.6506676052501416]} ...</p>"}}, "8940fc801cb6427592237ec38619a345": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "1fdc5ebfef0642999bfdcebda7f04c60": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_e876451d065942129937650a1e98be0b"], "layout": "IPY_MODEL_8940fc801cb6427592237ec38619a345", "selected_index": null}}, "4d6fa8a01c434cb998bfbfcd7490c29a": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "570551d73df64354b767307b63dd6968": {"model_name": "OutputModel", "model_module": "@jupyter-widgets/output", "model_module_version": "1.0.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/output", "_model_module_version": "1.0.0", "_model_name": "OutputModel", "_view_count": null, "_view_module": "@jupyter-widgets/output", "_view_module_version": "1.0.0", "_view_name": "OutputView", "layout": "IPY_MODEL_4d6fa8a01c434cb998bfbfcd7490c29a", "msg_id": "", "outputs": []}}, "27a299146b1c48588f07e4430b481373": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "6fce7e0dab064449b45090d66cb4d794": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "6be64d4fdefe4cc98e063622a6b3f491": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_27a299146b1c48588f07e4430b481373", "placeholder": "\u200b", "style": "IPY_MODEL_6fce7e0dab064449b45090d66cb4d794", "value": ""}}, "4843a111b94a45abaaada91ca1050df5": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "016b114a4c9b4b40bf07008d98624acf": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_6be64d4fdefe4cc98e063622a6b3f491"], "layout": "IPY_MODEL_4843a111b94a45abaaada91ca1050df5", "selected_index": null}}, "2e4184015b744bb6a59c496d08ce3966": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "7f76adc13a50438fbaa4e2a03190903e": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "d99f6c790d6545128b04519fccc20301": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_2e4184015b744bb6a59c496d08ce3966", "placeholder": "\u200b", "style": "IPY_MODEL_7f76adc13a50438fbaa4e2a03190903e", "value": ""}}, "1d075785272342d2ba870d9b0ab3511a": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "a37ac0e72883490e9d3824a9e7173d84": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_d99f6c790d6545128b04519fccc20301"], "layout": "IPY_MODEL_1d075785272342d2ba870d9b0ab3511a", "selected_index": null}}, "71e26ede12014278b229badb38abca2e": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "8fe0dd4f14e24e65b04eb5eac00fa065": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "444db3b2b3aa4e51bf060d48a110e678": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_71e26ede12014278b229badb38abca2e", "placeholder": "\u200b", "style": "IPY_MODEL_8fe0dd4f14e24e65b04eb5eac00fa065", "value": "<p style=\"line-height:120%\">00:10 <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.22554447458683766]} ...</p><p style=\"line-height:120%\">00:10 <bold>NeuralNetworkModel</bold>: Solving 2DProblem_CG_reduced for {mu: [0.22554447458683766]} ...</p><p style=\"line-height:120%\">00:10 <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.3629301836816964]} ...</p><p style=\"line-height:120%\">00:10 <bold>NeuralNetworkModel</bold>: Solving 2DProblem_CG_reduced for {mu: [0.3629301836816964]} ...</p><p style=\"line-height:120%\">00:10 <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.4297256589643226]} ...</p><p style=\"line-height:120%\">00:10 <bold>NeuralNetworkModel</bold>: Solving 2DProblem_CG_reduced for {mu: [0.4297256589643226]} ...</p><p style=\"line-height:120%\">00:10 <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5104629857953323]} ...</p><p style=\"line-height:120%\">00:10 <bold>NeuralNetworkModel</bold>: Solving 2DProblem_CG_reduced for {mu: [0.5104629857953323]} ...</p><p style=\"line-height:120%\">00:10 <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.8066583652537123]} ...</p><p style=\"line-height:120%\">00:10 <bold>NeuralNetworkModel</bold>: Solving 2DProblem_CG_reduced for {mu: [0.8066583652537123]} ...</p><p style=\"line-height:120%\">00:10 <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.2797064039425238]} ...</p><p style=\"line-height:120%\">00:10 <bold>NeuralNetworkModel</bold>: Solving 2DProblem_CG_reduced for {mu: [0.2797064039425238]} ...</p><p style=\"line-height:120%\">00:10 <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.5628109945722505]} ...</p><p style=\"line-height:120%\">00:11 <bold>NeuralNetworkModel</bold>: Solving 2DProblem_CG_reduced for {mu: [0.5628109945722505]} ...</p><p style=\"line-height:120%\">00:11 <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6331731119758383]} ...</p><p style=\"line-height:120%\">00:11 <bold>NeuralNetworkModel</bold>: Solving 2DProblem_CG_reduced for {mu: [0.6331731119758383]} ...</p><p style=\"line-height:120%\">00:11 <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.14180537144799796]} ...</p><p style=\"line-height:120%\">00:11 <bold>NeuralNetworkModel</bold>: Solving 2DProblem_CG_reduced for {mu: [0.14180537144799796]} ...</p><p style=\"line-height:120%\">00:11 <bold>StationaryModel</bold>: Solving 2DProblem_CG for {mu: [0.6467903667112945]} ...</p><p style=\"line-height:120%\">00:11 <bold>NeuralNetworkModel</bold>: Solving 2DProblem_CG_reduced for {mu: [0.6467903667112945]} ...</p>"}}, "50c3e33df6a247caaf9803fe1e4d31b8": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "60c1daafbfe940a69a65f227b17b6e79": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_444db3b2b3aa4e51bf060d48a110e678"], "layout": "IPY_MODEL_50c3e33df6a247caaf9803fe1e4d31b8", "selected_index": null}}, "6b9ed4c808124bb4b7bf3a99506967d7": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "d1468389084d4ec287edcd53ac892628": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "6dc1068bb8b84f0d8299b29f5c7a2c1b": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_6b9ed4c808124bb4b7bf3a99506967d7", "placeholder": "\u200b", "style": "IPY_MODEL_d1468389084d4ec287edcd53ac892628", "value": ""}}, "f918b41109944cec8517baed41e0e9e1": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "13dd4a9123a946f69ed92d68e8e2cab3": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_6dc1068bb8b84f0d8299b29f5c7a2c1b"], "layout": "IPY_MODEL_f918b41109944cec8517baed41e0e9e1", "selected_index": null}}, "fae1a5ac2f734061be19daa516e37eae": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "9188943bbbbb40b189d947ee88a61af5": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "9f240f2ae3a94ce8ad232b1a72a984d6": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_fae1a5ac2f734061be19daa516e37eae", "placeholder": "\u200b", "style": "IPY_MODEL_9188943bbbbb40b189d947ee88a61af5", "value": ""}}, "2c91e1beeb4749a18b105db5f6dd127e": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "642b1f2d974c4a9b8a76ac98ad76186c": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_9f240f2ae3a94ce8ad232b1a72a984d6"], "layout": "IPY_MODEL_2c91e1beeb4749a18b105db5f6dd127e", "selected_index": null}}, "1bac24fcee404d4cbd952d9f54bd972f": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "2d983172123f4df5be3d2baa8c10899f": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "34a73508037a43d79f9fb3b67e31e204": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_1bac24fcee404d4cbd952d9f54bd972f", "placeholder": "\u200b", "style": "IPY_MODEL_2d983172123f4df5be3d2baa8c10899f", "value": ""}}, "41563f28eca04e3ea09eefd70ad65f9e": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "5c385cd42bec4bba8d55f5c699107ed6": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_34a73508037a43d79f9fb3b67e31e204"], "layout": "IPY_MODEL_41563f28eca04e3ea09eefd70ad65f9e", "selected_index": null}}, "e79989d784cc41f78823f44ac9a10bc9": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "f44a129f4d4c47adb725ff2782b96058": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "fbeaaf8f3f1f420b959acd841ee9fe9c": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_e79989d784cc41f78823f44ac9a10bc9", "placeholder": "\u200b", "style": "IPY_MODEL_f44a129f4d4c47adb725ff2782b96058", "value": ""}}, "57b0169d55e14ba1906bf59c084aecd7": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "56298ef5ed1d405abcee88727c661c9b": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_fbeaaf8f3f1f420b959acd841ee9fe9c"], "layout": "IPY_MODEL_57b0169d55e14ba1906bf59c084aecd7", "selected_index": null}}}, "version_major": 2, "version_minor": 0}
+</script>
+
+
+          </article>
+        </div>
+      </div>
+    </main>
+  </div>
+  <footer class="md-footer">
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid">
+          
+            <a href="tutorial_bt.html" title="Tutorial: Reducing a heat equation using balanced truncation"
+               class="md-flex md-footer-nav__link md-footer-nav__link--prev"
+               rel="prev">
+              <div class="md-flex__cell md-flex__cell--shrink">
+                <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+              </div>
+              <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+                <span class="md-flex__ellipsis">
+                  <span
+                      class="md-footer-nav__direction"> Previous </span> Tutorial: Reducing a heat equation using balanced truncation </span>
+              </div>
+            </a>
+          
+          
+            <a href="tutorial_external_solver.html" title="Tutorial: Binding an external PDE solver to pyMOR"
+               class="md-flex md-footer-nav__link md-footer-nav__link--next"
+               rel="next">
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
+                class="md-flex__ellipsis"> <span
+                class="md-footer-nav__direction"> Next </span> Tutorial: Binding an external PDE solver to pyMOR </span>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink"><i
+                class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+            </div>
+          
+        </a>
+        
+      </nav>
+    </div>
+    <div class="md-footer-meta md-typeset">
+      <div class="md-footer-meta__inner md-grid">
+        <div class="md-footer-copyright">
+          <div class="md-footer-copyright__highlight">
+              &#169; Copyright 2013-2020 pyMOR developers and contributors.
+              
+          </div>
+            Last updated on
+              Jul 23, 2020.
+            <br/>
+            Created using
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.1.2.
+             and
+            <a href="https://github.com/bashtage/sphinx-material/">Material for
+              Sphinx</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="_static/javascripts/application.js"></script>
+  <script>app.initialize({version: "1.0.4", url: {base: ".."}})</script>
+  </body>
+</html>
