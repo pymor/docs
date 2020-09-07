@@ -53,17 +53,14 @@ class WrappedVector(CopyOnWriteVector):
     def _axpy(self, alpha, x):
         self._impl.axpy(alpha, x._impl)
 
-    def dot(self, other):
-        return self._impl.dot(other._impl)
+    def inner(self, other):
+        return self._impl.inner(other._impl)
 
-    def l1_norm(self):
-        raise NotImplementedError
+    def norm(self):
+        return math.sqrt(self.inner(self))
 
-    def l2_norm(self):
-        return math.sqrt(self.dot(self))
-
-    def l2_norm2(self):
-        return self.dot(self)
+    def norm2(self):
+        return self.inner(self)
 
     def sup_norm(self):
         raise NotImplementedError
@@ -170,7 +167,7 @@ err_max = -1.
 for mu in parameter_space.sample_randomly(10):
     U_RB = reductor.reconstruct(rom.solve(mu))
     U = fom.solve(mu)
-    err = np.max((U_RB-U).l2_norm())
+    err = np.max((U_RB-U).norm())
     if err > err_max:
         err_max = err
         mu_max = mu

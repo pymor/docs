@@ -14,6 +14,8 @@ import scipy.sparse as sps
 from pymor.models.iosys import LTIModel
 from pymor.reductors.bt import BTReductor
 
+plt.rcParams['axes.grid'] = True
+
 k = 50
 n = 2 * k + 1
 
@@ -40,14 +42,14 @@ fom
 print(fom)
 
 w = np.logspace(-2, 8, 50)
-fom.mag_plot(w)
-plt.grid()
+_ = fom.mag_plot(w)
+
+_ = fom.bode_plot(w)
 
 hsv = fom.hsv()
 fig, ax = plt.subplots()
 ax.semilogy(range(1, len(hsv) + 1), hsv, '.-')
-ax.set_title('Hankel singular values')
-ax.grid()
+_ = ax.set_title('Hankel singular values')
 
 bt = BTReductor(fom)
 
@@ -56,19 +58,23 @@ fig, ax = plt.subplots()
 ax.semilogy(range(1, len(error_bounds) + 1), error_bounds, '.-')
 ax.semilogy(range(1, len(hsv)), hsv[1:], '.-')
 ax.set_xlabel('Reduced order')
-ax.set_title(r'Upper and lower $\mathcal{H}_\infty$ error bounds')
-ax.grid()
+_ = ax.set_title(r'Upper and lower $\mathcal{H}_\infty$ error bounds')
 
 rom = bt.reduce(10)
 
 fig, ax = plt.subplots()
 fom.mag_plot(w, ax=ax, label='FOM')
 rom.mag_plot(w, ax=ax, linestyle='--', label='ROM')
-ax.legend()
-ax.grid()
+_ = ax.legend()
 
-(fom - rom).mag_plot(w)
-plt.grid()
+fig, axs = plt.subplots(6, 2, figsize=(12, 24), sharex=True, constrained_layout=True)
+fom.bode_plot(w, ax=axs)
+_ = rom.bode_plot(w, ax=axs, linestyle='--')
 
-print(f'Relative Hinf error: {(fom - rom).hinf_norm() / fom.hinf_norm():.3e}')
-print(f'Relative H2 error:   {(fom - rom).h2_norm() / fom.h2_norm():.3e}')
+err = fom - rom
+_ = err.mag_plot(w)
+
+_ = err.bode_plot(w)
+
+print(f'Relative Hinf error: {err.hinf_norm() / fom.hinf_norm():.3e}')
+print(f'Relative H2 error:   {err.h2_norm() / fom.h2_norm():.3e}')
