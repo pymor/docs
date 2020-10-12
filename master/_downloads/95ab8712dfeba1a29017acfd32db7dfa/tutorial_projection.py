@@ -60,61 +60,67 @@ print_source(fom.solve)
 # In[7]:
 
 
-print_source(fom._solve)
+print_source(fom.compute)
 
 
 # In[8]:
 
 
-type(fom)
+print_source(fom._compute_solution)
 
 
 # In[9]:
 
 
-fom.rhs
+type(fom)
 
 
 # In[10]:
 
 
-fom.rhs.source
+fom.rhs
 
 
 # In[11]:
+
+
+fom.rhs.source
+
+
+# In[12]:
 
 
 from pymor.operators.interface import Operator
 print_source(Operator.as_range_array)
 
 
-# In[12]:
+# In[13]:
 
 
 U2 = fom.operator.apply_inverse(fom.rhs.as_range_array(mu), mu=[1., 0.1, 0.1, 1.])
 
 
-# In[13]:
+# In[14]:
 
 
 mu = fom.parameters.parse([1., 0.1, 0.1, 1.])
 U2 = fom.operator.apply_inverse(fom.rhs.as_range_array(mu), mu=mu)
 
 
-# In[14]:
+# In[15]:
 
 
 (U-U2).norm()
 
 
-# In[15]:
+# In[16]:
 
 
 reduced_operator = fom.operator.apply2(basis, basis, mu=mu)
 reduced_rhs = basis.inner(fom.rhs.as_range_array(mu))
 
 
-# In[16]:
+# In[17]:
 
 
 import numpy as np
@@ -123,32 +129,32 @@ u_N = np.linalg.solve(reduced_operator, reduced_rhs)
 u_N
 
 
-# In[17]:
+# In[18]:
 
 
 U_N = basis.lincomb(u_N.T)
 U_N
 
 
-# In[18]:
+# In[19]:
 
 
 (U-U_N).norm(fom.h1_0_product) / U.norm(fom.h1_0_product)
 
 
-# In[19]:
+# In[20]:
 
 
 fom.visualize((U, U_N, U-U_N), separate_colorbars=True)
 
 
-# In[20]:
+# In[21]:
 
 
 type(reduced_operator)
 
 
-# In[21]:
+# In[22]:
 
 
 from pymor.operators.numpy import NumpyMatrixOperator
@@ -157,7 +163,7 @@ reduced_operator = NumpyMatrixOperator(reduced_operator)
 reduced_rhs = NumpyMatrixOperator(reduced_rhs)
 
 
-# In[22]:
+# In[23]:
 
 
 from pymor.models.basic import StationaryModel
@@ -165,21 +171,21 @@ rom = StationaryModel(reduced_operator, reduced_rhs)
 rom
 
 
-# In[23]:
+# In[24]:
 
 
 u_N2 = rom.solve()
 u_N.T - u_N2.to_numpy()
 
 
-# In[24]:
+# In[25]:
 
 
 print(fom.parameters)
 print(rom.parameters)
 
 
-# In[25]:
+# In[26]:
 
 
 from time import perf_counter
@@ -197,51 +203,51 @@ print(f'ROM assemble: {tac-toc:.5f} (s)')
 print(f'ROM solve:    {tuc-tac:.5f} (s)')
 
 
-# In[26]:
+# In[27]:
 
 
 fom.operator
 
 
-# In[27]:
+# In[28]:
 
 
 reduced_operators = [NumpyMatrixOperator(op.apply2(basis, basis))
                      for op in fom.operator.operators]
 
 
-# In[28]:
+# In[29]:
 
 
 reduced_operator = fom.operator.with_(operators=reduced_operators)
 
 
-# In[29]:
+# In[30]:
 
 
 fom.rhs.parameters
 
 
-# In[30]:
+# In[31]:
 
 
 rom = StationaryModel(reduced_operator, reduced_rhs)
 
 
-# In[31]:
+# In[32]:
 
 
 rom.parameters
 
 
-# In[32]:
+# In[33]:
 
 
 u_N3 = rom.solve(mu)
 u_N.T - u_N3.to_numpy()
 
 
-# In[33]:
+# In[34]:
 
 
 tic = perf_counter()
@@ -253,7 +259,7 @@ print(f'FOM: {toc-tic:.5f} (s)')
 print(f'ROM: {tac-toc:.5f} (s)')
 
 
-# In[34]:
+# In[35]:
 
 
 from pymor.algorithms.projection import project
@@ -262,13 +268,13 @@ reduced_operator = project(fom.operator, basis, basis)
 reduced_rhs      = project(fom.rhs,      basis, None )
 
 
-# In[35]:
+# In[36]:
 
 
 reduced_operator
 
 
-# In[36]:
+# In[37]:
 
 
 rom = StationaryModel(reduced_operator, reduced_rhs)
@@ -276,44 +282,44 @@ u_N4 = rom.solve(mu)
 u_N.T - u_N4.to_numpy()
 
 
-# In[37]:
+# In[38]:
 
 
 print_source(project)
 
 
-# In[38]:
+# In[39]:
 
 
 from pymor.algorithms.projection import ProjectRules
 ProjectRules
 
 
-# In[39]:
+# In[40]:
 
 
 assert ProjectRules.rules[8].action_description == 'LincombOperator'
 
 
-# In[40]:
+# In[41]:
 
 
 ProjectRules.rules[8]
 
 
-# In[41]:
+# In[42]:
 
 
 assert ProjectRules.rules[3].action_description == 'apply_basis'
 
 
-# In[42]:
+# In[43]:
 
 
 ProjectRules.rules[3]
 
 
-# In[43]:
+# In[44]:
 
 
 from pymor.reductors.basic import StationaryRBReductor
@@ -322,33 +328,33 @@ reductor = StationaryRBReductor(fom, basis)
 rom = reductor.reduce()
 
 
-# In[44]:
+# In[45]:
 
 
 u_N5 = rom.solve(mu)
 u_N.T - u_N5.to_numpy()
 
 
-# In[45]:
+# In[46]:
 
 
 print_source(reductor.project_operators)
 
 
-# In[46]:
+# In[47]:
 
 
 print_source(reductor.build_rom)
 
 
-# In[47]:
+# In[48]:
 
 
 U_N5 = reductor.reconstruct(u_N5)
 (U_N - U_N5).norm()
 
 
-# In[48]:
+# In[49]:
 
 
 print_source(reductor.reconstruct)
