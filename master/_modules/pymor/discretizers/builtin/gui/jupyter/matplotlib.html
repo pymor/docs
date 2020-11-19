@@ -46,7 +46,7 @@
   
   
   
-    <title>pymor.discretizers.builtin.gui.jupyter.matplotlib &#8212; pyMOR vold_pymor+1300.gb09eab07 Manual</title>
+    <title>pymor.discretizers.builtin.gui.jupyter.matplotlib &#8212; pyMOR vold_pymor+1303.g4a66067c Manual</title>
     <link rel="stylesheet" href="../../../../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../../../../../_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/jupyter-sphinx.css" />
@@ -89,11 +89,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="../../../../../../index.html" title="pyMOR vold_pymor+1300.gb09eab07 Manual"
+        <a href="../../../../../../index.html" title="pyMOR vold_pymor+1303.g4a66067c Manual"
            class="md-header-nav__button md-logo">
           
               <img src="../../../../../../_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR vold_pymor+1300.gb09eab07 Manual logo">
+                   alt="pyMOR vold_pymor+1303.g4a66067c Manual logo">
           
         </a>
       </div>
@@ -159,7 +159,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="../../../../../../index.html" class="md-tabs__link">pyMOR vold_pymor+1300.gb09eab07 Manual</a></li>
+          <li class="md-tabs__item"><a href="../../../../../../index.html" class="md-tabs__link">pyMOR vold_pymor+1303.g4a66067c Manual</a></li>
           <li class="md-tabs__item"><a href="../../../../../index.html" class="md-tabs__link">Module code</a></li>
       </ul>
     </div>
@@ -172,13 +172,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="../../../../../../index.html" title="pyMOR vold_pymor+1300.gb09eab07 Manual" class="md-nav__button md-logo">
+    <a href="../../../../../../index.html" title="pyMOR vold_pymor+1303.g4a66067c Manual" class="md-nav__button md-logo">
       
         <img src="../../../../../../_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="../../../../../../index.html"
-       title="pyMOR vold_pymor+1300.gb09eab07 Manual">Documentation</a>
+       title="pyMOR vold_pymor+1303.g4a66067c Manual">Documentation</a>
   </label>
   
 
@@ -275,7 +275,7 @@
 <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 
 <span class="kn">from</span> <span class="nn">pymor.core.config</span> <span class="kn">import</span> <span class="n">config</span>
-<span class="kn">from</span> <span class="nn">pymor.discretizers.builtin.gui.matplotlib</span> <span class="kn">import</span> <span class="n">MatplotlibPatchAxes</span><span class="p">,</span> <span class="n">Matplotlib1DAxes</span>
+<span class="kn">from</span> <span class="nn">pymor.discretizers.builtin.gui.matplotlib</span> <span class="kn">import</span> <span class="n">MatplotlibPatchAxes</span><span class="p">,</span> <span class="n">Matplotlib1DAxes</span><span class="p">,</span> <span class="n">figsize</span>
 <span class="kn">from</span> <span class="nn">pymor.vectorarrays.interface</span> <span class="kn">import</span> <span class="n">VectorArray</span>
 
 
@@ -312,9 +312,20 @@
 
         <span class="n">do_animation</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">separate_axes</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">1</span>
 
+        <span class="c1"># Setting the aspect ratio in figure() only works by specifying absolute values for figsize, which we calculate</span>
+        <span class="c1"># using figsize (matplotlib.figure.figaspect does not do exactly what we want). To ensure a correct aspect</span>
+        <span class="c1"># ratio in the respective axes created by base classes, we also need to provide a correct bounding_box.</span>
+        <span class="k">if</span> <span class="n">bounding_box</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">bounding_box</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bounding_box</span><span class="p">()</span>
+        <span class="n">figure_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">bounding_box</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounding_box</span><span class="p">)</span>
+            <span class="n">aspect_ratio</span> <span class="o">=</span> <span class="p">(</span><span class="n">bounding_box</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="n">bounding_box</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">figure_kwargs</span><span class="p">[</span><span class="s1">'figsize'</span><span class="p">]</span> <span class="o">=</span> <span class="n">figsize</span><span class="p">(</span><span class="n">aspect_ratio</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">separate_plots</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vmins</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vmaxs</span><span class="p">,</span> <span class="n">U</span><span class="p">)):</span>
-                <span class="n">figure</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fig_ids</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="n">figure</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fig_ids</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="o">**</span><span class="n">figure_kwargs</span><span class="p">)</span>
                 <span class="n">sync_timer</span> <span class="o">=</span> <span class="n">sync_timer</span> <span class="ow">or</span> <span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">new_timer</span><span class="p">()</span>
                 <span class="k">if</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                     <span class="n">plot</span> <span class="o">=</span> <span class="n">MatplotlibPatchAxes</span><span class="p">(</span><span class="n">U</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">figure</span><span class="o">=</span><span class="n">figure</span><span class="p">,</span> <span class="n">sync_timer</span><span class="o">=</span><span class="n">sync_timer</span><span class="p">,</span> <span class="n">grid</span><span class="o">=</span><span class="n">grid</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span>
@@ -328,7 +339,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">plots</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">plot</span><span class="p">)</span>
                     <span class="c1"># plt.tight_layout()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">figure</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fig_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">figure</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fig_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">**</span><span class="n">figure_kwargs</span><span class="p">)</span>
             <span class="n">sync_timer</span> <span class="o">=</span> <span class="n">sync_timer</span> <span class="ow">or</span> <span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">new_timer</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">grid</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="n">plot</span> <span class="o">=</span> <span class="n">MatplotlibPatchAxes</span><span class="p">(</span><span class="n">U</span><span class="o">=</span><span class="n">U</span><span class="p">,</span> <span class="n">figure</span><span class="o">=</span><span class="n">figure</span><span class="p">,</span> <span class="n">sync_timer</span><span class="o">=</span><span class="n">sync_timer</span><span class="p">,</span> <span class="n">grid</span><span class="o">=</span><span class="n">grid</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">vmins</span><span class="p">,</span>
@@ -359,7 +370,7 @@
 
 
 
-<div class="viewcode-block" id="visualize_patch"><a class="viewcode-back" href="../../../../../../generated/pymor.discretizers.builtin.gui.jupyter.html#pymor.discretizers.builtin.gui.jupyter.matplotlib.visualize_patch">[docs]</a><span class="k">def</span> <span class="nf">visualize_patch</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span> <span class="n">codim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<div class="viewcode-block" id="visualize_patch"><a class="viewcode-back" href="../../../../../../generated/pymor.discretizers.builtin.gui.jupyter.html#pymor.discretizers.builtin.gui.jupyter.matplotlib.visualize_patch">[docs]</a><span class="k">def</span> <span class="nf">visualize_patch</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                     <span class="n">separate_colorbars</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">rescale_colorbars</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
     <span class="sd">"""Visualize scalar data associated to a two-dimensional |Grid| as a patch plot.</span>
 
@@ -376,7 +387,7 @@
 <span class="sd">        provided, in which case a subplot is created for each entry of the tuple. The</span>
 <span class="sd">        lengths of all arrays have to agree.</span>
 <span class="sd">    bounding_box</span>
-<span class="sd">        A bounding box in which the grid is contained.</span>
+<span class="sd">        A bounding box in which the grid is contained (defaults to grid.bounding_box()).</span>
 <span class="sd">    codim</span>
 <span class="sd">        The codimension of the entities the data in `U` is attached to (either 0 or 2).</span>
 <span class="sd">    title</span>
