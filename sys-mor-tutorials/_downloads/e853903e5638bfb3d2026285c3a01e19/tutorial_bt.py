@@ -4,17 +4,16 @@
 # In[1]:
 
 
+from IPython import get_ipython
+ip = get_ipython()
+if ip is not None:
+    ip.run_line_magic('load_ext', 'pymor.discretizers.builtin.gui.jupyter')
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='torch')
 import pymor.tools.random
 pymor.tools.random._default_random_state = None
-
-from IPython import get_ipython
-ip = get_ipython()
-if ip is not None:
-    ip.run_line_magic('load_ext', 'pymor.discretizers.builtin.gui.jupyter')
 
 
 # In[2]:
@@ -57,7 +56,7 @@ C[0, 0] = C[1, k] = C[2, -1] = 1
 # In[4]:
 
 
-fom = LTIModel.from_matrices(A, B, C)
+fom = LTIModel.from_matrices(A, B, C, E=E)
 
 
 # In[5]:
@@ -118,6 +117,7 @@ _ = err.bode_plot(w)
 # In[12]:
 
 
-print(f'Relative Hinf error: {err.hinf_norm() / fom.hinf_norm():.3e}')
-print(f'Relative H2 error:   {err.h2_norm() / fom.h2_norm():.3e}')
+print(f'Relative Hinf error:   {err.hinf_norm() / fom.hinf_norm():.3e}')
+print(f'Relative H2 error:     {err.h2_norm() / fom.h2_norm():.3e}')
+print(f'Relative Hankel error: {err.hankel_norm() / fom.hankel_norm():.3e}')
 

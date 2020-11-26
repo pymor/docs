@@ -46,7 +46,7 @@
   
   
   
-    <title>pymor.reductors.interpolation &#8212; pyMOR vold_pymor+1212.gdb752b5f Manual</title>
+    <title>pymor.reductors.interpolation &#8212; pyMOR vold_pymor+1333.gb043f91d Manual</title>
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/jupyter-sphinx.css" />
@@ -89,11 +89,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="../../../index.html" title="pyMOR vold_pymor+1212.gdb752b5f Manual"
+        <a href="../../../index.html" title="pyMOR vold_pymor+1333.gb043f91d Manual"
            class="md-header-nav__button md-logo">
           
               <img src="../../../_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR vold_pymor+1212.gdb752b5f Manual logo">
+                   alt="pyMOR vold_pymor+1333.gb043f91d Manual logo">
           
         </a>
       </div>
@@ -159,7 +159,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="../../../index.html" class="md-tabs__link">pyMOR vold_pymor+1212.gdb752b5f Manual</a></li>
+          <li class="md-tabs__item"><a href="../../../index.html" class="md-tabs__link">pyMOR vold_pymor+1333.gb043f91d Manual</a></li>
           <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">Module code</a></li>
       </ul>
     </div>
@@ -172,13 +172,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="../../../index.html" title="pyMOR vold_pymor+1212.gdb752b5f Manual" class="md-nav__button md-logo">
+    <a href="../../../index.html" title="pyMOR vold_pymor+1333.gb043f91d Manual" class="md-nav__button md-logo">
       
         <img src="../../../_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="../../../index.html"
-       title="pyMOR vold_pymor+1212.gdb752b5f Manual">Documentation</a>
+       title="pyMOR vold_pymor+1333.gb043f91d Manual">Documentation</a>
   </label>
   
 
@@ -277,6 +277,7 @@
 <span class="kn">from</span> <span class="nn">pymor.parameters.base</span> <span class="kn">import</span> <span class="n">Mu</span>
 <span class="kn">from</span> <span class="nn">pymor.reductors.basic</span> <span class="kn">import</span> <span class="p">(</span><span class="n">ProjectionBasedReductor</span><span class="p">,</span> <span class="n">LTIPGReductor</span><span class="p">,</span> <span class="n">SOLTIPGReductor</span><span class="p">,</span>
                                    <span class="n">DelayLTIPGReductor</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymor.vectorarrays.numpy</span> <span class="kn">import</span> <span class="n">NumpyVectorSpace</span>
 
 
 <div class="viewcode-block" id="GenericBHIReductor"><a class="viewcode-back" href="../../../generated/pymor.reductors.html#pymor.reductors.interpolation.GenericBHIReductor">[docs]</a><span class="k">class</span> <span class="nc">GenericBHIReductor</span><span class="p">(</span><span class="n">BasicObject</span><span class="p">):</span>
@@ -297,12 +298,12 @@
 <span class="sd">    and :math:`c_i`; if :math:`\sigma_i` is complex, there is</span>
 <span class="sd">    :math:`\sigma_j` such that :math:`\sigma_j = \overline{\sigma_i}`,</span>
 <span class="sd">    :math:`b_j = \overline{b_i}`, :math:`c_j = \overline{c_i}`), this</span>
-<span class="sd">    reductor finds a transfer function :math:`\widehat{H}` such that</span>
+<span class="sd">    reductor finds a transfer function :math:`\hat{H}` such that</span>
 
 <span class="sd">    .. math::</span>
-<span class="sd">        H(\sigma_i) b_i &amp; = \widehat{H}(\sigma_i) b_i, \\</span>
-<span class="sd">        c_i^T H(\sigma_i) &amp; = c_i^T \widehat{H}(\sigma_i) b_i, \\</span>
-<span class="sd">        c_i^T H'(\sigma_i) b_i &amp; = c_i^T \widehat{H}'(\sigma_i) b_i,</span>
+<span class="sd">        H(\sigma_i) b_i &amp; = \hat{H}(\sigma_i) b_i, \\</span>
+<span class="sd">        c_i^T H(\sigma_i) &amp; = c_i^T \hat{H}(\sigma_i) b_i, \ - \widehat{y}\</span>
+<span class="sd">        c_i^T H'(\sigma_i) b_i &amp; = c_i^T \hat{H}'(\sigma_i) b_i,</span>
 
 <span class="sd">    for all :math:`i = 1, 2, \ldots, r`.</span>
 
@@ -351,11 +352,11 @@
 <span class="sd">            Interpolation points (closed under conjugation), sequence of</span>
 <span class="sd">            length `r`.</span>
 <span class="sd">        b</span>
-<span class="sd">            Right tangential directions, |VectorArray| of length `r`</span>
-<span class="sd">            from `self.fom.input_space`.</span>
+<span class="sd">            Right tangential directions, |NumPy array| of shape</span>
+<span class="sd">            `(r, fom.dim_input)`.</span>
 <span class="sd">        c</span>
-<span class="sd">            Left tangential directions, |VectorArray| of length `r` from</span>
-<span class="sd">            `self.fom.output_space`.</span>
+<span class="sd">            Left tangential directions, |NumPy array| of shape</span>
+<span class="sd">            `(r, fom.dim_output)`.</span>
 <span class="sd">        projection</span>
 <span class="sd">            Projection method:</span>
 
@@ -370,13 +371,15 @@
 <span class="sd">            Reduced-order model.</span>
 <span class="sd">        """</span>
         <span class="n">r</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span>
-        <span class="k">assert</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">input_space</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span>
-        <span class="k">assert</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">output_space</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span>
+        <span class="k">assert</span> <span class="n">b</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">dim_input</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">c</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">dim_output</span><span class="p">)</span>
         <span class="k">assert</span> <span class="n">projection</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'orth'</span><span class="p">,</span> <span class="s1">'biorth'</span><span class="p">)</span>
 
         <span class="c1"># rescale tangential directions (to avoid overflow or underflow)</span>
-        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">b</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span> <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">input_space</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="n">c</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">output_space</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">b</span><span class="p">))</span> <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">c</span><span class="p">))</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">D</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">D</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
 
         <span class="c1"># compute projection matrices</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">reserve</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
@@ -464,11 +467,11 @@
 <span class="sd">            Interpolation points (closed under conjugation), sequence of</span>
 <span class="sd">            length `r`.</span>
 <span class="sd">        b</span>
-<span class="sd">            Right tangential directions, |VectorArray| of length `r`</span>
-<span class="sd">            from `self.fom.input_space`.</span>
+<span class="sd">            Right tangential directions, |NumPy array| of shape</span>
+<span class="sd">            `(r, fom.dim_input)`.</span>
 <span class="sd">        c</span>
-<span class="sd">            Left tangential directions, |VectorArray| of length `r` from</span>
-<span class="sd">            `self.fom.output_space`.</span>
+<span class="sd">            Left tangential directions, |NumPy array| of shape</span>
+<span class="sd">            `(r, fom.dim_output)`.</span>
 <span class="sd">        projection</span>
 <span class="sd">            Projection method:</span>
 
@@ -488,10 +491,10 @@
         <span class="k">if</span> <span class="n">projection</span> <span class="o">!=</span> <span class="s1">'arnoldi'</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="n">projection</span><span class="p">)</span>
 
-        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">input_dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">dim_input</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">dim_output</span> <span class="o">==</span> <span class="mi">1</span>
         <span class="n">r</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span>
-        <span class="k">assert</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">source</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span>
-        <span class="k">assert</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">C</span><span class="o">.</span><span class="n">range</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span>
+        <span class="k">assert</span> <span class="n">b</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">dim_input</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">c</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">dim_output</span><span class="p">)</span>
 
         <span class="c1"># compute projection matrices</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">V</span> <span class="o">=</span> <span class="n">rational_arnoldi</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">E</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">B</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
@@ -622,11 +625,11 @@
 <span class="sd">            Interpolation points (closed under conjugation), sequence of</span>
 <span class="sd">            length `r`.</span>
 <span class="sd">        b</span>
-<span class="sd">            Right tangential directions, |VectorArray| from</span>
-<span class="sd">            `fom.input_space` of length `r`.</span>
+<span class="sd">            Right tangential directions, |NumPy array| of shape</span>
+<span class="sd">            `(r, fom.dim_input)`.</span>
 <span class="sd">        c</span>
-<span class="sd">            Left tangential directions, |VectorArray| from</span>
-<span class="sd">            `fom.output_space` of length `r`.</span>
+<span class="sd">            Left tangential directions, |NumPy array| of shape</span>
+<span class="sd">            `(r, fom.dim_output)`.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -635,21 +638,18 @@
 <span class="sd">            function of `fom`.</span>
 <span class="sd">        """</span>
         <span class="n">r</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span>
-        <span class="k">assert</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">input_space</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span>
-        <span class="k">assert</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">output_space</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span>
+        <span class="k">assert</span> <span class="n">b</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">dim_input</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">c</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">dim_output</span><span class="p">)</span>
 
         <span class="c1"># rescale tangential directions (to avoid overflow or underflow)</span>
-        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">b</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span> <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">input_space</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="n">c</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">output_space</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-
-        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-        <span class="n">c</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">b</span><span class="p">))</span> <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">c</span><span class="p">))</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
 
         <span class="c1"># matrices of the interpolatory LTI system</span>
         <span class="n">Er</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="n">r</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
         <span class="n">Ar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="n">r</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
-        <span class="n">Br</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">input_dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
-        <span class="n">Cr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">output_dim</span><span class="p">,</span> <span class="n">r</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
+        <span class="n">Br</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">dim_input</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
+        <span class="n">Cr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">dim_output</span><span class="p">,</span> <span class="n">r</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
 
         <span class="n">Hs</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">eval_tf</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">sigma</span><span class="p">]</span>
         <span class="n">dHs</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">fom</span><span class="o">.</span><span class="n">eval_dtf</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">sigma</span><span class="p">]</span>
@@ -712,10 +712,10 @@
               
           </div>
             Last updated on
-              Nov 03, 2020.
+              Nov 26, 2020.
             <br/>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.3.0.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.3.1.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

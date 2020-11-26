@@ -191,7 +191,7 @@ In particular, if the input is sinusiodal, i.e., :math:`\xi = 0`,
 then the output is also sinusiodal.
 
 It is of interest to plot the transfer function over the imaginary axis to
-visualize the behavior of an LTI system.
+visualize how the LTI system responds to each frequency in the input.
 Since the transfer function is complex-valued (and matrix-valued),
 there are multiple ways to plot it.
 
@@ -209,11 +209,11 @@ Likewise, the choice of the norm :math:`\lVert \cdot \rVert` can be controlled
 using the `ord` parameter.
 
 Another visualization is the Bode plot,
-which shows the magnitude and phase of the components of the transfer function.
+which shows the magnitude and phase of each component of the transfer function.
 More specifically,
-:math:`\lvert H_{ij}(\boldsymbol{\imath} \omega) \rvert`
+:math:`\omega \mapsto \lvert H_{ij}(\boldsymbol{\imath} \omega) \rvert`
 is in subplot :math:`(2 i - 1, j)` and
-:math:`\arg(H_{ij}(\boldsymbol{\imath} \omega))`
+:math:`\omega \mapsto \arg(H_{ij}(\boldsymbol{\imath} \omega))`
 is in subplot :math:`(2 i, j)`.
 
 .. jupyter-execute::
@@ -230,10 +230,11 @@ it follows that the poles are eigenvalues of :math:`E^{-1} A`,
 assuming that :math:`E` is invertible.
 Conversely, the eigenvalues of :math:`E^{-1} A` are the poles of the system
 in the generic case
-(more precisely, if the system is minimal, i.e., controllable and observable).
+(more precisely, if the system is minimal, i.e., controllable and observable;
+see [A05]_).
 
 The poles of an |LTIModel| can be obtained using its
-:meth:`~pymor.models.iosys.LTIModel.poles`
+:meth:`~pymor.models.iosys.LTIModel.poles` method
 (assuming the system is minimal).
 
 .. jupyter-execute::
@@ -271,7 +272,7 @@ where :math:`P` and :math:`Q` are solutions to Lyapunov equation
         & = 0.
     \end{align*}
 
-To find "Gramians" :math:`P, Q` of an |LTIModel|,
+To find the "Gramians" :math:`P` and :math:`Q` of an |LTIModel|,
 the :meth:`~pymor.models.iosys.LTIModel.gramian` method can be used.
 
 .. jupyter-execute::
@@ -303,44 +304,32 @@ As expected for a heat equation, the Hankel singular values decay rapidly.
 System norms
 ------------
 
-There are various system norm,
-used for measuring how much is the system sensitive to inputs.
+There are various system norms,
+used for quantifying the sensitivity of system's outputs to its inputs.
 pyMOR currently has methods for computing:
+the :math:`\mathcal{H}_2` norm,
+the :math:`\mathcal{H}_\infty` norm, and
+the Hankel (semi)norm.
 
-- the :math:`\mathcal{H}_2` norm
-  (if :math:`E` is invertible,
-  :math:`E^{-1} A` has eigenvalues in the open left half plane, and
-  :math:`D` is zero)
 
-  .. math::
+:math:`\mathcal{H}_2` norm
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-      \lVert H \rVert_{\mathcal{H}_2}
-      =
-      \left(
-        \frac{1}{2 \pi}
-        \int_{-\infty}^{\infty}
-        \lVert H(\boldsymbol{\imath} \omega) \rVert_{\operatorname{F}}^2
-        \operatorname{d}\!\omega
-      \right)^{\frac{1}{2}},
+The :math:`\mathcal{H}_2` norm is
+(if :math:`E` is invertible,
+:math:`E^{-1} A` has eigenvalues in the open left half plane, and
+:math:`D` is zero)
 
-- the :math:`\mathcal{H}_\infty` norm
-  (if :math:`E` is invertible and
-  :math:`E^{-1} A` has eigenvalues in the open left half plane)
+.. math::
 
-  .. math::
-
-      \lVert H \rVert_{\mathcal{H}_\infty}
-      = \sup_{\omega \in \mathbb{R}}
-      \lVert H(\boldsymbol{\imath} \omega) \rVert_2,
-
-- the Hankel (semi)norm
-  (if :math:`E` is invertible and
-  :math:`E^{-1} A` has eigenvalues in the open left half plane)
-
-  .. math::
-
-      \lVert H \rVert_{\operatorname{H}}
-      = \sigma_1.
+    \lVert H \rVert_{\mathcal{H}_2}
+    =
+    \left(
+      \frac{1}{2 \pi}
+      \int_{-\infty}^{\infty}
+      \lVert H(\boldsymbol{\imath} \omega) \rVert_{\operatorname{F}}^2
+      \operatorname{d}\!\omega
+    \right)^{\frac{1}{2}}.
 
 It can be shown that
 
@@ -349,39 +338,19 @@ It can be shown that
     \lVert y \rVert_{\mathcal{L}_\infty}
     \leqslant
     \lVert H \rVert_{\mathcal{H}_2}
-    \lVert u \rVert_{\mathcal{L}_2}
+    \lVert u \rVert_{\mathcal{L}_2}.
 
-and for systems with a single input or a single output
-(:math:`u(t) \in \mathbb{R}` or :math:`y(t) \in \mathbb{R}`),
-additionally
+Additionally, for systems with a single input or a single output
+(i.e., :math:`u(t) \in \mathbb{R}` or :math:`y(t) \in \mathbb{R}`),
 
 .. math::
 
     \lVert H \rVert_{\mathcal{H}_2}
     =
     \sup_{u \neq 0}
-    \frac{\lVert y - \widehat{y} \rVert_{\mathcal{L}_\infty}}{\lVert u \rVert_{\mathcal{L}_2}}.
+    \frac{\lVert y \rVert_{\mathcal{L}_\infty}}{\lVert u \rVert_{\mathcal{L}_2}}.
 
-On the other hand, it is always true that
-
-.. math::
-
-    \lVert H \rVert_{\mathcal{H}_\infty}
-    =
-    \sup_{u \neq 0}
-    \frac{\lVert y - \widehat{y} \rVert_{\mathcal{L}_2}}{\lVert u \rVert_{\mathcal{L}_2}},
-
-and, in particular,
-
-.. math::
-
-    \lVert y \rVert_{\mathcal{L}_2}
-    \leqslant
-    \lVert H \rVert_{\mathcal{H}_\infty}
-    \lVert u \rVert_{\mathcal{L}_2}.
-
-The computation of the :math:`\mathcal{H}_2` is based on the Lyapunov equation
-form
+The computation of the :math:`\mathcal{H}_2` is based on the system Gramians
 
 .. math::
 
@@ -396,14 +365,86 @@ used to compute it.
 
     fom.h2_norm()
 
+
+:math:`\mathcal{H}_\infty` norm
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The :math:`\mathcal{H}_\infty` norm is
+(if :math:`E` is invertible and
+:math:`E^{-1} A` has eigenvalues in the open left half plane)
+
+.. math::
+
+    \lVert H \rVert_{\mathcal{H}_\infty}
+    = \sup_{\omega \in \mathbb{R}}
+    \lVert H(\boldsymbol{\imath} \omega) \rVert_2.
+
+It is always true that
+
+.. math::
+
+    \lVert H \rVert_{\mathcal{H}_\infty}
+    =
+    \sup_{u \neq 0}
+    \frac{\lVert y \rVert_{\mathcal{L}_2}}{\lVert u \rVert_{\mathcal{L}_2}},
+
+and, in particular,
+
+.. math::
+
+    \lVert y \rVert_{\mathcal{L}_2}
+    \leqslant
+    \lVert H \rVert_{\mathcal{H}_\infty}
+    \lVert u \rVert_{\mathcal{L}_2}.
+
 The :meth:`~pymor.models.iosys.LTIModel.hinf_norm` method uses a dense solver
-from Slycot to compute the :math:`\mathcal{H}_\infty`.
+from `Slycot <https://github.com/python-control/Slycot>`_ to compute the
+:math:`\mathcal{H}_\infty` norm.
 
 .. jupyter-execute::
 
     fom.hinf_norm()
 
-The computation of the Hankel (semi)norm in
+
+Hankel norm
+^^^^^^^^^^^
+
+The Hankel norm is
+(if :math:`E` is invertible and
+:math:`E^{-1} A` has eigenvalues in the open left half plane)
+
+.. math::
+
+    \lVert H \rVert_{\operatorname{H}}
+    = \sigma_1,
+
+i.e., the largest Hankel singular value.
+Since it is independent of :math:`D`,
+the "Hankel norm" is only a seminorm in general.
+
+It can be shown that the Hankel norm is the norm of the Hankel operator
+:math:`\mathcal{H} \colon \mathcal{L}_2(-\infty, 0) \to \mathcal{L}_2(0, \infty)`
+mapping past inputs :math:`u_-` to future outputs :math:`y_+`
+
+.. math::
+
+    y_+(t)
+    = \mathcal{H}(u_-)(t)
+    = \int_{-\infty}^0 h(t - \tau) u_-(\tau) \operatorname{d}\!\tau,
+
+where :math:`h` is the impulse response
+:math:`h(t) = C e^{t E^{-1} A} E^{-1} B + D \delta(t)`
+(i.e., :math:`H` is the Laplace transform of :math:`h`).
+Thus,
+
+.. math::
+
+    \lVert H \rVert_{\operatorname{H}}
+    =
+    \sup_{u_- \neq 0}
+    \frac{\lVert y_+ \rVert_{\mathcal{L}_2}}{\lVert u_- \rVert_{\mathcal{L}_2}},
+
+The computation of the Hankel norm in
 :meth:`~pymor.models.iosys.LTIModel.hankel_norm` relies on the
 :meth:`~pymor.models.iosys.LTIModel.hsv` method.
 
