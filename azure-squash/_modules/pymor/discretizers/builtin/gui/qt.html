@@ -46,7 +46,7 @@
   
   
   
-    <title>pymor.discretizers.builtin.gui.qt &#8212; pyMOR vold_pymor+1367.gec9adb7e Manual</title>
+    <title>pymor.discretizers.builtin.gui.qt &#8212; pyMOR vold_pymor+1368.gc08bad3b Manual</title>
     <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../../../../_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../../../../_static/jupyter-sphinx.css" />
@@ -89,11 +89,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="../../../../../index.html" title="pyMOR vold_pymor+1367.gec9adb7e Manual"
+        <a href="../../../../../index.html" title="pyMOR vold_pymor+1368.gc08bad3b Manual"
            class="md-header-nav__button md-logo">
           
               <img src="../../../../../_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR vold_pymor+1367.gec9adb7e Manual logo">
+                   alt="pyMOR vold_pymor+1368.gc08bad3b Manual logo">
           
         </a>
       </div>
@@ -159,7 +159,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="../../../../../index.html" class="md-tabs__link">pyMOR vold_pymor+1367.gec9adb7e Manual</a></li>
+          <li class="md-tabs__item"><a href="../../../../../index.html" class="md-tabs__link">pyMOR vold_pymor+1368.gc08bad3b Manual</a></li>
           <li class="md-tabs__item"><a href="../../../../index.html" class="md-tabs__link">Module code</a></li>
       </ul>
     </div>
@@ -172,13 +172,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="../../../../../index.html" title="pyMOR vold_pymor+1367.gec9adb7e Manual" class="md-nav__button md-logo">
+    <a href="../../../../../index.html" title="pyMOR vold_pymor+1368.gc08bad3b Manual" class="md-nav__button md-logo">
       
         <img src="../../../../../_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="../../../../../index.html"
-       title="pyMOR vold_pymor+1367.gec9adb7e Manual">Documentation</a>
+       title="pyMOR vold_pymor+1368.gc08bad3b Manual">Documentation</a>
   </label>
   
 
@@ -446,11 +446,23 @@
         <span class="kn">from</span> <span class="nn">Qt.QtCore</span> <span class="kn">import</span> <span class="n">QCoreApplication</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">app</span> <span class="o">=</span> <span class="n">QApplication</span><span class="p">([])</span>
-        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">re</span><span class="p">:</span>
+            <span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Failed to init QApplication:</span><span class="se">\n</span><span class="si">{</span><span class="n">re</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
             <span class="n">app</span> <span class="o">=</span> <span class="n">QCoreApplication</span><span class="o">.</span><span class="n">instance</span><span class="p">()</span>
         <span class="n">main_window</span> <span class="o">=</span> <span class="n">factory</span><span class="p">()</span>
-        <span class="c1"># if getattr(sys, '_called_from_test', False) and (is_windows_platform() or is_macos_platform()):</span>
-        <span class="c1">#     QTimer.singleShot(500, app, Slot('quit()'))</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'_called_from_test'</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">is_windows_platform</span><span class="p">()</span> <span class="ow">or</span> <span class="n">is_macos_platform</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">is_macos_platform</span><span class="p">():</span>
+                <span class="k">def</span> <span class="nf">_app_quit</span><span class="p">():</span>
+                    <span class="c1"># directly calling the quit slot with a singelshottimer segfaults on osx</span>
+                    <span class="n">app</span><span class="o">.</span><span class="n">quit</span><span class="p">()</span>
+
+                <span class="n">close_timer</span> <span class="o">=</span> <span class="n">QTimer</span><span class="p">()</span>
+                <span class="n">close_timer</span><span class="o">.</span><span class="n">setInterval</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span>
+                <span class="n">close_timer</span><span class="o">.</span><span class="n">setSingleShot</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">close_timer</span><span class="o">.</span><span class="n">timeout</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">_app_quit</span><span class="p">())</span>
+                <span class="n">close_timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">QTimer</span><span class="o">.</span><span class="n">singleShot</span><span class="p">(</span><span class="mi">500</span><span class="p">,</span> <span class="n">app</span><span class="p">,</span> <span class="n">Slot</span><span class="p">(</span><span class="s1">'quit()'</span><span class="p">))</span>
         <span class="n">main_window</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
         <span class="n">app</span><span class="o">.</span><span class="n">exec_</span><span class="p">()</span>
 
