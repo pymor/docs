@@ -46,7 +46,7 @@
   
   
   
-    <title>Developer Documentation &#8212; pyMOR vold_pymor+1369.ge7cf525e Manual</title>
+    <title>Developer Documentation &#8212; pyMOR vold_pymor+1393.gef831526 Manual</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="_static/jupyter-sphinx.css" />
@@ -91,11 +91,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="pyMOR vold_pymor+1369.ge7cf525e Manual"
+        <a href="index.html" title="pyMOR vold_pymor+1393.gef831526 Manual"
            class="md-header-nav__button md-logo">
           
               <img src="_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR vold_pymor+1369.ge7cf525e Manual logo">
+                   alt="pyMOR vold_pymor+1393.gef831526 Manual logo">
           
         </a>
       </div>
@@ -161,7 +161,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">pyMOR vold_pymor+1369.ge7cf525e Manual</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">pyMOR vold_pymor+1393.gef831526 Manual</a></li>
       </ul>
     </div>
   </nav>
@@ -173,13 +173,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="pyMOR vold_pymor+1369.ge7cf525e Manual" class="md-nav__button md-logo">
+    <a href="index.html" title="pyMOR vold_pymor+1393.gef831526 Manual" class="md-nav__button md-logo">
       
         <img src="_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="index.html"
-       title="pyMOR vold_pymor+1369.ge7cf525e Manual">Documentation</a>
+       title="pyMOR vold_pymor+1393.gef831526 Manual">Documentation</a>
   </label>
   
 
@@ -252,7 +252,14 @@
     
     
       <a href="#the-makefile" class="md-nav__link">The Makefile</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="#the-env-file" class="md-nav__link">the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file</a>
       
+    
+    </li></ul>
     
     </li>
     <li class="md-nav__item">
@@ -265,6 +272,41 @@
     
       <a href="#gitlab-ci" class="md-nav__link">Gitlab CI</a>
       <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="#stage-sanity" class="md-nav__link">Stage: Sanity</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#stage-test" class="md-nav__link">Stage: Test</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#stage-build" class="md-nav__link">Stage: Build</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#stage-install-checks" class="md-nav__link">Stage: Install_checks</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#stage-deploy" class="md-nav__link">Stage: Deploy</a>
+      
+    
+    </li>
     <li class="md-nav__item">
     
     
@@ -288,13 +330,6 @@
       
     
     </li></ul>
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#local-development-with-docker" class="md-nav__link">Local development with docker</a>
-      
     
     </li></ul>
     
@@ -339,23 +374,85 @@
 <h1 id="developer-docs--page-root">Developer Documentation<a class="headerlink" href="#developer-docs--page-root" title="Permalink to this headline">¶</a></h1>
 
 <h2 id="pymor-s-dependencies">pyMOR’s dependencies<a class="headerlink" href="#pymor-s-dependencies" title="Permalink to this headline">¶</a></h2>
-<p>Explain dependencies.py, pip extras. Ref frozen pypi mirror for CI.</p>
+<p>The single source of truth for our dependency setup is <code class="docutils literal notranslate"><span class="pre">dependencies.py</span></code>.
+From it the <code class="docutils literal notranslate"><span class="pre">requirements*txt</span></code> files  and <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> are generated (by calling <code class="docutils literal notranslate"><span class="pre">make</span></code>).
+During <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> execution <code class="docutils literal notranslate"><span class="pre">dependencies.py</span></code> is imported and the package lists passed to setuptools’s
+<code class="docutils literal notranslate"><span class="pre">setup_requires</span></code>, <code class="docutils literal notranslate"><span class="pre">install_requires</span></code>,``tests_require`` and <code class="docutils literal notranslate"><span class="pre">extra_requires</span></code> accordingly.
+The <code class="docutils literal notranslate"><span class="pre">extra_requires</span></code> dictionary here controls what ‘extra’ configurations are available for
+<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">pymor[extra1,extra2,extra3]</span></code>.</p>
+<p>When adding new package dependencies, or version restrictions, these need to be reflected into
+a commit in <a class="reference external" href="https://github.com/pymor/docker/tree/master/constraints">constraints requirements</a> so that these are
+become available to CI after entering the new commit hash into <code class="docutils literal notranslate"><span class="pre">.env</span></code>.</p>
 
 
 <h2 id="the-makefile">The Makefile<a class="headerlink" href="#the-makefile" title="Permalink to this headline">¶</a></h2>
-<p>Test execution close to CI with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docker_test</span></code>. Configurable options.</p>
+<p>Via the <code class="docutils literal notranslate"><span class="pre">Makefile</span></code> it is possible to execute tests close to how they are run on CI with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docker_test</span></code>.
+All jobs described in <a class="reference internal" href="#ref-gitlab-ci-stage-test"><span class="std std-ref">Gitlab CI Test Stage</span></a> can be run this way by setting <code class="docutils literal notranslate"><span class="pre">PYMOR_TEST_SCRIPT</span></code>
+accordingly.</p>
+
+<h3 id="the-env-file">the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file<a class="headerlink" href="#the-env-file" title="Permalink to this headline">¶</a></h3>
+<p>This file records defaults used when executing CI scripts. These are loaded by make and can be
+overridden like this: <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">DOCKER_BASE_PYTHON=3.8</span> <span class="pre">docker_test</span></code> (see also the top of the <code class="docutils literal notranslate"><span class="pre">Makefile</span></code>).</p>
+
 
 
 <h2 id="continuous-testing-integration-setup">Continuous Testing / Integration Setup<a class="headerlink" href="#continuous-testing-integration-setup" title="Permalink to this headline">¶</a></h2>
 <p>Our CI infrastructure is spread across three major platforms. These are Gitlab CI (Linux tests),
 Azure Pipelines (MacOS and Windows tests) and GitHub Actions (misc. checks).</p>
 
-<h3 id="gitlab-ci">Gitlab CI<a class="headerlink" href="#gitlab-ci" title="Permalink to this headline">¶</a></h3>
+<span id="ref-gitlab-ci"></span><h3 id="gitlab-ci">Gitlab CI<a class="headerlink" href="#gitlab-ci" title="Permalink to this headline">¶</a></h3>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Configured by <code class="docutils literal notranslate"><span class="pre">.ci/gitlab/ci.yml</span></code> which is generated from <code class="docutils literal notranslate"><span class="pre">.ci/gitlab/template.ci.py</span></code>
-by the calling <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">template</span></code>.</p>
+by the calling <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">template</span></code> (needs appropriate Python environment) or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docker_template</span></code>.</p>
 </div>
+<p>All stages are run in docker containers started from images that are uploaded from the CI of
+<code class="docutils literal notranslate"><span class="pre">https://github.com/pymor/docker/</span></code>. Jobs that potentially install packages get an frozen pypi mirror
+as a “service” image. The mirror has a “oldest” variant in which all requirements are available
+in the oldest versions that still satisfy all version restrictions (recursively checked).</p>
+
+<h4 id="stage-sanity">Stage: Sanity<a class="headerlink" href="#stage-sanity" title="Permalink to this headline">¶</a></h4>
+<p>Checks if the <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> can be processed and if all docker images needed by subsequent
+stages are available in the <code class="docutils literal notranslate"><span class="pre">zivgitlab.wwu.io/pymor/docker/</span></code> registry.</p>
+
+
+<span id="ref-gitlab-ci-stage-test"></span><h4 id="stage-test">Stage: Test<a class="headerlink" href="#stage-test" title="Permalink to this headline">¶</a></h4>
+<p>This stage executes <code class="docutils literal notranslate"><span class="pre">./.ci/gitlab/test_{{script}}.bash</span></code> for a list of different scripts:</p>
+<dl class="simple">
+<dt>vanilla</dt><dd><p>This runs plain <code class="docutils literal notranslate"><span class="pre">pytest</span></code> with the common options defined in <code class="docutils literal notranslate"><span class="pre">./.ci/gitlab/common_test_setup.bash</span></code>.</p>
+</dd>
+<dt>cpp_demo</dt><dd><p>Builds and executes the minimal cpp demo in <code class="docutils literal notranslate"><span class="pre">src/pymordemos/minimal_cpp_demo/</span></code>,
+see also <a class="reference internal" href="tutorial_external_solver.html"><span class="doc">Tutorial: Binding an external PDE solver to pyMOR</span></a>.</p>
+</dd>
+<dt>mpi</dt><dd><p>Runs all demos with <code class="docutils literal notranslate"><span class="pre">mpirun</span> <span class="pre">-np</span> <span class="pre">2</span></code> via <code class="docutils literal notranslate"><span class="pre">src/pymortests/mpi_run_demo_tests.py</span></code>, checks against recorded results.</p>
+</dd>
+<dt>numpy_git</dt><dd><p>Same as vanilla, but against the unreleased numpy development branch.</p>
+</dd>
+<dt>oldest</dt><dd><p>Same as vanilla, but installs only packages from the “oldest” pypi mirror.</p>
+</dd>
+<dt>pip_installed</dt><dd><p>First install pyMOR using from git over https, uninstall and then install with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">.[full]</span></code>.
+Uninstall again and install from a generated (and checked) sdist tarball. Lastly run the pytest suite
+on the installed (!) pyMOR, not the git worktree.</p>
+</dd>
+<dt>tutorials</dt><dd><dl class="simple">
+<dt>By using docutils magic this extracts the Python code from all the tutorials in</dt><dd><p><code class="docutils literal notranslate"><span class="pre">docs/source/tutorials_*</span></code> and runs it in parameterized pytest fixtures
+as import modules.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p>All scripts are executed for all Python versions that pyMOR currently supports, with the exception
+of <code class="docutils literal notranslate"><span class="pre">numpy_git</span></code> and <code class="docutils literal notranslate"><span class="pre">oldest</span></code>. These are only tested against the newest and oldest versions accordingly.</p>
+
+
+<h4 id="stage-build">Stage: Build<a class="headerlink" href="#stage-build" title="Permalink to this headline">¶</a></h4>
+
+
+<h4 id="stage-install-checks">Stage: Install_checks<a class="headerlink" href="#stage-install-checks" title="Permalink to this headline">¶</a></h4>
+
+
+<h4 id="stage-deploy">Stage: Deploy<a class="headerlink" href="#stage-deploy" title="Permalink to this headline">¶</a></h4>
+
 
 <h4 id="github-gitlab-bridge">Github - Gitlab bridge<a class="headerlink" href="#github-gitlab-bridge" title="Permalink to this headline">¶</a></h4>
 <p>Source repo link. Merged PR branch pushing. Fork handling. Status reporting.</p>
@@ -375,10 +472,6 @@ by the calling <code class="docutils literal notranslate"><span class="pre">make
 <p>Configured by <code class="docutils literal notranslate"><span class="pre">.ci/azure/pipeline-{osx,win}.yml</span></code> respectively.</p>
 </div>
 
-
-
-<h2 id="local-development-with-docker">Local development with docker<a class="headerlink" href="#local-development-with-docker" title="Permalink to this headline">¶</a></h2>
-<p>pyMOR source mounted in .binder/ image. pycharm?</p>
 
 
 
@@ -429,7 +522,7 @@ by the calling <code class="docutils literal notranslate"><span class="pre">make
               
           </div>
             Last updated on
-              Dec 01, 2020.
+              Dec 03, 2020.
             <br/>
             Created using
             <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.3.1.
