@@ -60,39 +60,32 @@ parameter_space = fom.parameters.space(0, np.pi)
 # In[4]:
 
 
-output_functional = fom.rhs.H * theta_J
-fom = fom.with_(output_functional=output_functional)
+def fom_objective_functional(mu):
+    return fom.output(mu)[0]
 
 
 # In[5]:
 
 
-def fom_objective_functional(mu):
-    return fom.output(mu)[0]
+initial_guess = [0.25, 0.5]
 
 
 # In[6]:
 
 
-initial_guess = fom.parameters.parse([0.25, 0.5])
+from pymor.discretizers.builtin.cg import InterpolationOperator
+
+diff = InterpolationOperator(data['grid'], problem.diffusion).as_vector(fom.parameters.parse(initial_guess))
+fom.visualize(diff)
 
 
 # In[7]:
 
 
-from pymor.discretizers.builtin.cg import InterpolationOperator
-
-diff = InterpolationOperator(data['grid'], problem.diffusion).as_vector(initial_guess)
-fom.visualize(diff)
-
-
-# In[8]:
-
-
 print(data['grid'])
 
 
-# In[9]:
+# In[8]:
 
 
 import matplotlib as mpl
@@ -131,7 +124,7 @@ def addplot_xy_point_as_bar(ax, x, y, color='orange', z_range=None):
     ax.plot([y, y], [x, x], z_range if z_range else ax.get_zlim(), color)
 
 
-# In[10]:
+# In[9]:
 
 
 ranges = parameter_space.ranges['diffusion']
@@ -141,7 +134,7 @@ YY = XX
 plot_3d_surface(fom_objective_functional, XX, YY)
 
 
-# In[11]:
+# In[10]:
 
 
 reference_minimization_data = {'num_evals': 0,
@@ -152,9 +145,7 @@ reference_minimization_data = {'num_evals': 0,
 def record_results(function, data, mu):
     QoI = function(mu)
     data['num_evals'] += 1
-    # we need to make sure to copy the data, since the added mu will be changed inplace by minimize afterwards
-    data['evaluation_points'].append([fom.parameters.parse(mu)['diffusion'][:][0],
-                                      fom.parameters.parse(mu)['diffusion'][:][1]])
+    data['evaluation_points'].append(fom.parameters.parse(mu).to_numpy())
     data['evaluations'].append(QoI[0])
     return QoI
 
@@ -162,22 +153,22 @@ def report(result, data, reference_mu=None):
     if (result.status != 0):
         print('\n failed!')
     else:
-        print('\n succeded!')
+        print('\n succeeded!')
         print('  mu_min:    {}'.format(fom.parameters.parse(result.x)))
         print('  J(mu_min): {}'.format(result.fun[0]))
         if reference_mu is not None:
             print('  absolute error w.r.t. reference solution: {:.2e}'.format(np.linalg.norm(result.x-reference_mu)))
         print('  num iterations:     {}'.format(result.nit))
         print('  num function calls: {}'.format(data['num_evals']))
-        print('  time: {:.5f} seconds'.format(data['time']))
+        print('  time:               {:.5f} seconds'.format(data['time']))
         if 'offline_time' in data:
-            print('  offline time: {:.5f} seconds'.format(data['offline_time']))
+                print('  offline time:       {:.5f} seconds'.format(data['offline_time']))
         if 'enrichments' in data:
-            print('  model enrichments: {}'.format(data['enrichments']))
+                print('  model enrichments:  {}'.format(data['enrichments']))
     print('')
 
 
-# In[12]:
+# In[11]:
 
 
 from functools import partial
@@ -185,21 +176,21 @@ from scipy.optimize import minimize
 
 tic = perf_counter()
 fom_result = minimize(partial(record_results, fom_objective_functional, reference_minimization_data),
-                      initial_guess.to_numpy(),
+                      initial_guess,
                       method='L-BFGS-B', jac=False,
                       bounds=(ranges, ranges),
-                      options={'ftol': 1e-15})
+                      options={'ftol': 1e-15, 'gtol': 5e-5})
 reference_minimization_data['time'] = perf_counter()-tic
 reference_mu = fom_result.x
 
 
-# In[13]:
+# In[12]:
 
 
 report(fom_result, reference_minimization_data)
 
 
-# In[14]:
+# In[13]:
 
 
 reference_plot = plot_3d_surface(fom_objective_functional, XX, YY, alpha=0.5)
@@ -208,24 +199,22 @@ for mu in reference_minimization_data['evaluation_points']:
     addplot_xy_point_as_bar(reference_plot, mu[0], mu[1])
 
 
-# In[15]:
+# In[14]:
 
 
 from pymor.algorithms.greedy import rb_greedy
-from pymor.reductors.coercive import CoerciveRBReductor
-
 from pymor.parameters.functionals import MinThetaParameterFunctional
+from pymor.reductors.coercive import CoerciveRBReductor
 
 coercivity_estimator = MinThetaParameterFunctional(fom.operator.coefficients, mu_bar)
 
+
+# In[15]:
+
+
 training_set = parameter_space.sample_uniformly(25)
-training_set_simple = [mu['diffusion'] for mu in training_set]
 
 RB_reductor = CoerciveRBReductor(fom, product=fom.energy_product, coercivity_estimator=coercivity_estimator)
-
-
-# In[16]:
-
 
 RB_greedy_data = rb_greedy(fom, RB_reductor, training_set, atol=1e-2)
 
@@ -238,7 +227,7 @@ print('RB system is of size {}x{}'.format(num_RB_greedy_extensions, num_RB_greed
 print('maximum estimated model reduction error over training set: {}'.format(RB_greedy_errors[-1]))
 
 
-# In[17]:
+# In[16]:
 
 
 ax = plot_3d_surface(fom_objective_functional, XX, YY, alpha=0.5)
@@ -248,7 +237,7 @@ for mu in RB_greedy_mus[:-1]:
     addplot_xy_point_as_bar(ax, mu[0], mu[1])
 
 
-# In[18]:
+# In[17]:
 
 
 def rom_objective_functional(mu):
@@ -263,20 +252,20 @@ RB_minimization_data = {'num_evals': 0,
 
 tic = perf_counter()
 rom_result = minimize(partial(record_results, rom_objective_functional, RB_minimization_data),
-                      initial_guess.to_numpy(),
+                      initial_guess,
                       method='L-BFGS-B', jac=False,
                       bounds=(ranges, ranges),
-                      options={'ftol': 1e-15})
+                      options={'ftol': 1e-15, 'gtol': 5e-5})
 RB_minimization_data['time'] = perf_counter()-tic
 
 
-# In[19]:
+# In[18]:
 
 
 report(rom_result, RB_minimization_data, reference_mu)
 
 
-# In[20]:
+# In[19]:
 
 
 reference_plot = plot_3d_surface(fom_objective_functional, XX, YY, alpha=0.5)
@@ -291,7 +280,7 @@ for mu in RB_minimization_data['evaluation_points']:
                            z_range=(reference_plot_mean_z_lim, reference_plot.get_zlim()[1]))
 
 
-# In[21]:
+# In[20]:
 
 
 def fom_gradient_of_functional(mu):
@@ -303,24 +292,24 @@ opt_fom_minimization_data = {'num_evals': 0,
                             'time': np.inf}
 tic = perf_counter()
 opt_fom_result = minimize(partial(record_results, fom_objective_functional, opt_fom_minimization_data),
-                          initial_guess.to_numpy(),
+                          initial_guess,
                           method='L-BFGS-B',
                           jac=fom_gradient_of_functional,
                           bounds=(ranges, ranges),
-                          options={'ftol': 1e-15})
+                          options={'ftol': 1e-15, 'gtol': 5e-5})
 opt_fom_minimization_data['time'] = perf_counter()-tic
 
 # update the reference_mu because this is more accurate!
 reference_mu = opt_fom_result.x
 
 
-# In[22]:
+# In[21]:
 
 
 report(opt_fom_result, opt_fom_minimization_data)
 
 
-# In[23]:
+# In[22]:
 
 
 def rom_gradient_of_functional(mu):
@@ -336,23 +325,23 @@ opt_rom_minimization_data = {'num_evals': 0,
 
 tic = perf_counter()
 opt_rom_result = minimize(partial(record_results, rom_objective_functional, opt_rom_minimization_data),
-                  initial_guess.to_numpy(),
+                  initial_guess,
                   method='L-BFGS-B',
                   jac=rom_gradient_of_functional,
                   bounds=(ranges, ranges),
-                  options={'ftol': 1e-15})
+                  options={'ftol': 1e-15, 'gtol': 5e-5})
 opt_rom_minimization_data['time'] = perf_counter()-tic
 report(opt_rom_result, opt_rom_minimization_data, reference_mu)
 
 
-# In[24]:
+# In[23]:
 
 
 pdeopt_reductor = CoerciveRBReductor(
     fom, product=fom.energy_product, coercivity_estimator=coercivity_estimator)
 
 
-# In[25]:
+# In[24]:
 
 
 def record_results_and_enrich(function, data, opt_dict, mu):
@@ -363,11 +352,9 @@ def record_results_and_enrich(function, data, opt_dict, mu):
     except:
         print('Extension failed')
     opt_rom = pdeopt_reductor.reduce()
-    QoI = rom.output(mu)
+    QoI = opt_rom.output(mu)
     data['num_evals'] += 1
-    # we need to make sure to copy the data, since the added mu will be changed inplace by minimize afterwards
-    data['evaluation_points'].append([fom.parameters.parse(mu)['diffusion'][:][0],
-                                      fom.parameters.parse(mu)['diffusion'][:][1]])
+    data['evaluation_points'].append(fom.parameters.parse(mu).to_numpy())
     data['evaluations'].append(QoI[0])
     opt_dict['opt_rom'] = rom
     return QoI
@@ -377,7 +364,7 @@ def compute_gradient_with_opt_rom(opt_dict, mu):
     return opt_rom.output_d_mu(opt_rom.parameters.parse(mu), return_array=True, use_adjoint=True)
 
 
-# In[26]:
+# In[25]:
 
 
 opt_along_path_minimization_data = {'num_evals': 0,
@@ -389,21 +376,21 @@ opt_dict = {}
 tic = perf_counter()
 opt_along_path_result = minimize(partial(record_results_and_enrich, rom_objective_functional,
                                          opt_along_path_minimization_data, opt_dict),
-                                  initial_guess.to_numpy(),
+                                  initial_guess,
                                   method='L-BFGS-B',
                                   jac=partial(compute_gradient_with_opt_rom, opt_dict),
                                   bounds=(ranges, ranges),
-                                  options={'ftol': 1e-15})
+                                  options={'ftol': 1e-15, 'gtol': 5e-5})
 opt_along_path_minimization_data['time'] = perf_counter()-tic
 
 
-# In[27]:
+# In[26]:
 
 
 report(opt_along_path_result, opt_along_path_minimization_data, reference_mu)
 
 
-# In[28]:
+# In[27]:
 
 
 pdeopt_reductor = CoerciveRBReductor(
@@ -411,7 +398,7 @@ pdeopt_reductor = CoerciveRBReductor(
 opt_rom = pdeopt_reductor.reduce()
 
 
-# In[29]:
+# In[28]:
 
 
 def record_results_and_enrich_adaptively(function, data, opt_dict, mu):
@@ -431,9 +418,7 @@ def record_results_and_enrich_adaptively(function, data, opt_dict, mu):
     opt_rom = pdeopt_reductor.reduce()
     QoI = opt_rom.output(mu)
     data['num_evals'] += 1
-    # we need to make sure to copy the data, since the added mu will be changed inplace by minimize afterwards
-    data['evaluation_points'].append([fom.parameters.parse(mu)['diffusion'][:][0],
-                                      fom.parameters.parse(mu)['diffusion'][:][1]])
+    data['evaluation_points'].append(fom.parameters.parse(mu).to_numpy())
     data['evaluations'].append(QoI[0])
     opt_dict['opt_rom'] = opt_rom
     return QoI
@@ -443,7 +428,7 @@ def compute_gradient_with_opt_rom(opt_dict, mu):
     return opt_rom.output_d_mu(opt_rom.parameters.parse(mu), return_array=True, use_adjoint=True)
 
 
-# In[30]:
+# In[29]:
 
 
 opt_along_path_adaptively_minimization_data = {'num_evals': 0,
@@ -455,21 +440,21 @@ opt_dict = {'opt_rom': opt_rom}
 tic = perf_counter()
 opt_along_path_adaptively_result = minimize(partial(record_results_and_enrich_adaptively, rom_objective_functional,
                                                     opt_along_path_adaptively_minimization_data, opt_dict),
-                                            initial_guess.to_numpy(),
+                                            initial_guess,
                                             method='L-BFGS-B',
                                             jac=partial(compute_gradient_with_opt_rom, opt_dict),
                                             bounds=(ranges, ranges),
-                                            options={'ftol': 1e-15})
+                                            options={'ftol': 1e-15, 'gtol': 5e-5})
 opt_along_path_adaptively_minimization_data['time'] = perf_counter()-tic
 
 
-# In[31]:
+# In[30]:
 
 
 report(opt_along_path_adaptively_result, opt_along_path_adaptively_minimization_data, reference_mu)
 
 
-# In[32]:
+# In[31]:
 
 
 print('FOM with finite differences')
@@ -489,4 +474,14 @@ report(opt_along_path_result, opt_along_path_minimization_data, reference_mu)
 
 print('\nAdaptively enrich along the path')
 report(opt_along_path_adaptively_result, opt_along_path_adaptively_minimization_data, reference_mu)
+
+
+# In[32]:
+
+
+assert fom_result.nit == 7
+assert opt_along_path_result.nit == 7
+assert opt_along_path_minimization_data['num_evals'] == 9
+assert opt_along_path_minimization_data['enrichments'] == 9
+assert opt_along_path_adaptively_minimization_data['enrichments'] == 4
 
