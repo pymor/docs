@@ -43,7 +43,7 @@ thetas = [ExpressionParameterFunctional('1.1 + sin(diffusion[0])*diffusion[1]', 
 diffusion = LincombFunction([rest_of_domain, indicator_domain], thetas)
 
 theta_J = ExpressionParameterFunctional('1 + 1/5 * diffusion[0] + 1/5 * diffusion[1]', parameters,
-                                           derivative_expressions={'diffusion': ['1/5','1/5']})
+                                        derivative_expressions={'diffusion': ['1/5','1/5']})
 
 problem = StationaryProblem(domain, f, diffusion, outputs=[('l2', f * theta_J)])
 
@@ -287,9 +287,9 @@ def fom_gradient_of_functional(mu):
     return fom.output_d_mu(fom.parameters.parse(mu), return_array=True, use_adjoint=True)
 
 opt_fom_minimization_data = {'num_evals': 0,
-                            'evaluations' : [],
-                            'evaluation_points': [],
-                            'time': np.inf}
+                             'evaluations' : [],
+                             'evaluation_points': [],
+                             'time': np.inf}
 tic = perf_counter()
 opt_fom_result = minimize(partial(record_results, fom_objective_functional, opt_fom_minimization_data),
                           initial_guess,
@@ -368,19 +368,19 @@ def compute_gradient_with_opt_rom(opt_dict, mu):
 
 
 opt_along_path_minimization_data = {'num_evals': 0,
-                                       'evaluations' : [],
-                                       'evaluation_points': [],
-                                       'time': np.inf,
-                                       'enrichments': 0}
+                                    'evaluations' : [],
+                                    'evaluation_points': [],
+                                    'time': np.inf,
+                                    'enrichments': 0}
 opt_dict = {}
 tic = perf_counter()
 opt_along_path_result = minimize(partial(record_results_and_enrich, rom_objective_functional,
                                          opt_along_path_minimization_data, opt_dict),
-                                  initial_guess,
-                                  method='L-BFGS-B',
-                                  jac=partial(compute_gradient_with_opt_rom, opt_dict),
-                                  bounds=(ranges, ranges),
-                                  options={'ftol': 1e-15, 'gtol': 5e-5})
+                                 initial_guess,
+                                 method='L-BFGS-B',
+                                 jac=partial(compute_gradient_with_opt_rom, opt_dict),
+                                 bounds=(ranges, ranges),
+                                 options={'ftol': 1e-15, 'gtol': 5e-5})
 opt_along_path_minimization_data['time'] = perf_counter()-tic
 
 
@@ -432,10 +432,10 @@ def compute_gradient_with_opt_rom(opt_dict, mu):
 
 
 opt_along_path_adaptively_minimization_data = {'num_evals': 0,
-                                       'evaluations' : [],
-                                       'evaluation_points': [],
-                                       'time': np.inf,
-                                       'enrichments': 0}
+                                               'evaluations' : [],
+                                               'evaluation_points': [],
+                                               'time': np.inf,
+                                               'enrichments': 0}
 opt_dict = {'opt_rom': opt_rom}
 tic = perf_counter()
 opt_along_path_adaptively_result = minimize(partial(record_results_and_enrich_adaptively, rom_objective_functional,
