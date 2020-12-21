@@ -46,7 +46,7 @@
   
   
   
-    <title>pymordemos.parametric_string &#8212; pyMOR vold_pymor+1400.g8b61cf6a Manual</title>
+    <title>pymordemos.parametric_string &#8212; pyMOR vold_pymor+1521.g24ada1da Manual</title>
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../_static/jupyter-sphinx.css" />
@@ -89,11 +89,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="../../index.html" title="pyMOR vold_pymor+1400.g8b61cf6a Manual"
+        <a href="../../index.html" title="pyMOR vold_pymor+1521.g24ada1da Manual"
            class="md-header-nav__button md-logo">
           
               <img src="../../_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR vold_pymor+1400.g8b61cf6a Manual logo">
+                   alt="pyMOR vold_pymor+1521.g24ada1da Manual logo">
           
         </a>
       </div>
@@ -159,7 +159,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">pyMOR vold_pymor+1400.g8b61cf6a Manual</a></li>
+          <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">pyMOR vold_pymor+1521.g24ada1da Manual</a></li>
           <li class="md-tabs__item"><a href="../index.html" class="md-tabs__link">Module code</a></li>
       </ul>
     </div>
@@ -172,13 +172,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="../../index.html" title="pyMOR vold_pymor+1400.g8b61cf6a Manual" class="md-nav__button md-logo">
+    <a href="../../index.html" title="pyMOR vold_pymor+1521.g24ada1da Manual" class="md-nav__button md-logo">
       
         <img src="../../_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="../../index.html"
-       title="pyMOR vold_pymor+1400.g8b61cf6a Manual">Documentation</a>
+       title="pyMOR vold_pymor+1521.g24ada1da Manual">Documentation</a>
   </label>
   
 
@@ -215,7 +215,7 @@
     <li class="md-nav__item">
     
     
-      <a href="../../release_notes.html" class="md-nav__link">Release Notes</a>
+      <a href="../../release_notes/all.html" class="md-nav__link">Release Notes</a>
       
     
     </li>
@@ -223,6 +223,13 @@
     
     
       <a href="../../bibliography.html" class="md-nav__link">Bibliography</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="../../developer_docs.html" class="md-nav__link">Developer Documentation</a>
       
     
     </li>
@@ -264,100 +271,72 @@
             
   <h1 id="modules-pymordemos-parametric-string--page-root">Source code for pymordemos.parametric_string</h1><div class="highlight"><pre>
 <span></span><span class="ch">#!/usr/bin/env python</span>
-<span class="c1"># coding: utf-8</span>
 <span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
 <span class="c1"># Copyright 2013-2020 pyMOR developers and contributors. All rights reserved.</span>
 <span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
-<span class="c1"># # Parametric string equation example</span>
-
-<span class="c1"># ## Import modules</span>
-
-<span class="c1"># In[ ]:</span>
-
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
 <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
-<span class="kn">from</span> <span class="nn">typer</span> <span class="kn">import</span> <span class="n">Option</span><span class="p">,</span> <span class="n">run</span>
+<span class="kn">from</span> <span class="nn">typer</span> <span class="kn">import</span> <span class="n">Argument</span><span class="p">,</span> <span class="n">run</span>
 
-<span class="kn">from</span> <span class="nn">pymor.basic</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">pymor.core.config</span> <span class="kn">import</span> <span class="n">config</span>
-
 <span class="kn">from</span> <span class="nn">pymor.core.logger</span> <span class="kn">import</span> <span class="n">set_log_levels</span>
+<span class="kn">from</span> <span class="nn">pymor.models.iosys</span> <span class="kn">import</span> <span class="n">SecondOrderModel</span>
+<span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.parameters.functionals</span> <span class="kn">import</span> <span class="n">ProjectionParameterFunctional</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.bt</span> <span class="kn">import</span> <span class="n">BTReductor</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.h2</span> <span class="kn">import</span> <span class="n">IRKAReductor</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.sobt</span> <span class="kn">import</span> <span class="p">(</span><span class="n">SOBTpReductor</span><span class="p">,</span> <span class="n">SOBTvReductor</span><span class="p">,</span> <span class="n">SOBTpvReductor</span><span class="p">,</span> <span class="n">SOBTvpReductor</span><span class="p">,</span>
+                                  <span class="n">SOBTfvReductor</span><span class="p">,</span> <span class="n">SOBTReductor</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymor.reductors.sor_irka</span> <span class="kn">import</span> <span class="n">SORIRKAReductor</span>
+<span class="kn">from</span> <span class="nn">pymordemos.parametric_heat</span> <span class="kn">import</span> <span class="n">run_mor_method_param</span>
 
 
 <div class="viewcode-block" id="main"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parametric_string.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">(</span>
-        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Option</span><span class="p">(</span><span class="mi">101</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Order of the full second-order model (odd number).'</span><span class="p">),</span>
-        <span class="n">r</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Option</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Order of the ROMs.'</span><span class="p">),</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="mi">101</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Order of the full second-order model (odd number).'</span><span class="p">),</span>
+        <span class="n">r</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Order of the ROMs.'</span><span class="p">),</span>
 <span class="p">):</span>
+    <span class="sd">"""Parametric string example."""</span>
     <span class="n">set_log_levels</span><span class="p">({</span><span class="s1">'pymor.algorithms.gram_schmidt.gram_schmidt'</span><span class="p">:</span> <span class="s1">'WARNING'</span><span class="p">})</span>
 
-
-    <span class="c1"># ## Assemble $M$, $D$, $K$, $B$, $C_p$</span>
-
-    <span class="c1"># In[ ]:</span>
-
-
+    <span class="c1"># Assemble M, D, K, B, C_p</span>
     <span class="k">assert</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">'The order has to be an odd integer.'</span>
 
     <span class="n">n2</span> <span class="o">=</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
 
-    <span class="n">k</span> <span class="o">=</span> <span class="mf">0.01</span>   <span class="c1"># stiffness</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="mf">0.01</span>  <span class="c1"># stiffness</span>
 
     <span class="n">M</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">'csc'</span><span class="p">)</span>
-
     <span class="n">E</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">'csc'</span><span class="p">)</span>
-
     <span class="n">K</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">([</span><span class="n">n</span> <span class="o">*</span> <span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">k</span> <span class="o">*</span> <span class="n">n</span> <span class="o">**</span> <span class="mi">2</span><span class="p">],</span>
                    <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">[</span><span class="o">-</span><span class="n">k</span> <span class="o">*</span> <span class="n">n</span> <span class="o">**</span> <span class="mi">2</span><span class="p">],</span>
                    <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">[</span><span class="o">-</span><span class="n">k</span> <span class="o">*</span> <span class="n">n</span> <span class="o">**</span> <span class="mi">2</span><span class="p">]],</span>
                   <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
                   <span class="nb">format</span><span class="o">=</span><span class="s1">'csc'</span><span class="p">)</span>
-
     <span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
     <span class="n">B</span><span class="p">[</span><span class="n">n2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span>
-
     <span class="n">Cp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
     <span class="n">Cp</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">n2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
 
-
-    <span class="c1"># ## Second-order system</span>
-
-    <span class="c1"># In[ ]:</span>
-
-
+    <span class="c1"># Second-order system</span>
     <span class="n">Mop</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>
     <span class="n">Eop</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">E</span><span class="p">)</span> <span class="o">*</span> <span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'damping'</span><span class="p">)</span>
     <span class="n">Kop</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">K</span><span class="p">)</span>
     <span class="n">Bop</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
     <span class="n">Cpop</span> <span class="o">=</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">Cp</span><span class="p">)</span>
 
-
-    <span class="c1"># In[ ]:</span>
-
-
     <span class="n">so_sys</span> <span class="o">=</span> <span class="n">SecondOrderModel</span><span class="p">(</span><span class="n">Mop</span><span class="p">,</span> <span class="n">Eop</span><span class="p">,</span> <span class="n">Kop</span><span class="p">,</span> <span class="n">Bop</span><span class="p">,</span> <span class="n">Cpop</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
 
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'order of the model = </span><span class="si">{</span><span class="n">so_sys</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'number of inputs   = </span><span class="si">{</span><span class="n">so_sys</span><span class="o">.</span><span class="n">dim_input</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'number of outputs  = </span><span class="si">{</span><span class="n">so_sys</span><span class="o">.</span><span class="n">dim_output</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 
-
-    <span class="c1"># In[ ]:</span>
-
-
     <span class="n">mu_list</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">]</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
 
-
-    <span class="c1"># In[ ]:</span>
-
-
+    <span class="c1"># System poles</span>
     <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-
     <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
         <span class="n">poles</span> <span class="o">=</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">poles</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">poles</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">poles</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">'.'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
@@ -365,12 +344,7 @@
     <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
-
+    <span class="c1"># Magnitude plots</span>
     <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
         <span class="n">so_sys</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
@@ -378,11 +352,8 @@
     <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="n">sharey</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># "Hankel" singular values</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="n">sharey</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
         <span class="n">psv</span> <span class="o">=</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">psv</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
         <span class="n">vsv</span> <span class="o">=</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">vsv</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
@@ -399,10 +370,7 @@
     <span class="n">fig</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">'upper center'</span><span class="p">,</span> <span class="n">ncol</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">mu_list</span><span class="p">))</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 
-
-    <span class="c1"># In[ ]:</span>
-
-
+    <span class="c1"># System norms</span>
     <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">:'</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    H_2-norm of the full model:    </span><span class="si">{</span><span class="n">so_sys</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
@@ -410,518 +378,16 @@
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    H_inf-norm of the full model:  </span><span class="si">{</span><span class="n">so_sys</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    Hankel-norm of the full model: </span><span class="si">{</span><span class="n">so_sys</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 
-
-    <span class="c1"># ## Position Second-Order Balanced Truncation (SOBTp)</span>
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">roms_sobtp</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
-        <span class="n">sobtp_reductor</span> <span class="o">=</span> <span class="n">SOBTpReductor</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">rom_sobtp</span> <span class="o">=</span> <span class="n">sobtp_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="n">roms_sobtp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom_sobtp</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">rom_sobtp</span> <span class="ow">in</span> <span class="n">roms_sobtp</span><span class="p">:</span>
-        <span class="n">poles_rom_sobtp</span> <span class="o">=</span> <span class="n">rom_sobtp</span><span class="o">.</span><span class="n">poles</span><span class="p">()</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">poles_rom_sobtp</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">poles_rom_sobtp</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">'.'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"SOBTp reduced model's poles"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtp</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtp</span><span class="p">):</span>
-        <span class="n">err_sobtp</span> <span class="o">=</span> <span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sobtp</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTp relative H_2-error:    </span><span class="si">{</span><span class="n">err_sobtp</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_SLYCOT</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTp relative H_inf-error:  </span><span class="si">{</span><span class="n">err_sobtp</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTp relative Hankel-error: </span><span class="si">{</span><span class="n">err_sobtp</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtp</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtp</span><span class="p">):</span>
-        <span class="n">rom_sobtp</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of SOBTp reduced models'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtp</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtp</span><span class="p">):</span>
-        <span class="p">(</span><span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sobtp</span><span class="p">)</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of the SOBTp error system'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># ## Velocity Second-Order Balanced Truncation (SOBTv)</span>
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">roms_sobtv</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
-        <span class="n">sobtv_reductor</span> <span class="o">=</span> <span class="n">SOBTvReductor</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">rom_sobtv</span> <span class="o">=</span> <span class="n">sobtv_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="n">roms_sobtv</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom_sobtv</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">rom_sobtv</span> <span class="ow">in</span> <span class="n">roms_sobtv</span><span class="p">:</span>
-        <span class="n">poles_rom_sobtv</span> <span class="o">=</span> <span class="n">rom_sobtv</span><span class="o">.</span><span class="n">poles</span><span class="p">()</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">poles_rom_sobtv</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">poles_rom_sobtv</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">'.'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"SOBTv reduced model's poles"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtv</span><span class="p">):</span>
-        <span class="n">err_sobtv</span> <span class="o">=</span> <span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sobtv</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTv relative H_2-error:    </span><span class="si">{</span><span class="n">err_sobtv</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_SLYCOT</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTv relative H_inf-error:  </span><span class="si">{</span><span class="n">err_sobtv</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTv relative Hankel-error: </span><span class="si">{</span><span class="n">err_sobtv</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtv</span><span class="p">):</span>
-        <span class="n">rom_sobtv</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of SOBTv reduced models'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtv</span><span class="p">):</span>
-        <span class="p">(</span><span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sobtv</span><span class="p">)</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of the SOBTv error system'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># ## Position-Velocity Second-Order Balanced Truncation (SOBTpv)</span>
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">roms_sobtpv</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
-        <span class="n">sobtpv_reductor</span> <span class="o">=</span> <span class="n">SOBTpvReductor</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">rom_sobtpv</span> <span class="o">=</span> <span class="n">sobtpv_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="n">roms_sobtpv</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom_sobtpv</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">rom_sobtpv</span> <span class="ow">in</span> <span class="n">roms_sobtpv</span><span class="p">:</span>
-        <span class="n">poles_rom_sobtpv</span> <span class="o">=</span> <span class="n">rom_sobtpv</span><span class="o">.</span><span class="n">poles</span><span class="p">()</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">poles_rom_sobtpv</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">poles_rom_sobtpv</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">'.'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"SOBTpv reduced model's poles"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtpv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtpv</span><span class="p">):</span>
-        <span class="n">err_sobtpv</span> <span class="o">=</span> <span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sobtpv</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTpv relative H_2-error:    </span><span class="si">{</span><span class="n">err_sobtpv</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_SLYCOT</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTpv relative H_inf-error:  </span><span class="si">{</span><span class="n">err_sobtpv</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTpv relative Hankel-error: </span><span class="si">{</span><span class="n">err_sobtpv</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtpv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtpv</span><span class="p">):</span>
-        <span class="n">rom_sobtpv</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of SOBTpv reduced models'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtpv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtpv</span><span class="p">):</span>
-        <span class="p">(</span><span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sobtpv</span><span class="p">)</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of the SOBTpv error system'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># ## Velocity-Position Second-Order Balanced Truncation (SOBTvp)</span>
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">roms_sobtvp</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
-        <span class="n">sobtvp_reductor</span> <span class="o">=</span> <span class="n">SOBTvpReductor</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">rom_sobtvp</span> <span class="o">=</span> <span class="n">sobtvp_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="n">roms_sobtvp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom_sobtvp</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">rom_sobtvp</span> <span class="ow">in</span> <span class="n">roms_sobtvp</span><span class="p">:</span>
-        <span class="n">poles_rom_sobtvp</span> <span class="o">=</span> <span class="n">rom_sobtvp</span><span class="o">.</span><span class="n">poles</span><span class="p">()</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">poles_rom_sobtvp</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">poles_rom_sobtvp</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">'.'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"SOBTvp reduced model's poles"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtvp</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtvp</span><span class="p">):</span>
-        <span class="n">err_sobtvp</span> <span class="o">=</span> <span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sobtvp</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTvp relative H_2-error:    </span><span class="si">{</span><span class="n">err_sobtvp</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_SLYCOT</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTvp relative H_inf-error:  </span><span class="si">{</span><span class="n">err_sobtvp</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTvp relative Hankel-error: </span><span class="si">{</span><span class="n">err_sobtvp</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtvp</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtvp</span><span class="p">):</span>
-        <span class="n">rom_sobtvp</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of SOBTvp reduced models'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtvp</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtvp</span><span class="p">):</span>
-        <span class="p">(</span><span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sobtvp</span><span class="p">)</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of the SOBTvp error system'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># ## Free-Velocity Second-Order Balanced Truncation (SOBTfv)</span>
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">roms_sobtfv</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
-        <span class="n">sobtfv_reductor</span> <span class="o">=</span> <span class="n">SOBTfvReductor</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">rom_sobtfv</span> <span class="o">=</span> <span class="n">sobtfv_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="n">roms_sobtfv</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom_sobtfv</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">rom_sobtfv</span> <span class="ow">in</span> <span class="n">roms_sobtfv</span><span class="p">:</span>
-        <span class="n">poles_rom_sobtfv</span> <span class="o">=</span> <span class="n">rom_sobtfv</span><span class="o">.</span><span class="n">poles</span><span class="p">()</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">poles_rom_sobtfv</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">poles_rom_sobtfv</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">'.'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"SOBTfv reduced model's poles"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtfv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtfv</span><span class="p">):</span>
-        <span class="n">err_sobtfv</span> <span class="o">=</span> <span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sobtfv</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTfv relative H_2-error:    </span><span class="si">{</span><span class="n">err_sobtfv</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_SLYCOT</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTfv relative H_inf-error:  </span><span class="si">{</span><span class="n">err_sobtfv</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBTfv relative Hankel-error: </span><span class="si">{</span><span class="n">err_sobtfv</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtfv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtfv</span><span class="p">):</span>
-        <span class="n">rom_sobtfv</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of SOBTfv reduced models'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobtfv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobtfv</span><span class="p">):</span>
-        <span class="p">(</span><span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sobtfv</span><span class="p">)</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of the SOBTfv error system'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># ## Second-Order Balanced Truncation (SOBT)</span>
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">roms_sobt</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
-        <span class="n">sobt_reductor</span> <span class="o">=</span> <span class="n">SOBTReductor</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">rom_sobt</span> <span class="o">=</span> <span class="n">sobt_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="n">roms_sobt</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom_sobt</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">rom_sobt</span> <span class="ow">in</span> <span class="n">roms_sobt</span><span class="p">:</span>
-        <span class="n">poles_rom_sobt</span> <span class="o">=</span> <span class="n">rom_sobt</span><span class="o">.</span><span class="n">poles</span><span class="p">()</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">poles_rom_sobt</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">poles_rom_sobt</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">'.'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"SOBT reduced model's poles"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobt</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobt</span><span class="p">):</span>
-        <span class="n">err_sobt</span> <span class="o">=</span> <span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sobt</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBT relative H_2-error:    </span><span class="si">{</span><span class="n">err_sobt</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_SLYCOT</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBT relative H_inf-error:  </span><span class="si">{</span><span class="n">err_sobt</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SOBT relative Hankel-error: </span><span class="si">{</span><span class="n">err_sobt</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobt</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobt</span><span class="p">):</span>
-        <span class="n">rom_sobt</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of SOBT reduced models'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sobt</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sobt</span><span class="p">):</span>
-        <span class="p">(</span><span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sobt</span><span class="p">)</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of the SOBT error system'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># ## Balanced Truncation (BT)</span>
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">roms_bt</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
-        <span class="n">bt_reductor</span> <span class="o">=</span> <span class="n">BTReductor</span><span class="p">(</span><span class="n">so_sys</span><span class="o">.</span><span class="n">to_lti</span><span class="p">(),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">rom_bt</span> <span class="o">=</span> <span class="n">bt_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="n">roms_bt</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom_bt</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">rom_bt</span> <span class="ow">in</span> <span class="n">roms_bt</span><span class="p">:</span>
-        <span class="n">poles_rom_bt</span> <span class="o">=</span> <span class="n">rom_bt</span><span class="o">.</span><span class="n">poles</span><span class="p">()</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">poles_rom_bt</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">poles_rom_bt</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">'.'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"BT reduced model's poles"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_bt</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_bt</span><span class="p">):</span>
-        <span class="n">err_bt</span> <span class="o">=</span> <span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_bt</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    BT relative H_2-error:    </span><span class="si">{</span><span class="n">err_bt</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_SLYCOT</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    BT relative H_inf-error:  </span><span class="si">{</span><span class="n">err_bt</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    BT relative Hankel-error: </span><span class="si">{</span><span class="n">err_bt</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_bt</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_bt</span><span class="p">):</span>
-        <span class="n">rom_bt</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of BT reduced models'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_bt</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_bt</span><span class="p">):</span>
-        <span class="p">(</span><span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_bt</span><span class="p">)</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of the BT error system'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># ## Iterative Rational Krylov Algorithm (IRKA)</span>
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">roms_irka</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
-        <span class="n">irka_reductor</span> <span class="o">=</span> <span class="n">IRKAReductor</span><span class="p">(</span><span class="n">so_sys</span><span class="o">.</span><span class="n">to_lti</span><span class="p">(),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">rom_irka</span> <span class="o">=</span> <span class="n">irka_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="n">roms_irka</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom_irka</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">rom_irka</span> <span class="ow">in</span> <span class="n">roms_irka</span><span class="p">:</span>
-        <span class="n">poles_rom_irka</span> <span class="o">=</span> <span class="n">rom_irka</span><span class="o">.</span><span class="n">poles</span><span class="p">()</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">poles_rom_irka</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">poles_rom_irka</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">'.'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"IRKA reduced model's poles"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_irka</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_irka</span><span class="p">):</span>
-        <span class="n">err_irka</span> <span class="o">=</span> <span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_irka</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    IRKA relative H_2-error:    </span><span class="si">{</span><span class="n">err_irka</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_SLYCOT</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    IRKA relative H_inf-error:  </span><span class="si">{</span><span class="n">err_irka</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    IRKA relative Hankel-error: </span><span class="si">{</span><span class="n">err_irka</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_irka</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_irka</span><span class="p">):</span>
-        <span class="n">rom_irka</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of IRKA reduced models'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_irka</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_irka</span><span class="p">):</span>
-        <span class="p">(</span><span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_irka</span><span class="p">)</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of the IRKA error system'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># ## Second-Order Iterative Rational Krylov Algorithm (SOR-IRKA)</span>
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">roms_sor_irka</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">mu_list</span><span class="p">:</span>
-        <span class="n">sor_irka_reductor</span> <span class="o">=</span> <span class="n">SORIRKAReductor</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">rom_sor_irka</span> <span class="o">=</span> <span class="n">sor_irka_reductor</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">irka_options</span><span class="o">=</span><span class="p">{</span><span class="s1">'maxit'</span><span class="p">:</span> <span class="mi">10</span><span class="p">})</span>
-        <span class="n">roms_sor_irka</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rom_sor_irka</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">rom_sor_irka</span> <span class="ow">in</span> <span class="n">roms_sor_irka</span><span class="p">:</span>
-        <span class="n">poles_rom_sor_irka</span> <span class="o">=</span> <span class="n">rom_sor_irka</span><span class="o">.</span><span class="n">poles</span><span class="p">()</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">poles_rom_sor_irka</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">poles_rom_sor_irka</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">'.'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"SORIRKA reduced model's poles"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sor_irka</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sor_irka</span><span class="p">):</span>
-        <span class="n">err_sor_irka</span> <span class="o">=</span> <span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sor_irka</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SORIRKA relative H_2-error:    </span><span class="si">{</span><span class="n">err_sor_irka</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">h2_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_SLYCOT</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SORIRKA relative H_inf-error:  </span><span class="si">{</span><span class="n">err_sor_irka</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hinf_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'    SORIRKA relative Hankel-error: </span><span class="si">{</span><span class="n">err_sor_irka</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">so_sys</span><span class="o">.</span><span class="n">hankel_norm</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sor_irka</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sor_irka</span><span class="p">):</span>
-        <span class="n">rom_sor_irka</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of SORIRKA reduced models'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># In[ ]:</span>
-
-
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">mu</span><span class="p">,</span> <span class="n">rom_sor_irka</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu_list</span><span class="p">,</span> <span class="n">roms_sor_irka</span><span class="p">):</span>
-        <span class="p">(</span><span class="n">so_sys</span> <span class="o">-</span> <span class="n">rom_sor_irka</span><span class="p">)</span><span class="o">.</span><span class="n">mag_plot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">'$\mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">$'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Magnitude plot of the SORIRKA error system'</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+    <span class="c1"># Model order reduction</span>
+    <span class="n">run_mor_method_param</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">mu_list</span><span class="p">,</span> <span class="n">SOBTpReductor</span><span class="p">,</span> <span class="s1">'SOBTp'</span><span class="p">)</span>
+    <span class="n">run_mor_method_param</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">mu_list</span><span class="p">,</span> <span class="n">SOBTvReductor</span><span class="p">,</span> <span class="s1">'SOBTv'</span><span class="p">)</span>
+    <span class="n">run_mor_method_param</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">mu_list</span><span class="p">,</span> <span class="n">SOBTpvReductor</span><span class="p">,</span> <span class="s1">'SOBTpv'</span><span class="p">)</span>
+    <span class="n">run_mor_method_param</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">mu_list</span><span class="p">,</span> <span class="n">SOBTvpReductor</span><span class="p">,</span> <span class="s1">'SOBTvp'</span><span class="p">)</span>
+    <span class="n">run_mor_method_param</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">mu_list</span><span class="p">,</span> <span class="n">SOBTfvReductor</span><span class="p">,</span> <span class="s1">'SOBTfv'</span><span class="p">)</span>
+    <span class="n">run_mor_method_param</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">mu_list</span><span class="p">,</span> <span class="n">SOBTReductor</span><span class="p">,</span> <span class="s1">'SOBT'</span><span class="p">)</span>
+    <span class="n">run_mor_method_param</span><span class="p">(</span><span class="n">so_sys</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">mu_list</span><span class="p">,</span> <span class="n">SORIRKAReductor</span><span class="p">,</span> <span class="s1">'SOR-IRKA'</span><span class="p">)</span>
+    <span class="n">run_mor_method_param</span><span class="p">(</span><span class="n">so_sys</span><span class="o">.</span><span class="n">to_lti</span><span class="p">(),</span> <span class="n">r</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">mu_list</span><span class="p">,</span> <span class="n">BTReductor</span><span class="p">,</span> <span class="s1">'BT'</span><span class="p">)</span>
+    <span class="n">run_mor_method_param</span><span class="p">(</span><span class="n">so_sys</span><span class="o">.</span><span class="n">to_lti</span><span class="p">(),</span> <span class="n">r</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">mu_list</span><span class="p">,</span> <span class="n">IRKAReductor</span><span class="p">,</span> <span class="s1">'IRKA'</span><span class="p">)</span></div>
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
@@ -950,7 +416,7 @@
               
           </div>
             Last updated on
-              Dec 02, 2020.
+              Dec 16, 2020.
             <br/>
             Created using
             <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.3.1.
