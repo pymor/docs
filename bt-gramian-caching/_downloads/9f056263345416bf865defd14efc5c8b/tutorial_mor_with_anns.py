@@ -4,17 +4,16 @@
 # In[1]:
 
 
+from IPython import get_ipython
+ip = get_ipython()
+if ip is not None:
+    ip.run_line_magic('load_ext', 'pymor.discretizers.builtin.gui.jupyter')
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='torch')
 import pymor.tools.random
 pymor.tools.random._default_random_state = None
-
-from IPython import get_ipython
-ip = get_ipython()
-if ip is not None:
-    ip.run_line_magic('load_ext', 'pymor.discretizers.builtin.gui.jupyter')
 
 
 # In[2]:
@@ -108,13 +107,13 @@ speedups = []
 import time
 
 for mu in test_set:
-    tic = time.time()
+    tic = time.perf_counter()
     U.append(fom.solve(mu))
-    time_fom = time.time() - tic
+    time_fom = time.perf_counter() - tic
 
-    tic = time.time()
+    tic = time.perf_counter()
     U_red.append(reductor.reconstruct(rom.solve(mu)))
-    time_red = time.time() - tic
+    time_red = time.perf_counter() - tic
 
     speedups.append(time_fom / time_red)
 
