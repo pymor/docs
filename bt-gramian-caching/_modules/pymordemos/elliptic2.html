@@ -46,7 +46,7 @@
   
   
   
-    <title>pymordemos.elliptic2 &#8212; pyMOR vold_pymor+1203.g183da6bb Manual</title>
+    <title>pymordemos.elliptic2 &#8212; pyMOR vold_pymor+1518.g5a6790c3 Manual</title>
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../_static/jupyter-sphinx.css" />
@@ -89,11 +89,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="../../index.html" title="pyMOR vold_pymor+1203.g183da6bb Manual"
+        <a href="../../index.html" title="pyMOR vold_pymor+1518.g5a6790c3 Manual"
            class="md-header-nav__button md-logo">
           
               <img src="../../_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR vold_pymor+1203.g183da6bb Manual logo">
+                   alt="pyMOR vold_pymor+1518.g5a6790c3 Manual logo">
           
         </a>
       </div>
@@ -159,7 +159,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">pyMOR vold_pymor+1203.g183da6bb Manual</a></li>
+          <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">pyMOR vold_pymor+1518.g5a6790c3 Manual</a></li>
           <li class="md-tabs__item"><a href="../index.html" class="md-tabs__link">Module code</a></li>
       </ul>
     </div>
@@ -172,13 +172,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="../../index.html" title="pyMOR vold_pymor+1203.g183da6bb Manual" class="md-nav__button md-logo">
+    <a href="../../index.html" title="pyMOR vold_pymor+1518.g5a6790c3 Manual" class="md-nav__button md-logo">
       
         <img src="../../_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="../../index.html"
-       title="pyMOR vold_pymor+1203.g183da6bb Manual">Documentation</a>
+       title="pyMOR vold_pymor+1518.g5a6790c3 Manual">Documentation</a>
   </label>
   
 
@@ -215,7 +215,7 @@
     <li class="md-nav__item">
     
     
-      <a href="../../release_notes.html" class="md-nav__link">Release Notes</a>
+      <a href="../../release_notes/all.html" class="md-nav__link">Release Notes</a>
       
     
     </li>
@@ -223,6 +223,13 @@
     
     
       <a href="../../bibliography.html" class="md-nav__link">Bibliography</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="../../developer_docs.html" class="md-nav__link">Developer Documentation</a>
       
     
     </li>
@@ -268,27 +275,8 @@
 <span class="c1"># Copyright 2013-2020 pyMOR developers and contributors. All rights reserved.</span>
 <span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
 
-<span class="sd">"""Simple demonstration of solving the Poisson equation in 2D using pyMOR's builtin discretizations.</span>
-
-<span class="sd">Usage:</span>
-<span class="sd">    elliptic2.py [--fv] PROBLEM-NUMBER N NORM</span>
-
-<span class="sd">Arguments:</span>
-<span class="sd">    PROBLEM-NUMBER  {0,1}, selects the problem to solve</span>
-<span class="sd">    N               Triangle count per direction</span>
-
-<span class="sd">    NORM            h1: compute the h1-norm of the last snapshot.</span>
-<span class="sd">                    l2: compute the l2-norm of the last snapshot</span>
-<span class="sd">                    k: compute the energy norm of the last snapshot, where the energy-product is constructed</span>
-<span class="sd">                    with a parameter {'mu': k}.</span>
-
-<span class="sd">Options:</span>
-<span class="sd">    -h, --help   Show this message.</span>
-<span class="sd">    --fv         Use finite volume discretization instead of finite elements.</span>
-<span class="sd">"""</span>
-
-<span class="kn">from</span> <span class="nn">docopt</span> <span class="kn">import</span> <span class="n">docopt</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">typer</span> <span class="kn">import</span> <span class="n">Argument</span><span class="p">,</span> <span class="n">Option</span><span class="p">,</span> <span class="n">run</span>
 
 <span class="kn">from</span> <span class="nn">pymor.analyticalproblems.domaindescriptions</span> <span class="kn">import</span> <span class="n">RectDomain</span>
 <span class="kn">from</span> <span class="nn">pymor.analyticalproblems.elliptic</span> <span class="kn">import</span> <span class="n">StationaryProblem</span>
@@ -297,43 +285,51 @@
 <span class="kn">from</span> <span class="nn">pymor.parameters.functionals</span> <span class="kn">import</span> <span class="n">ProjectionParameterFunctional</span>
 
 
-<div class="viewcode-block" id="elliptic2_demo"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.elliptic2.elliptic2_demo">[docs]</a><span class="k">def</span> <span class="nf">elliptic2_demo</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="n">args</span><span class="p">[</span><span class="s1">'PROBLEM-NUMBER'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'PROBLEM-NUMBER'</span><span class="p">])</span>
-    <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">args</span><span class="p">[</span><span class="s1">'PROBLEM-NUMBER'</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid problem number.'</span><span class="p">)</span>
-    <span class="n">args</span><span class="p">[</span><span class="s1">'N'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'N'</span><span class="p">])</span>
-    <span class="n">norm</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">'NORM'</span><span class="p">]</span>
+<div class="viewcode-block" id="main"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.elliptic2.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">(</span>
+    <span class="n">problem_number</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Selects the problem to solve [0 or 1].'</span><span class="p">),</span>
+    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Triangle count per direction'</span><span class="p">),</span>
+    <span class="n">norm</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span>
+        <span class="o">...</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"h1: compute the h1-norm of the last snapshot.</span><span class="se">\n\n</span><span class="s2">"</span>
+             <span class="s2">"l2: compute the l2-norm of the last snapshot.</span><span class="se">\n\n</span><span class="s2">"</span>
+             <span class="s2">"k: compute the energy norm of the last snapshot, where the energy-product"</span>
+             <span class="s2">"is constructed with a parameter {'mu': k}."</span>
+    <span class="p">),</span>
+
+    <span class="n">fv</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">Option</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Use finite volume discretization instead of finite elements.'</span><span class="p">),</span>
+<span class="p">):</span>
+    <span class="sd">"""Solves the Poisson equation in 2D using pyMOR's builtin discreization toolkit."""</span>
     <span class="n">norm</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">norm</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">norm</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'h1'</span><span class="p">,</span> <span class="s1">'l2'</span><span class="p">)</span> <span class="k">else</span> <span class="n">norm</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
 
     <span class="n">rhss</span> <span class="o">=</span> <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'ones(x.shape[:-1]) * 10'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span>
-              <span class="n">LincombFunction</span><span class="p">(</span>
-              <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'ones(x.shape[:-1]) * 10'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span><span class="mi">2</span><span class="p">)],</span>
-              <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'mu'</span><span class="p">),</span> <span class="mf">0.1</span><span class="p">])]</span>
+            <span class="n">LincombFunction</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'ones(x.shape[:-1]) * 10'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="mi">2</span><span class="p">)],</span>
+                <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'mu'</span><span class="p">),</span> <span class="mf">0.1</span><span class="p">])]</span>
 
     <span class="n">dirichlets</span> <span class="o">=</span> <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'zeros(x.shape[:-1])'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span>
                   <span class="n">LincombFunction</span><span class="p">(</span>
-                  <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'2 * x[..., 0]'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span><span class="mi">2</span><span class="p">)],</span>
+                  <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'2 * x[..., 0]'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="mi">2</span><span class="p">)],</span>
                   <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'mu'</span><span class="p">),</span> <span class="mf">0.5</span><span class="p">])]</span>
 
     <span class="n">neumanns</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span>
-                  <span class="n">LincombFunction</span><span class="p">(</span>
-                  <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'1 - x[..., 1]'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span><span class="mi">2</span><span class="p">)],</span>
-                  <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'mu'</span><span class="p">),</span> <span class="mf">0.5</span><span class="o">**</span><span class="mi">2</span><span class="p">])]</span>
+                <span class="n">LincombFunction</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'1 - x[..., 1]'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="mi">2</span><span class="p">)],</span>
+                    <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'mu'</span><span class="p">),</span> <span class="mf">0.5</span><span class="o">**</span><span class="mi">2</span><span class="p">])]</span>
 
     <span class="n">robins</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span>
-                <span class="p">(</span><span class="n">LincombFunction</span><span class="p">(</span>
-                <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'x[..., 1]'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span><span class="mi">2</span><span class="p">)],</span>
-                <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'mu'</span><span class="p">),</span> <span class="mi">1</span><span class="p">]),</span>
-                 <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span><span class="mi">2</span><span class="p">))]</span>
+              <span class="p">(</span><span class="n">LincombFunction</span><span class="p">(</span>
+                  <span class="p">[</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'x[..., 1]'</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">()),</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="mi">2</span><span class="p">)],</span>
+                  <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'mu'</span><span class="p">),</span> <span class="mi">1</span><span class="p">]),</span> <span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="mi">2</span><span class="p">))]</span>
 
     <span class="n">domains</span> <span class="o">=</span> <span class="p">[</span><span class="n">RectDomain</span><span class="p">(),</span>
                <span class="n">RectDomain</span><span class="p">(</span><span class="n">right</span><span class="o">=</span><span class="s1">'neumann'</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="s1">'dirichlet'</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="s1">'robin'</span><span class="p">)]</span>
 
-    <span class="n">rhs</span> <span class="o">=</span> <span class="n">rhss</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s1">'PROBLEM-NUMBER'</span><span class="p">]]</span>
-    <span class="n">dirichlet</span> <span class="o">=</span> <span class="n">dirichlets</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s1">'PROBLEM-NUMBER'</span><span class="p">]]</span>
-    <span class="n">neumann</span> <span class="o">=</span> <span class="n">neumanns</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s1">'PROBLEM-NUMBER'</span><span class="p">]]</span>
-    <span class="n">domain</span> <span class="o">=</span> <span class="n">domains</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s1">'PROBLEM-NUMBER'</span><span class="p">]]</span>
-    <span class="n">robin</span> <span class="o">=</span> <span class="n">robins</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s1">'PROBLEM-NUMBER'</span><span class="p">]]</span>
-    
+    <span class="n">rhs</span> <span class="o">=</span> <span class="n">rhss</span><span class="p">[</span><span class="n">problem_number</span><span class="p">]</span>
+    <span class="n">dirichlet</span> <span class="o">=</span> <span class="n">dirichlets</span><span class="p">[</span><span class="n">problem_number</span><span class="p">]</span>
+    <span class="n">neumann</span> <span class="o">=</span> <span class="n">neumanns</span><span class="p">[</span><span class="n">problem_number</span><span class="p">]</span>
+    <span class="n">domain</span> <span class="o">=</span> <span class="n">domains</span><span class="p">[</span><span class="n">problem_number</span><span class="p">]</span>
+    <span class="n">robin</span> <span class="o">=</span> <span class="n">robins</span><span class="p">[</span><span class="n">problem_number</span><span class="p">]</span>
+
     <span class="n">problem</span> <span class="o">=</span> <span class="n">StationaryProblem</span><span class="p">(</span>
         <span class="n">domain</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
         <span class="n">rhs</span><span class="o">=</span><span class="n">rhs</span><span class="p">,</span>
@@ -348,17 +344,17 @@
         <span class="n">name</span><span class="o">=</span><span class="s1">'2DProblem'</span>
     <span class="p">)</span>
 
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">norm</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">args</span><span class="p">[</span><span class="s1">'--fv'</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">norm</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">fv</span><span class="p">:</span>
         <span class="c1"># use a random parameter to construct an energy product</span>
         <span class="n">mu_bar</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">norm</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">mu_bar</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="nb">print</span><span class="p">(</span><span class="s1">'Discretize ...'</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">'--fv'</span><span class="p">]:</span>
-        <span class="n">m</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">discretize_stationary_fv</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">args</span><span class="p">[</span><span class="s1">'N'</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">fv</span><span class="p">:</span>
+        <span class="n">m</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">discretize_stationary_fv</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">m</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">discretize_stationary_cg</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">args</span><span class="p">[</span><span class="s1">'N'</span><span class="p">],</span> <span class="n">mu_energy_product</span><span class="o">=</span><span class="n">mu_bar</span><span class="p">)</span>
+        <span class="n">m</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">discretize_stationary_cg</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">n</span><span class="p">,</span> <span class="n">mu_energy_product</span><span class="o">=</span><span class="n">mu_bar</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">'grid'</span><span class="p">])</span>
     <span class="nb">print</span><span class="p">()</span>
 
@@ -370,19 +366,18 @@
         <span class="c1"># use the given energy product</span>
         <span class="n">norm_squared</span> <span class="o">=</span> <span class="n">U</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">products</span><span class="p">[</span><span class="s1">'energy'</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
         <span class="nb">print</span><span class="p">(</span><span class="s1">'Energy norm of the last snapshot: '</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norm_squared</span><span class="p">))</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="p">[</span><span class="s1">'--fv'</span><span class="p">]:</span>
-        <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">'NORM'</span><span class="p">]</span> <span class="o">==</span> <span class="s1">'h1'</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">fv</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">norm</span> <span class="o">==</span> <span class="s1">'h1'</span><span class="p">:</span>
             <span class="n">norm_squared</span> <span class="o">=</span> <span class="n">U</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">products</span><span class="p">[</span><span class="s1">'h1_0_semi'</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
             <span class="nb">print</span><span class="p">(</span><span class="s1">'H^1_0 semi norm of the last snapshot: '</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norm_squared</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">'NORM'</span><span class="p">]</span> <span class="o">==</span> <span class="s1">'l2'</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">norm</span> <span class="o">==</span> <span class="s1">'l2'</span><span class="p">:</span>
             <span class="n">norm_squared</span> <span class="o">=</span> <span class="n">U</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">products</span><span class="p">[</span><span class="s1">'l2_0'</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
             <span class="nb">print</span><span class="p">(</span><span class="s1">'L^2_0 norm of the last snapshot: '</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norm_squared</span><span class="p">))</span>
     <span class="n">m</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">'Solution for mu in [0.1, 1]'</span><span class="p">)</span></div>
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
-    <span class="n">args</span> <span class="o">=</span> <span class="n">docopt</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">)</span>
-    <span class="n">elliptic2_demo</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+    <span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">)</span>
 </pre></div>
 
           </article>
@@ -407,10 +402,10 @@
               
           </div>
             Last updated on
-              Nov 03, 2020.
+              Jan 17, 2021.
             <br/>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.3.0.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.3.1.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

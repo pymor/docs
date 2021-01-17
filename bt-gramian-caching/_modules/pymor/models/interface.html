@@ -46,7 +46,7 @@
   
   
   
-    <title>pymor.models.interface &#8212; pyMOR vold_pymor+1203.g183da6bb Manual</title>
+    <title>pymor.models.interface &#8212; pyMOR vold_pymor+1518.g5a6790c3 Manual</title>
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/jupyter-sphinx.css" />
@@ -89,11 +89,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="../../../index.html" title="pyMOR vold_pymor+1203.g183da6bb Manual"
+        <a href="../../../index.html" title="pyMOR vold_pymor+1518.g5a6790c3 Manual"
            class="md-header-nav__button md-logo">
           
               <img src="../../../_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR vold_pymor+1203.g183da6bb Manual logo">
+                   alt="pyMOR vold_pymor+1518.g5a6790c3 Manual logo">
           
         </a>
       </div>
@@ -159,7 +159,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="../../../index.html" class="md-tabs__link">pyMOR vold_pymor+1203.g183da6bb Manual</a></li>
+          <li class="md-tabs__item"><a href="../../../index.html" class="md-tabs__link">pyMOR vold_pymor+1518.g5a6790c3 Manual</a></li>
           <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">Module code</a></li>
       </ul>
     </div>
@@ -172,13 +172,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="../../../index.html" title="pyMOR vold_pymor+1203.g183da6bb Manual" class="md-nav__button md-logo">
+    <a href="../../../index.html" title="pyMOR vold_pymor+1518.g5a6790c3 Manual" class="md-nav__button md-logo">
       
         <img src="../../../_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="../../../index.html"
-       title="pyMOR vold_pymor+1203.g183da6bb Manual">Documentation</a>
+       title="pyMOR vold_pymor+1518.g5a6790c3 Manual">Documentation</a>
   </label>
   
 
@@ -215,7 +215,7 @@
     <li class="md-nav__item">
     
     
-      <a href="../../../release_notes.html" class="md-nav__link">Release Notes</a>
+      <a href="../../../release_notes/all.html" class="md-nav__link">Release Notes</a>
       
     
     </li>
@@ -223,6 +223,13 @@
     
     
       <a href="../../../bibliography.html" class="md-nav__link">Bibliography</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="../../../developer_docs.html" class="md-nav__link">Developer Documentation</a>
       
     
     </li>
@@ -267,13 +274,12 @@
 <span class="c1"># Copyright 2013-2020 pyMOR developers and contributors. All rights reserved.</span>
 <span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
 
-<span class="kn">from</span> <span class="nn">pymor.core.base</span> <span class="kn">import</span> <span class="n">abstractmethod</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
 <span class="kn">from</span> <span class="nn">pymor.core.cache</span> <span class="kn">import</span> <span class="n">CacheableObject</span>
 <span class="kn">from</span> <span class="nn">pymor.operators.constructions</span> <span class="kn">import</span> <span class="n">induced_norm</span>
 <span class="kn">from</span> <span class="nn">pymor.parameters.base</span> <span class="kn">import</span> <span class="n">ParametricObject</span><span class="p">,</span> <span class="n">Mu</span>
 <span class="kn">from</span> <span class="nn">pymor.tools.frozendict</span> <span class="kn">import</span> <span class="n">FrozenDict</span>
-<span class="kn">from</span> <span class="nn">pymor.tools.deprecated</span> <span class="kn">import</span> <span class="n">Deprecated</span>
-<span class="kn">from</span> <span class="nn">pymor.vectorarrays.interface</span> <span class="kn">import</span> <span class="n">VectorArray</span>
 
 
 <div class="viewcode-block" id="Model"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model">[docs]</a><span class="k">class</span> <span class="nc">Model</span><span class="p">(</span><span class="n">CacheableObject</span><span class="p">,</span> <span class="n">ParametricObject</span><span class="p">):</span>
@@ -289,9 +295,9 @@
 <span class="sd">    ----------</span>
 <span class="sd">    solution_space</span>
 <span class="sd">        |VectorSpace| of the solution |VectorArrays| returned by :meth:`solve`.</span>
-<span class="sd">    output_space</span>
-<span class="sd">        |VectorSpace| of the model output |VectorArrays| returned by</span>
-<span class="sd">        :meth:`output` (typically `NumpyVectorSpace(k)` where `k` is a small).</span>
+<span class="sd">    dim_output</span>
+<span class="sd">        Dimension of the model output returned by :meth:`output`. 0 if the</span>
+<span class="sd">        model has no output.</span>
 <span class="sd">    linear</span>
 <span class="sd">        `True` if the model describes a linear problem.</span>
 <span class="sd">    products</span>
@@ -299,12 +305,12 @@
 <span class="sd">    """</span>
 
     <span class="n">solution_space</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">output_space</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">dim_output</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">linear</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">products</span> <span class="o">=</span> <span class="n">FrozenDict</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">products</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">error_estimator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">visualizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                 <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+                 <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">products</span> <span class="o">=</span> <span class="n">FrozenDict</span><span class="p">(</span><span class="n">products</span> <span class="ow">or</span> <span class="p">{})</span>
         <span class="k">if</span> <span class="n">products</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">products</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -313,12 +319,12 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
 
-    <span class="k">def</span> <span class="nf">_compute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="k">def</span> <span class="nf">_compute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">solution_d_mu</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output_d_mu</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                  <span class="n">solution_error_estimate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output_error_estimate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                 <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+                 <span class="n">output_d_mu_return_array</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">{}</span>
 
-    <span class="k">def</span> <span class="nf">_compute_solution</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="Model._compute_solution"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model._compute_solution">[docs]</a>    <span class="k">def</span> <span class="nf">_compute_solution</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">"""Compute the model's solution for |parameter values| `mu`.</span>
 
 <span class="sd">        This method is called by the default implementation of :meth:`compute`</span>
@@ -337,9 +343,9 @@
 <span class="sd">        |VectorArray| with the computed solution or a dict which at least</span>
 <span class="sd">        must contain the key `'solution'`.</span>
 <span class="sd">        """</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
-    <span class="k">def</span> <span class="nf">_compute_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="Model._compute_output"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model._compute_output">[docs]</a>    <span class="k">def</span> <span class="nf">_compute_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">"""Compute the model's output for |parameter values| `mu`.</span>
 
 <span class="sd">        This method is called by the default implementation of :meth:`compute`</span>
@@ -366,16 +372,95 @@
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        |VectorArray| with the computed output or a dict which at least</span>
+<span class="sd">        |NumPy array| with the computed output or a dict which at least</span>
 <span class="sd">        must contain the key `'output'`.</span>
 <span class="sd">        """</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'output_functional'</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Model has no output'</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'output_functional'</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">solution</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">_compute_solution_error_estimate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="Model._compute_solution_d_mu_single_direction"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model._compute_solution_d_mu_single_direction">[docs]</a>    <span class="k">def</span> <span class="nf">_compute_solution_d_mu_single_direction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">"""Compute the partial derivative of the solution w.r.t. a parameter index</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        parameter</span>
+<span class="sd">            parameter for which to compute the sensitivity</span>
+<span class="sd">        index</span>
+<span class="sd">            parameter index for which to compute the sensitivity</span>
+<span class="sd">        solution</span>
+<span class="sd">            Internal model state for the given |Parameter value|.</span>
+<span class="sd">        mu</span>
+<span class="sd">            |Parameter value| for which to solve</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        The sensitivity of the solution as a |VectorArray|.</span>
+<span class="sd">        """</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="Model._compute_solution_d_mu"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model._compute_solution_d_mu">[docs]</a>    <span class="k">def</span> <span class="nf">_compute_solution_d_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">"""Compute all partial derivative of the solution w.r.t. a parameter index</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        solution</span>
+<span class="sd">            Internal model state for the given |Parameter value|.</span>
+<span class="sd">        mu</span>
+<span class="sd">            |Parameter value| for which to solve</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        A dict of all partial sensitivities of the solution.</span>
+<span class="sd">        """</span>
+        <span class="n">sensitivities</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">sens_for_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solution_space</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">size</span><span class="p">):</span>
+                <span class="n">sens_for_param</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_compute_solution_d_mu_single_direction</span><span class="p">(</span>
+                    <span class="n">parameter</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="p">))</span>
+            <span class="n">sensitivities</span><span class="p">[</span><span class="n">parameter</span><span class="p">]</span> <span class="o">=</span> <span class="n">sens_for_param</span>
+        <span class="k">return</span> <span class="n">sensitivities</span></div>
+
+<div class="viewcode-block" id="Model._compute_output_d_mu"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model._compute_output_d_mu">[docs]</a>    <span class="k">def</span> <span class="nf">_compute_output_d_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_array</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">"""compute the gradient w.r.t. the parameter of the output functional</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        solution</span>
+<span class="sd">            Internal model state for the given |Parameter value|.</span>
+<span class="sd">        mu</span>
+<span class="sd">            |Parameter value| for which to compute the gradient</span>
+<span class="sd">        return_array</span>
+<span class="sd">            if `True`, return the output gradient as a |NumPy array|.</span>
+<span class="sd">            Otherwise, return a dict of gradients for each |Parameter|.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        The gradient as a |NumPy array| or a dict of |NumPy arrays|.</span>
+<span class="sd">        """</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">U_d_mus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_solution_d_mu</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+        <span class="n">gradients</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">return_array</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">size</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">size</span><span class="p">):</span>
+                <span class="n">output_partial_dmu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span><span class="o">.</span><span class="n">d_mu</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                    <span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">U_d_mu</span> <span class="o">=</span> <span class="n">U_d_mus</span><span class="p">[</span><span class="n">parameter</span><span class="p">][</span><span class="n">index</span><span class="p">]</span>
+                <span class="n">array</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_partial_dmu</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_functional</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span>
+                    <span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U_d_mu</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">return_array</span><span class="p">:</span>
+                <span class="n">gradients</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">gradients</span><span class="p">[</span><span class="n">parameter</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span>
+        <span class="k">if</span> <span class="n">return_array</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">gradients</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">gradients</span></div>
+
+<div class="viewcode-block" id="Model._compute_solution_error_estimate"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model._compute_solution_error_estimate">[docs]</a>    <span class="k">def</span> <span class="nf">_compute_solution_error_estimate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">"""Compute an error estimate for the computed internal state.</span>
 
 <span class="sd">        This method is called by the default implementation of :meth:`compute`</span>
@@ -407,9 +492,9 @@
 <span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_estimator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Model has no error estimator'</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_estimator</span><span class="o">.</span><span class="n">estimate_error</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_estimator</span><span class="o">.</span><span class="n">estimate_error</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_compute_output_error_estimate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="Model._compute_output_error_estimate"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model._compute_output_error_estimate">[docs]</a>    <span class="k">def</span> <span class="nf">_compute_output_error_estimate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">"""Compute an error estimate for the computed model output.</span>
 
 <span class="sd">        This method is called by the default implementation of :meth:`compute`</span>
@@ -441,16 +526,16 @@
 <span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_estimator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Model has no error estimator'</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_estimator</span><span class="o">.</span><span class="n">estimate_output_error</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_estimator</span><span class="o">.</span><span class="n">estimate_output_error</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
     <span class="n">_compute_allowed_kwargs</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
 
-<div class="viewcode-block" id="Model.compute"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model.compute">[docs]</a>    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                <span class="n">solution_error_estimate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output_error_estimate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
-                <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="Model.compute"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model.compute">[docs]</a>    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">solution_d_mu</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output_d_mu</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">solution_error_estimate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output_error_estimate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">output_d_mu_return_array</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">"""Compute the solution of the model and associated quantities.</span>
 
-<span class="sd">        This methods the output of the model it's internal state</span>
+<span class="sd">        This methods computes the output of the model it's internal state</span>
 <span class="sd">        and various associated quantities for given |parameter values|</span>
 <span class="sd">        `mu`.</span>
 
@@ -471,10 +556,19 @@
 <span class="sd">            If `True`, return the model's internal state.</span>
 <span class="sd">        output</span>
 <span class="sd">            If `True`, return the model output.</span>
+<span class="sd">        solution_d_mu</span>
+<span class="sd">            If not `False`, either `True` to return the derivative of the model's</span>
+<span class="sd">            internal state w.r.t. all parameter components or a tuple `(parameter, index)`</span>
+<span class="sd">            to return the derivative of a single parameter component.</span>
+<span class="sd">        output_d_mu</span>
+<span class="sd">            If `True`, return the gradient of the model output w.r.t. the |Parameter|.</span>
 <span class="sd">        solution_error_estimate</span>
 <span class="sd">            If `True`, return an error estimate for the computed internal state.</span>
 <span class="sd">        output_error_estimate</span>
 <span class="sd">            If `True`, return an error estimate for the computed output.</span>
+<span class="sd">        output_d_mu_return_array</span>
+<span class="sd">            if `True`, return the output gradient as a |NumPy array|.</span>
+<span class="sd">            Otherwise, return a dict of gradients for each |Parameter|.</span>
 <span class="sd">        mu</span>
 <span class="sd">            |Parameter values| for which to compute the values.</span>
 <span class="sd">        kwargs</span>
@@ -501,12 +595,14 @@
 
         <span class="c1"># first call _compute to give subclasses more control</span>
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute</span><span class="p">(</span><span class="n">solution</span><span class="o">=</span><span class="n">solution</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">,</span>
+                             <span class="n">solution_d_mu</span><span class="o">=</span><span class="n">solution_d_mu</span><span class="p">,</span> <span class="n">output_d_mu</span><span class="o">=</span><span class="n">output_d_mu</span><span class="p">,</span>
                              <span class="n">solution_error_estimate</span><span class="o">=</span><span class="n">solution_error_estimate</span><span class="p">,</span>
                              <span class="n">output_error_estimate</span><span class="o">=</span><span class="n">output_error_estimate</span><span class="p">,</span>
                              <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="p">(</span><span class="n">solution</span> <span class="ow">or</span> <span class="n">output</span> <span class="ow">or</span> <span class="n">solution_error_estimate</span> <span class="ow">or</span> <span class="n">output_error_estimate</span><span class="p">)</span> <span class="ow">and</span> \
-                <span class="s1">'solution'</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">solution</span> <span class="ow">or</span> <span class="n">output</span> <span class="ow">or</span> <span class="n">solution_error_estimate</span> <span class="ow">or</span>
+                <span class="n">output_error_estimate</span> <span class="ow">or</span> <span class="n">solution_d_mu</span> <span class="ow">or</span> <span class="n">output_d_mu</span><span class="p">)</span> \
+           <span class="ow">and</span> <span class="s1">'solution'</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
             <span class="n">retval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cached_method_call</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_compute_solution</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">retval</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                 <span class="k">assert</span> <span class="s1">'solution'</span> <span class="ow">in</span> <span class="n">retval</span>
@@ -522,6 +618,29 @@
                 <span class="n">data</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">retval</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">data</span><span class="p">[</span><span class="s1">'output'</span><span class="p">]</span> <span class="o">=</span> <span class="n">retval</span>
+
+        <span class="k">if</span> <span class="n">solution_d_mu</span> <span class="ow">and</span> <span class="s1">'solution_d_mu'</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">solution_d_mu</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="n">retval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_solution_d_mu_single_direction</span><span class="p">(</span>
+                    <span class="n">solution_d_mu</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">solution_d_mu</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="s1">'solution'</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">retval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_solution_d_mu</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">'solution'</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="c1"># retval is always a dict</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">retval</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">'solution_d_mu'</span> <span class="ow">in</span> <span class="n">retval</span><span class="p">:</span>
+                <span class="n">data</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">retval</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">data</span><span class="p">[</span><span class="s1">'solution_d_mu'</span><span class="p">]</span> <span class="o">=</span> <span class="n">retval</span>
+
+        <span class="k">if</span> <span class="n">output_d_mu</span> <span class="ow">and</span> <span class="s1">'output_d_mu'</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="c1"># TODO use caching here (requires skipping args in key generation)</span>
+            <span class="n">retval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_output_d_mu</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">'solution'</span><span class="p">],</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span>
+                                               <span class="n">return_array</span><span class="o">=</span><span class="n">output_d_mu_return_array</span><span class="p">,</span>
+                                               <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="c1"># retval is always a dict</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">retval</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">'output_d_mu'</span> <span class="ow">in</span> <span class="n">retval</span><span class="p">:</span>
+                <span class="n">data</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">retval</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">data</span><span class="p">[</span><span class="s1">'output_d_mu'</span><span class="p">]</span> <span class="o">=</span> <span class="n">retval</span>
 
         <span class="k">if</span> <span class="n">solution_error_estimate</span> <span class="ow">and</span> <span class="s1">'solution_error_estimate'</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
             <span class="c1"># TODO use caching here (requires skipping args in key generation)</span>
@@ -597,7 +716,10 @@
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        The computed model output as a |VectorArray| from `output_space`.</span>
+<span class="sd">        The computed model output as a 2D |NumPy array|. The dimension</span>
+<span class="sd">        of axis 1 is :attr:`dim_output`. (For stationary problems, axis 0 has</span>
+<span class="sd">        dimension 1. For time-dependent problems, the dimension of axis 0</span>
+<span class="sd">        depends on the number of time steps.)</span>
 <span class="sd">        When `return_error_estimate` is `True`, the estimate is returned as</span>
 <span class="sd">        second value.</span>
 <span class="sd">        """</span>
@@ -611,6 +733,52 @@
             <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="s1">'output'</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="s1">'output_error_estimate'</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="s1">'output'</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Model.solve_d_mu"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model.solve_d_mu">[docs]</a>    <span class="k">def</span> <span class="nf">solve_d_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">"""Solve for the partial derivative of the solution w.r.t. a parameter index</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        parameter</span>
+<span class="sd">            parameter for which to compute the sensitivity</span>
+<span class="sd">        index</span>
+<span class="sd">            parameter index for which to compute the sensitivity</span>
+<span class="sd">        mu</span>
+<span class="sd">            |Parameter value| for which to solve</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        The sensitivity of the solution as a |VectorArray|.</span>
+<span class="sd">        """</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span>
+            <span class="n">solution_d_mu</span><span class="o">=</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">index</span><span class="p">),</span>
+            <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="s1">'solution_d_mu'</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Model.output_d_mu"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model.output_d_mu">[docs]</a>    <span class="k">def</span> <span class="nf">output_d_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_array</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">"""compute the gradient w.r.t. the parameter of the output functional</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mu</span>
+<span class="sd">            |Parameter value| for which to compute the gradient</span>
+<span class="sd">        return_array</span>
+<span class="sd">            if `True`, return the output gradient as a |NumPy array|.</span>
+<span class="sd">            Otherwise, return a dict of gradients for each |Parameter|.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        The gradient as a |NumPy array| or a dict of |NumPy arrays|.</span>
+<span class="sd">        """</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span>
+            <span class="n">output_d_mu</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span>
+            <span class="n">output_d_mu_return_array</span><span class="o">=</span><span class="n">return_array</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="s1">'output_d_mu'</span><span class="p">]</span></div>
 
 <div class="viewcode-block" id="Model.estimate_error"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model.estimate_error">[docs]</a>    <span class="k">def</span> <span class="nf">estimate_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">"""Estimate the error for the computed internal state.</span>
@@ -641,10 +809,6 @@
             <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span>
             <span class="o">**</span><span class="n">kwargs</span>
         <span class="p">)[</span><span class="s1">'solution_error_estimate'</span><span class="p">]</span></div>
-
-    <span class="nd">@Deprecated</span><span class="p">(</span><span class="s1">'estimate_error'</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">estimate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimate_error</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Model.estimate_output_error"><a class="viewcode-back" href="../../../generated/pymor.models.html#pymor.models.interface.Model.estimate_output_error">[docs]</a>    <span class="k">def</span> <span class="nf">estimate_output_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">"""Estimate the error for the computed output.</span>
@@ -716,10 +880,10 @@
               
           </div>
             Last updated on
-              Nov 03, 2020.
+              Jan 17, 2021.
             <br/>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.3.0.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.3.1.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>
