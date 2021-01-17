@@ -46,7 +46,7 @@
   
   
   
-    <title>pymordemos.parabolic_mor &#8212; pyMOR vold_pymor+1203.g183da6bb Manual</title>
+    <title>pymordemos.parabolic_mor &#8212; pyMOR vold_pymor+1518.g5a6790c3 Manual</title>
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../_static/jupyter-sphinx.css" />
@@ -89,11 +89,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="../../index.html" title="pyMOR vold_pymor+1203.g183da6bb Manual"
+        <a href="../../index.html" title="pyMOR vold_pymor+1518.g5a6790c3 Manual"
            class="md-header-nav__button md-logo">
           
               <img src="../../_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR vold_pymor+1203.g183da6bb Manual logo">
+                   alt="pyMOR vold_pymor+1518.g5a6790c3 Manual logo">
           
         </a>
       </div>
@@ -159,7 +159,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">pyMOR vold_pymor+1203.g183da6bb Manual</a></li>
+          <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">pyMOR vold_pymor+1518.g5a6790c3 Manual</a></li>
           <li class="md-tabs__item"><a href="../index.html" class="md-tabs__link">Module code</a></li>
       </ul>
     </div>
@@ -172,13 +172,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="../../index.html" title="pyMOR vold_pymor+1203.g183da6bb Manual" class="md-nav__button md-logo">
+    <a href="../../index.html" title="pyMOR vold_pymor+1518.g5a6790c3 Manual" class="md-nav__button md-logo">
       
         <img src="../../_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="../../index.html"
-       title="pyMOR vold_pymor+1203.g183da6bb Manual">Documentation</a>
+       title="pyMOR vold_pymor+1518.g5a6790c3 Manual">Documentation</a>
   </label>
   
 
@@ -215,7 +215,7 @@
     <li class="md-nav__item">
     
     
-      <a href="../../release_notes.html" class="md-nav__link">Release Notes</a>
+      <a href="../../release_notes/all.html" class="md-nav__link">Release Notes</a>
       
     
     </li>
@@ -223,6 +223,13 @@
     
     
       <a href="../../bibliography.html" class="md-nav__link">Bibliography</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="../../developer_docs.html" class="md-nav__link">Developer Documentation</a>
       
     
     </li>
@@ -268,37 +275,101 @@
 <span class="c1"># Copyright 2013-2020 pyMOR developers and contributors. All rights reserved.</span>
 <span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
 
-<span class="sd">"""Reduced basis approximation of the heat equation.</span>
-
-<span class="sd">Usage:</span>
-<span class="sd">  parabolic_mor.py BACKEND ALG SNAPSHOTS RBSIZE TEST</span>
-
-<span class="sd">Arguments:</span>
-<span class="sd">  BACKEND    Discretization toolkit to use (pymor, fenics).</span>
-
-<span class="sd">  ALG        The model reduction algorithm to use</span>
-<span class="sd">             (greedy, adaptive_greedy, pod).</span>
-
-<span class="sd">  SNAPSHOTS  greedy/pod:      number of training set parameters</span>
-<span class="sd">             adaptive_greedy: size of validation set.</span>
-
-<span class="sd">  RBSIZE     Size of the reduced basis.</span>
-<span class="sd">  TEST       Number of test parameters for reduction error estimation.</span>
-<span class="sd">"""</span>
-
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>    <span class="c1"># fix parameters of given function</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">typer</span> <span class="kn">import</span> <span class="n">Argument</span><span class="p">,</span> <span class="n">run</span>
 
 <span class="kn">from</span> <span class="nn">pymor.basic</span> <span class="kn">import</span> <span class="o">*</span>        <span class="c1"># most common pyMOR functions and classes</span>
 <span class="kn">from</span> <span class="nn">pymor.algorithms.timestepping</span> <span class="kn">import</span> <span class="n">ImplicitEulerTimeStepper</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.typer</span> <span class="kn">import</span> <span class="n">Choices</span>
 
 
 <span class="c1"># parameters for high-dimensional models</span>
-<span class="n">GRID_INTERVALS</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">GRID_INTERVALS</span> <span class="o">=</span> <span class="mi">50</span>
 <span class="n">FENICS_ORDER</span> <span class="o">=</span> <span class="mi">2</span>
-<span class="n">NT</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">NT</span> <span class="o">=</span> <span class="mi">50</span>
 <span class="n">DT</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">NT</span>
+
+
+<span class="c1">####################################################################################################</span>
+<span class="c1"># Main script                                                                                      #</span>
+<span class="c1">####################################################################################################</span>
+
+<div class="viewcode-block" id="main"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic_mor.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">(</span>
+    <span class="n">backend</span><span class="p">:</span> <span class="n">Choices</span><span class="p">(</span><span class="s1">'pymor fenics'</span><span class="p">)</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Discretization toolkit to use.'</span><span class="p">),</span>
+    <span class="n">alg</span><span class="p">:</span> <span class="n">Choices</span><span class="p">(</span><span class="s1">'greedy adaptive_greedy pod'</span><span class="p">)</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'The model reduction algorithm to use.'</span><span class="p">),</span>
+    <span class="n">snapshots</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span>
+        <span class="o">...</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">'greedy/pod: number of training set parameters</span><span class="se">\n\n</span><span class="s1">'</span>
+             <span class="s1">'adaptive_greedy: size of validation set.'</span>
+    <span class="p">),</span>
+    <span class="n">rbsize</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Size of the reduced basis.'</span><span class="p">),</span>
+    <span class="n">test</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Number of test parameters for reduction error estimation.'</span><span class="p">),</span>
+<span class="p">):</span>
+    <span class="sd">"""Reduced basis approximation of the heat equation."""</span>
+    <span class="c1"># discretize</span>
+    <span class="c1">############</span>
+    <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s1">'pymor'</span><span class="p">:</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="n">discretize_pymor</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s1">'fenics'</span><span class="p">:</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="n">discretize_fenics</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+    <span class="n">parameter_space</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">space</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+
+    <span class="c1"># select reduction algorithm with error estimator</span>
+    <span class="c1">#################################################</span>
+    <span class="n">coercivity_estimator</span> <span class="o">=</span> <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">'1.'</span><span class="p">,</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+    <span class="n">reductor</span> <span class="o">=</span> <span class="n">ParabolicRBReductor</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_product</span><span class="p">,</span> <span class="n">coercivity_estimator</span><span class="o">=</span><span class="n">coercivity_estimator</span><span class="p">)</span>
+
+    <span class="c1"># generate reduced model</span>
+    <span class="c1">########################</span>
+    <span class="k">if</span> <span class="n">alg</span> <span class="o">==</span> <span class="s1">'greedy'</span><span class="p">:</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="n">reduce_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">parameter_space</span><span class="p">,</span> <span class="n">snapshots</span><span class="p">,</span> <span class="n">rbsize</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">alg</span> <span class="o">==</span> <span class="s1">'adaptive_greedy'</span><span class="p">:</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="n">reduce_adaptive_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">parameter_space</span><span class="p">,</span> <span class="n">snapshots</span><span class="p">,</span> <span class="n">rbsize</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">alg</span> <span class="o">==</span> <span class="s1">'pod'</span><span class="p">:</span>
+        <span class="n">rom</span> <span class="o">=</span> <span class="n">reduce_pod</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">parameter_space</span><span class="p">,</span> <span class="n">snapshots</span><span class="p">,</span> <span class="n">rbsize</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="c1"># evaluate the reduction error</span>
+    <span class="c1">##############################</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">reduction_error_analysis</span><span class="p">(</span>
+        <span class="n">rom</span><span class="p">,</span> <span class="n">fom</span><span class="o">=</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="o">=</span><span class="n">reductor</span><span class="p">,</span> <span class="n">error_estimator</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">error_norms</span><span class="o">=</span><span class="p">[</span><span class="k">lambda</span> <span class="n">U</span><span class="p">:</span> <span class="n">DT</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_norm</span><span class="p">(</span><span class="n">U</span><span class="p">)[</span><span class="mi">1</span><span class="p">:]</span><span class="o">**</span><span class="mi">2</span><span class="p">))],</span>
+        <span class="n">error_norm_names</span><span class="o">=</span><span class="p">[</span><span class="s1">'l^2-h^1'</span><span class="p">],</span>
+        <span class="n">condition</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">test_mus</span><span class="o">=</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="n">test</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">999</span><span class="p">),</span> <span class="n">plot</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="c1"># show results</span>
+    <span class="c1">##############</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">'summary'</span><span class="p">])</span>
+    <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="c1"># write results to disk</span>
+    <span class="c1">#######################</span>
+    <span class="kn">from</span> <span class="nn">pymor.core.pickle</span> <span class="kn">import</span> <span class="n">dump</span>
+    <span class="n">dump</span><span class="p">(</span><span class="n">rom</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="s1">'reduced_model.out'</span><span class="p">,</span> <span class="s1">'wb'</span><span class="p">))</span>
+    <span class="n">results</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">'figure'</span><span class="p">)</span>  <span class="c1"># matplotlib figures cannot be serialized</span>
+    <span class="n">dump</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="s1">'results.out'</span><span class="p">,</span> <span class="s1">'wb'</span><span class="p">))</span>
+
+    <span class="c1"># visualize reduction error for worst-approximated mu</span>
+    <span class="c1">#####################################################</span>
+    <span class="n">mumax</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">'max_error_mus'</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mumax</span><span class="p">)</span>
+    <span class="n">U_RB</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mumax</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s1">'fenics'</span><span class="p">:</span>  <span class="c1"># right now the fenics visualizer does not support time trajectories</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">U_RB</span> <span class="o">=</span> <span class="n">U_RB</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">U_RB</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">((</span><span class="n">U</span><span class="p">,</span> <span class="n">U_RB</span><span class="p">,</span> <span class="n">U</span> <span class="o">-</span> <span class="n">U_RB</span><span class="p">),</span> <span class="n">legend</span><span class="o">=</span><span class="p">(</span><span class="s1">'Detailed Solution'</span><span class="p">,</span> <span class="s1">'Reduced Solution'</span><span class="p">,</span> <span class="s1">'Error'</span><span class="p">),</span>
+                  <span class="n">separate_colorbars</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">results</span></div>
+
+
 
 
 <span class="c1">####################################################################################################</span>
@@ -485,81 +556,8 @@
     <span class="k">return</span> <span class="n">rom</span></div>
 
 
-<span class="c1">####################################################################################################</span>
-<span class="c1"># Main script                                                                                      #</span>
-<span class="c1">####################################################################################################</span>
-
-<div class="viewcode-block" id="main"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic_mor.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">BACKEND</span><span class="p">,</span> <span class="n">ALG</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">,</span> <span class="n">TEST</span><span class="p">):</span>
-    <span class="c1"># discretize</span>
-    <span class="c1">############</span>
-    <span class="k">if</span> <span class="n">BACKEND</span> <span class="o">==</span> <span class="s1">'pymor'</span><span class="p">:</span>
-        <span class="n">fom</span> <span class="o">=</span> <span class="n">discretize_pymor</span><span class="p">()</span>
-    <span class="k">elif</span> <span class="n">BACKEND</span> <span class="o">==</span> <span class="s1">'fenics'</span><span class="p">:</span>
-        <span class="n">fom</span> <span class="o">=</span> <span class="n">discretize_fenics</span><span class="p">()</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
-    <span class="n">parameter_space</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">space</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
-
-    <span class="c1"># select reduction algorithm with error estimator</span>
-    <span class="c1">#################################################</span>
-    <span class="n">coercivity_estimator</span> <span class="o">=</span> <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">'1.'</span><span class="p">,</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
-    <span class="n">reductor</span> <span class="o">=</span> <span class="n">ParabolicRBReductor</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_product</span><span class="p">,</span> <span class="n">coercivity_estimator</span><span class="o">=</span><span class="n">coercivity_estimator</span><span class="p">)</span>
-
-    <span class="c1"># generate reduced model</span>
-    <span class="c1">########################</span>
-    <span class="k">if</span> <span class="n">ALG</span> <span class="o">==</span> <span class="s1">'greedy'</span><span class="p">:</span>
-        <span class="n">rom</span> <span class="o">=</span> <span class="n">reduce_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">parameter_space</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">ALG</span> <span class="o">==</span> <span class="s1">'adaptive_greedy'</span><span class="p">:</span>
-        <span class="n">rom</span> <span class="o">=</span> <span class="n">reduce_adaptive_greedy</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">parameter_space</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">ALG</span> <span class="o">==</span> <span class="s1">'pod'</span><span class="p">:</span>
-        <span class="n">rom</span> <span class="o">=</span> <span class="n">reduce_pod</span><span class="p">(</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="p">,</span> <span class="n">parameter_space</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
-
-    <span class="c1"># evaluate the reduction error</span>
-    <span class="c1">##############################</span>
-    <span class="n">results</span> <span class="o">=</span> <span class="n">reduction_error_analysis</span><span class="p">(</span>
-        <span class="n">rom</span><span class="p">,</span> <span class="n">fom</span><span class="o">=</span><span class="n">fom</span><span class="p">,</span> <span class="n">reductor</span><span class="o">=</span><span class="n">reductor</span><span class="p">,</span> <span class="n">error_estimator</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="n">error_norms</span><span class="o">=</span><span class="p">[</span><span class="k">lambda</span> <span class="n">U</span><span class="p">:</span> <span class="n">DT</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">fom</span><span class="o">.</span><span class="n">h1_0_semi_norm</span><span class="p">(</span><span class="n">U</span><span class="p">)[</span><span class="mi">1</span><span class="p">:]</span><span class="o">**</span><span class="mi">2</span><span class="p">))],</span>
-        <span class="n">error_norm_names</span><span class="o">=</span><span class="p">[</span><span class="s1">'l^2-h^1'</span><span class="p">],</span>
-        <span class="n">condition</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">test_mus</span><span class="o">=</span><span class="n">parameter_space</span><span class="o">.</span><span class="n">sample_randomly</span><span class="p">(</span><span class="n">TEST</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">999</span><span class="p">),</span> <span class="n">plot</span><span class="o">=</span><span class="kc">True</span>
-    <span class="p">)</span>
-
-    <span class="c1"># show results</span>
-    <span class="c1">##############</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">'summary'</span><span class="p">])</span>
-    <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">'figure'</span><span class="p">])</span>
-
-    <span class="c1"># write results to disk</span>
-    <span class="c1">#######################</span>
-    <span class="kn">from</span> <span class="nn">pymor.core.pickle</span> <span class="kn">import</span> <span class="n">dump</span>
-    <span class="n">dump</span><span class="p">(</span><span class="n">rom</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="s1">'reduced_model.out'</span><span class="p">,</span> <span class="s1">'wb'</span><span class="p">))</span>
-    <span class="n">results</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">'figure'</span><span class="p">)</span>  <span class="c1"># matplotlib figures cannot be serialized</span>
-    <span class="n">dump</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="s1">'results.out'</span><span class="p">,</span> <span class="s1">'wb'</span><span class="p">))</span>
-
-    <span class="c1"># visualize reduction error for worst-approximated mu</span>
-    <span class="c1">#####################################################</span>
-    <span class="n">mumax</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">'max_error_mus'</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-    <span class="n">U</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mumax</span><span class="p">)</span>
-    <span class="n">U_RB</span> <span class="o">=</span> <span class="n">reductor</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">rom</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mumax</span><span class="p">))</span>
-    <span class="k">if</span> <span class="n">BACKEND</span> <span class="o">==</span> <span class="s1">'fenics'</span><span class="p">:</span>  <span class="c1"># right now the fenics visualizer does not support time trajectories</span>
-        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">U_RB</span> <span class="o">=</span> <span class="n">U_RB</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">U_RB</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-    <span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">((</span><span class="n">U</span><span class="p">,</span> <span class="n">U_RB</span><span class="p">,</span> <span class="n">U</span> <span class="o">-</span> <span class="n">U_RB</span><span class="p">),</span> <span class="n">legend</span><span class="o">=</span><span class="p">(</span><span class="s1">'Detailed Solution'</span><span class="p">,</span> <span class="s1">'Reduced Solution'</span><span class="p">,</span> <span class="s1">'Error'</span><span class="p">),</span>
-                <span class="n">separate_colorbars</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">results</span></div>
-
-
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
-    <span class="kn">import</span> <span class="nn">sys</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">6</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">)</span>
-        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">BACKEND</span><span class="p">,</span> <span class="n">ALG</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">,</span> <span class="n">TEST</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
-    <span class="n">BACKEND</span><span class="p">,</span> <span class="n">ALG</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">,</span> <span class="n">TEST</span> <span class="o">=</span> <span class="n">BACKEND</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="n">ALG</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="nb">int</span><span class="p">(</span><span class="n">SNAPSHOTS</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">RBSIZE</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">TEST</span><span class="p">)</span>
-    <span class="n">main</span><span class="p">(</span><span class="n">BACKEND</span><span class="p">,</span> <span class="n">ALG</span><span class="p">,</span> <span class="n">SNAPSHOTS</span><span class="p">,</span> <span class="n">RBSIZE</span><span class="p">,</span> <span class="n">TEST</span><span class="p">)</span>
+    <span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">)</span>
 </pre></div>
 
           </article>
@@ -584,10 +582,10 @@
               
           </div>
             Last updated on
-              Nov 03, 2020.
+              Jan 17, 2021.
             <br/>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.3.0.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.3.1.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

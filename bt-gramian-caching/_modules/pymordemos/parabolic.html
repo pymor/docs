@@ -46,7 +46,7 @@
   
   
   
-    <title>pymordemos.parabolic &#8212; pyMOR vold_pymor+1203.g183da6bb Manual</title>
+    <title>pymordemos.parabolic &#8212; pyMOR vold_pymor+1518.g5a6790c3 Manual</title>
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../_static/jupyter-sphinx.css" />
@@ -89,11 +89,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="../../index.html" title="pyMOR vold_pymor+1203.g183da6bb Manual"
+        <a href="../../index.html" title="pyMOR vold_pymor+1518.g5a6790c3 Manual"
            class="md-header-nav__button md-logo">
           
               <img src="../../_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR vold_pymor+1203.g183da6bb Manual logo">
+                   alt="pyMOR vold_pymor+1518.g5a6790c3 Manual logo">
           
         </a>
       </div>
@@ -159,7 +159,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">pyMOR vold_pymor+1203.g183da6bb Manual</a></li>
+          <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">pyMOR vold_pymor+1518.g5a6790c3 Manual</a></li>
           <li class="md-tabs__item"><a href="../index.html" class="md-tabs__link">Module code</a></li>
       </ul>
     </div>
@@ -172,13 +172,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="../../index.html" title="pyMOR vold_pymor+1203.g183da6bb Manual" class="md-nav__button md-logo">
+    <a href="../../index.html" title="pyMOR vold_pymor+1518.g5a6790c3 Manual" class="md-nav__button md-logo">
       
         <img src="../../_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="../../index.html"
-       title="pyMOR vold_pymor+1203.g183da6bb Manual">Documentation</a>
+       title="pyMOR vold_pymor+1518.g5a6790c3 Manual">Documentation</a>
   </label>
   
 
@@ -215,7 +215,7 @@
     <li class="md-nav__item">
     
     
-      <a href="../../release_notes.html" class="md-nav__link">Release Notes</a>
+      <a href="../../release_notes/all.html" class="md-nav__link">Release Notes</a>
       
     
     </li>
@@ -223,6 +223,13 @@
     
     
       <a href="../../bibliography.html" class="md-nav__link">Bibliography</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="../../developer_docs.html" class="md-nav__link">Developer Documentation</a>
       
     
     </li>
@@ -268,114 +275,120 @@
 <span class="c1"># Copyright 2013-2020 pyMOR developers and contributors. All rights reserved.</span>
 <span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
 
-<span class="sd">"""Simple demonstration of solving parabolic equations using pyMOR's builtin discretization toolkit.</span>
-
-<span class="sd">Usage:</span>
-<span class="sd">    parabolic.py [options] heat TOP</span>
-<span class="sd">    parabolic.py [options] dar SPEED</span>
-
-<span class="sd">Arguments:</span>
-<span class="sd">    TOP          The heat diffusion coefficient for the top bars.</span>
-<span class="sd">    SPEED        The advection speed.</span>
-
-<span class="sd">Options:</span>
-<span class="sd">    -h, --help   Show this message.</span>
-<span class="sd">    --fv         Use finite volume discretization instead of finite elements.</span>
-<span class="sd">    --rect       Use RectGrid instead of TriaGrid.</span>
-<span class="sd">    --grid=NI    Use grid with NIxNI intervals [default: 100].</span>
-<span class="sd">    --nt=COUNT   Number of time steps [default: 100].</span>
-<span class="sd">"""</span>
-
-<span class="kn">from</span> <span class="nn">docopt</span> <span class="kn">import</span> <span class="n">docopt</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">typer</span> <span class="kn">import</span> <span class="n">Argument</span><span class="p">,</span> <span class="n">Option</span><span class="p">,</span> <span class="n">Typer</span>
 
 <span class="kn">from</span> <span class="nn">pymor.basic</span> <span class="kn">import</span> <span class="o">*</span>
 
 
-<div class="viewcode-block" id="parabolic_demo"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic.parabolic_demo">[docs]</a><span class="k">def</span> <span class="nf">parabolic_demo</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="n">args</span><span class="p">[</span><span class="s1">'--nt'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'--nt'</span><span class="p">])</span>
-    <span class="n">args</span><span class="p">[</span><span class="s1">'--grid'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'--grid'</span><span class="p">])</span>
+<span class="n">app</span> <span class="o">=</span> <span class="n">Typer</span><span class="p">(</span><span class="n">help</span><span class="o">=</span><span class="s2">"Solve parabolic equations using pyMOR's builtin discretization toolkit."</span><span class="p">)</span>
+<span class="n">FV</span> <span class="o">=</span> <span class="n">Option</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Use finite volume discretization instead of finite elements.'</span><span class="p">)</span>
+<span class="n">GRID</span> <span class="o">=</span> <span class="n">Option</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Use grid with NIxNI intervals.'</span><span class="p">)</span>
+<span class="n">NT</span> <span class="o">=</span> <span class="n">Option</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Number of time steps.'</span><span class="p">)</span>
+<span class="n">RECT</span> <span class="o">=</span> <span class="n">Option</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Use RectGrid instead of TriaGrid.'</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">'heat'</span><span class="p">]:</span>
-        <span class="n">args</span><span class="p">[</span><span class="s1">'TOP'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'TOP'</span><span class="p">])</span>
-        <span class="n">problem</span> <span class="o">=</span> <span class="n">InstationaryProblem</span><span class="p">(</span>
 
-            <span class="n">StationaryProblem</span><span class="p">(</span>
-                <span class="n">domain</span><span class="o">=</span><span class="n">RectDomain</span><span class="p">(</span><span class="n">top</span><span class="o">=</span><span class="s1">'dirichlet'</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="s1">'neumann'</span><span class="p">),</span>
+<div class="viewcode-block" id="heat"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic.heat">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">heat</span><span class="p">(</span>
+    <span class="n">top</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'The heat diffusion coefficient for the top bars.'</span><span class="p">),</span>
 
-                <span class="n">diffusion</span><span class="o">=</span><span class="n">LincombFunction</span><span class="p">(</span>
-                    <span class="p">[</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
-                     <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'(x[..., 0] &gt; 0.45) * (x[..., 0] &lt; 0.55) * (x[..., 1] &lt; 0.7) * 1.'</span><span class="p">,</span>
-                                        <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
-                     <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'(x[..., 0] &gt; 0.35) * (x[..., 0] &lt; 0.40) * (x[..., 1] &gt; 0.3) * 1. + '</span>
-                                        <span class="s1">'(x[..., 0] &gt; 0.60) * (x[..., 0] &lt; 0.65) * (x[..., 1] &gt; 0.3) * 1.'</span><span class="p">,</span>
-                                        <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">)],</span>
-                    <span class="p">[</span><span class="mf">1.</span><span class="p">,</span>
-                     <span class="mf">100.</span> <span class="o">-</span> <span class="mf">1.</span><span class="p">,</span>
-                     <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">'top - 1.'</span><span class="p">,</span> <span class="p">{</span><span class="s1">'top'</span><span class="p">:</span> <span class="mi">1</span><span class="p">})]</span>
-                <span class="p">),</span>
+    <span class="n">fv</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">FV</span><span class="p">,</span>
+    <span class="n">grid</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">GRID</span><span class="p">,</span>
+    <span class="n">nt</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">NT</span><span class="p">,</span>
+    <span class="n">rect</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">RECT</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">InstationaryProblem</span><span class="p">(</span>
 
-                <span class="n">rhs</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+        <span class="n">StationaryProblem</span><span class="p">(</span>
+            <span class="n">domain</span><span class="o">=</span><span class="n">RectDomain</span><span class="p">(</span><span class="n">top</span><span class="o">=</span><span class="s1">'dirichlet'</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="s1">'neumann'</span><span class="p">),</span>
 
-                <span class="n">dirichlet_data</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
-
-                <span class="n">neumann_data</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'(x[..., 0] &gt; 0.45) * (x[..., 0] &lt; 0.55) * -1000.'</span><span class="p">,</span>
-                                                <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+            <span class="n">diffusion</span><span class="o">=</span><span class="n">LincombFunction</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+                 <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'(x[..., 0] &gt; 0.45) * (x[..., 0] &lt; 0.55) * (x[..., 1] &lt; 0.7) * 1.'</span><span class="p">,</span>
+                                    <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+                 <span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'(x[..., 0] &gt; 0.35) * (x[..., 0] &lt; 0.40) * (x[..., 1] &gt; 0.3) * 1. + '</span>
+                                    <span class="s1">'(x[..., 0] &gt; 0.60) * (x[..., 0] &lt; 0.65) * (x[..., 1] &gt; 0.3) * 1.'</span><span class="p">,</span>
+                                    <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">)],</span>
+                <span class="p">[</span><span class="mf">1.</span><span class="p">,</span>
+                 <span class="mf">100.</span> <span class="o">-</span> <span class="mf">1.</span><span class="p">,</span>
+                 <span class="n">ExpressionParameterFunctional</span><span class="p">(</span><span class="s1">'top - 1.'</span><span class="p">,</span> <span class="p">{</span><span class="s1">'top'</span><span class="p">:</span> <span class="mi">1</span><span class="p">})]</span>
             <span class="p">),</span>
 
-            <span class="n">T</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span>
+            <span class="n">rhs</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
 
-            <span class="n">initial_data</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'(x[..., 0] &gt; 0.45) * (x[..., 0] &lt; 0.55) * (x[..., 1] &lt; 0.7) * 10.'</span><span class="p">,</span>
-                                            <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-        <span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">args</span><span class="p">[</span><span class="s1">'SPEED'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'SPEED'</span><span class="p">])</span>
-        <span class="n">problem</span> <span class="o">=</span> <span class="n">InstationaryProblem</span><span class="p">(</span>
+            <span class="n">dirichlet_data</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
 
-            <span class="n">StationaryProblem</span><span class="p">(</span>
-                <span class="n">domain</span><span class="o">=</span><span class="n">RectDomain</span><span class="p">(),</span>
-
-                <span class="n">diffusion</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
-
-                <span class="n">advection</span><span class="o">=</span><span class="n">LincombFunction</span><span class="p">([</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">)],</span>
-                                          <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'speed'</span><span class="p">)]),</span>
-
-                <span class="n">reaction</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
-
-                <span class="n">rhs</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'(x[..., 0] &gt; 0.3) * (x[..., 0] &lt; 0.7) * (x[..., 1] &gt; 0.3)*(x[...,1]&lt;0.7) * 0.'</span><span class="p">,</span>
-                                       <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
-
-                <span class="n">dirichlet_data</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
-            <span class="p">),</span>
-
-            <span class="n">T</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span>
-
-            <span class="n">initial_data</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'(x[..., 0] &gt; 0.3) * (x[..., 0] &lt; 0.7) * (x[...,1]&gt;0.3) * (x[..., 1] &lt; 0.7) * 10.'</span><span class="p">,</span>
+            <span class="n">neumann_data</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'(x[..., 0] &gt; 0.45) * (x[..., 0] &lt; 0.55) * -1000.'</span><span class="p">,</span>
                                             <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
-        <span class="p">)</span>
+        <span class="p">),</span>
 
+        <span class="n">T</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span>
+
+        <span class="n">initial_data</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'(x[..., 0] &gt; 0.45) * (x[..., 0] &lt; 0.55) * (x[..., 1] &lt; 0.7) * 10.'</span><span class="p">,</span>
+                                        <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'top'</span><span class="p">:</span> <span class="n">top</span><span class="p">}</span>
+    <span class="n">solve</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">fv</span><span class="p">,</span> <span class="n">rect</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">nt</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="dar"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic.dar">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">dar</span><span class="p">(</span>
+    <span class="n">speed</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'The advection speed.'</span><span class="p">),</span>
+
+    <span class="n">fv</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">FV</span><span class="p">,</span>
+    <span class="n">grid</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">GRID</span><span class="p">,</span>
+    <span class="n">nt</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">NT</span><span class="p">,</span>
+    <span class="n">rect</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">RECT</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">InstationaryProblem</span><span class="p">(</span>
+
+        <span class="n">StationaryProblem</span><span class="p">(</span>
+            <span class="n">domain</span><span class="o">=</span><span class="n">RectDomain</span><span class="p">(),</span>
+
+            <span class="n">diffusion</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+
+            <span class="n">advection</span><span class="o">=</span><span class="n">LincombFunction</span><span class="p">([</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">)],</span>
+                                      <span class="p">[</span><span class="n">ProjectionParameterFunctional</span><span class="p">(</span><span class="s1">'speed'</span><span class="p">)]),</span>
+
+            <span class="n">reaction</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+
+            <span class="n">rhs</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'(x[..., 0] &gt; 0.3) * (x[..., 0] &lt; 0.7) * (x[..., 1] &gt; 0.3)*(x[...,1]&lt;0.7) * 0.'</span><span class="p">,</span>
+                                   <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+
+            <span class="n">dirichlet_data</span><span class="o">=</span><span class="n">ConstantFunction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+        <span class="p">),</span>
+
+        <span class="n">T</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span>
+
+        <span class="n">initial_data</span><span class="o">=</span><span class="n">ExpressionFunction</span><span class="p">(</span><span class="s1">'(x[..., 0] &gt; 0.3) * (x[..., 0] &lt; 0.7) * (x[...,1]&gt;0.3) * (x[..., 1] &lt; 0.7) * 10.'</span><span class="p">,</span>
+                                        <span class="n">dim_domain</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'speed'</span><span class="p">:</span> <span class="n">speed</span><span class="p">}</span>
+    <span class="n">solve</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">fv</span><span class="p">,</span> <span class="n">rect</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">nt</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="solve"><a class="viewcode-back" href="../../generated/pymordemos.html#pymordemos.parabolic.solve">[docs]</a><span class="k">def</span> <span class="nf">solve</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">fv</span><span class="p">,</span> <span class="n">rect</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">nt</span><span class="p">):</span>
     <span class="nb">print</span><span class="p">(</span><span class="s1">'Discretize ...'</span><span class="p">)</span>
-    <span class="n">discretizer</span> <span class="o">=</span> <span class="n">discretize_instationary_fv</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">'--fv'</span><span class="p">]</span> <span class="k">else</span> <span class="n">discretize_instationary_cg</span>
+    <span class="n">discretizer</span> <span class="o">=</span> <span class="n">discretize_instationary_fv</span> <span class="k">if</span> <span class="n">fv</span> <span class="k">else</span> <span class="n">discretize_instationary_cg</span>
     <span class="n">m</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">discretizer</span><span class="p">(</span>
         <span class="n">analytical_problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>
-        <span class="n">grid_type</span><span class="o">=</span><span class="n">RectGrid</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">'--rect'</span><span class="p">]</span> <span class="k">else</span> <span class="n">TriaGrid</span><span class="p">,</span>
-        <span class="n">diameter</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">args</span><span class="p">[</span><span class="s1">'--grid'</span><span class="p">]</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">'--rect'</span><span class="p">]</span> <span class="k">else</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">args</span><span class="p">[</span><span class="s1">'--grid'</span><span class="p">],</span>
-        <span class="n">nt</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s1">'--nt'</span><span class="p">]</span>
+        <span class="n">grid_type</span><span class="o">=</span><span class="n">RectGrid</span> <span class="k">if</span> <span class="n">rect</span> <span class="k">else</span> <span class="n">TriaGrid</span><span class="p">,</span>
+        <span class="n">diameter</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">grid</span> <span class="k">if</span> <span class="n">rect</span> <span class="k">else</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">grid</span><span class="p">,</span>
+        <span class="n">nt</span><span class="o">=</span><span class="n">nt</span>
     <span class="p">)</span>
     <span class="n">grid</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">'grid'</span><span class="p">]</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">()</span>
 
     <span class="nb">print</span><span class="p">(</span><span class="s1">'Solve ...'</span><span class="p">)</span>
-    <span class="n">U</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">solve</span><span class="p">({</span><span class="s1">'top'</span><span class="p">:</span> <span class="n">args</span><span class="p">[</span><span class="s1">'TOP'</span><span class="p">]}</span> <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s1">'heat'</span><span class="p">]</span> <span class="k">else</span> <span class="p">{</span><span class="s1">'speed'</span><span class="p">:</span> <span class="n">args</span><span class="p">[</span><span class="s1">'SPEED'</span><span class="p">]})</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
     <span class="n">m</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">'Solution'</span><span class="p">)</span>
 
     <span class="nb">print</span><span class="p">(</span><span class="s1">''</span><span class="p">)</span></div>
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
-    <span class="n">args</span> <span class="o">=</span> <span class="n">docopt</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">)</span>
-    <span class="n">parabolic_demo</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+    <span class="n">app</span><span class="p">()</span> 
 </pre></div>
 
           </article>
@@ -400,10 +413,10 @@
               
           </div>
             Last updated on
-              Nov 03, 2020.
+              Jan 17, 2021.
             <br/>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.3.0.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.3.1.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>
