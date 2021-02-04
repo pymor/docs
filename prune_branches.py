@@ -37,7 +37,13 @@ def _get_pymor_branches():
 
 
 def _update_refs():
-    subprocess.check_call(['git', 'update-ref', '-d', 'refs/original/refs/heads/master'])
+    subprocess.check_call(['git', 'update-ref', '-d', 'refs/original/refs/heads/main'])
+
+
+def _del_remote_branch(branches):
+    for branch in branches:
+        print(f'deleting origin/{branch}')
+        subprocess.check_call(['git', 'push', 'origin', '--delete', branch])
 
 
 def _prune_branches(branches):
@@ -48,6 +54,7 @@ def _prune_branches(branches):
     env['FILTER_BRANCH_SQUELCH_WARNING'] = "1"
     cmd = ['git', 'filter-branch', '-f', '--tree-filter', rf'rm -rf {branches}', '--prune-empty', 'HEAD']
     subprocess.check_call(cmd, universal_newlines=True, env=env)
+    _del_remote_branches(branches)
     _update_refs()
 
 
@@ -62,5 +69,7 @@ def _get_to_prune_branches():
 
 dels = _get_to_prune_branches()
 _prune_branches(dels)
-subprocess.check_call(['echo', 'git', 'gc', '--aggressive'])
-subprocess.check_call(['echo', 'git', 'push', 'origin','-f'])
+print('''Now execute
+git gc --aggressive
+git push origin --force
+''')
