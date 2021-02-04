@@ -40,7 +40,7 @@ def _update_refs():
     subprocess.check_call(['git', 'update-ref', '-d', 'refs/original/refs/heads/main'])
 
 
-def _del_remote_branch(branches):
+def _del_remote_branches(branches):
     for branch in branches:
         print(f'deleting origin/{branch}')
         subprocess.check_call(['git', 'push', 'origin', '--delete', branch])
