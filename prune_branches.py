@@ -48,11 +48,11 @@ def _del_remote_branches(branches):
 
 def _prune_branches(branches):
     os.chdir(ROOT)
-    branches = ' '.join(branches)
+    str_branches = ' '.join(branches)
     print(f'pruning: {branches}')
     env = os.environ.copy()
     env['FILTER_BRANCH_SQUELCH_WARNING'] = "1"
-    cmd = ['git', 'filter-branch', '-f', '--tree-filter', rf'rm -rf {branches}', '--prune-empty', 'HEAD']
+    cmd = ['git', 'filter-branch', '-f', '--tree-filter', rf'rm -rf {str_branches}', '--prune-empty', 'HEAD']
     subprocess.check_call(cmd, universal_newlines=True, env=env)
     _del_remote_branches(branches)
     _update_refs()
