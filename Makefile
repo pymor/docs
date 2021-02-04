@@ -1,6 +1,6 @@
 .PHONY: list git_squash prune
 
-list:
+index:
 	./makeindex.py
 
 git_squash:
