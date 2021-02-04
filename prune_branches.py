@@ -11,7 +11,7 @@ from pathlib import Path
 from pprint import pformat
 
 ROOT = Path(os.path.abspath(os.path.dirname(__file__)))
-BLOCKLIST = [".git", "latest"]
+BLOCKLIST = [".git", "latest", ".binder"]
 
 @contextlib.contextmanager
 def remember_cwd(dirname):
