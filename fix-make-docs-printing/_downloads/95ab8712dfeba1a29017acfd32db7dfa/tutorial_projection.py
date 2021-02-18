@@ -139,11 +139,11 @@ ProjectRules
 
 assert ProjectRules.rules[8].action_description == 'LincombOperator'
 
-print_source(ProjectRules.rules[8].action)
+ProjectRules.rules[8]
 
 assert ProjectRules.rules[3].action_description == 'apply_basis'
 
-print_source(ProjectRules.rules[3].action)
+ProjectRules.rules[3]
 
 from pymor.reductors.basic import StationaryRBReductor
 
