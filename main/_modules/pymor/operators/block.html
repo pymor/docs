@@ -46,7 +46,7 @@
   
   
   
-    <title>pymor.operators.block &#8212; pyMOR v2021.1rc0+68.g469c5453 Manual</title>
+    <title>pymor.operators.block &#8212; pyMOR v2021.1rc0+72.g03a5b4dd Manual</title>
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/jupyter-sphinx.css" />
@@ -87,11 +87,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="../../../index.html" title="pyMOR v2021.1rc0+68.g469c5453 Manual"
+        <a href="../../../index.html" title="pyMOR v2021.1rc0+72.g03a5b4dd Manual"
            class="md-header-nav__button md-logo">
           
               <img src="../../../_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR v2021.1rc0+68.g469c5453 Manual logo">
+                   alt="pyMOR v2021.1rc0+72.g03a5b4dd Manual logo">
           
         </a>
       </div>
@@ -157,7 +157,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="../../../index.html" class="md-tabs__link">pyMOR v2021.1rc0+68.g469c5453 Manual</a></li>
+          <li class="md-tabs__item"><a href="../../../index.html" class="md-tabs__link">pyMOR v2021.1rc0+72.g03a5b4dd Manual</a></li>
           <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">Module code</a></li>
       </ul>
     </div>
@@ -170,13 +170,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="../../../index.html" title="pyMOR v2021.1rc0+68.g469c5453 Manual" class="md-nav__button md-logo">
+    <a href="../../../index.html" title="pyMOR v2021.1rc0+72.g03a5b4dd Manual" class="md-nav__button md-logo">
       
         <img src="../../../_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="../../../index.html"
-       title="pyMOR v2021.1rc0+68.g469c5453 Manual">Documentation</a>
+       title="pyMOR v2021.1rc0+72.g03a5b4dd Manual">Documentation</a>
   </label>
   
 
@@ -526,8 +526,8 @@
 <span class="sd">    .. math::</span>
 <span class="sd">        \mathcal{A} =</span>
 <span class="sd">        \begin{bmatrix}</span>
-<span class="sd">            0 &amp; I \\</span>
-<span class="sd">            -K &amp; -E</span>
+<span class="sd">            \alpha I &amp; \beta I \\</span>
+<span class="sd">            B &amp; A</span>
 <span class="sd">        \end{bmatrix},</span>
 
 <span class="sd">    which satisfies</span>
@@ -536,179 +536,82 @@
 <span class="sd">        \mathcal{A}^H</span>
 <span class="sd">        &amp;=</span>
 <span class="sd">        \begin{bmatrix}</span>
-<span class="sd">            0 &amp; -K^H \\</span>
-<span class="sd">            I &amp; -E^H</span>
+<span class="sd">            \overline{\alpha} I &amp; B^H \\</span>
+<span class="sd">            \overline{\beta} I &amp; A^H</span>
 <span class="sd">        \end{bmatrix}, \\</span>
 <span class="sd">        \mathcal{A}^{-1}</span>
 <span class="sd">        &amp;=</span>
 <span class="sd">        \begin{bmatrix}</span>
-<span class="sd">            -K^{-1} E &amp; -K^{-1} \\</span>
-<span class="sd">            I &amp; 0</span>
+<span class="sd">            (\alpha A - \beta B)^{-1} A &amp; -\beta (\alpha A - \beta B)^{-1} \\</span>
+<span class="sd">            -(\alpha A - \beta B)^{-1} B &amp; \alpha (\alpha A - \beta B)^{-1}</span>
 <span class="sd">        \end{bmatrix}, \\</span>
 <span class="sd">        \mathcal{A}^{-H}</span>
 <span class="sd">        &amp;=</span>
 <span class="sd">        \begin{bmatrix}</span>
-<span class="sd">            -E^H K^{-H} &amp; I \\</span>
-<span class="sd">            -K^{-H} &amp; 0</span>
+<span class="sd">            A^H (\alpha A - \beta B)^{-H}</span>
+<span class="sd">            &amp; -B^H (\alpha A - \beta B)^{-H} \\</span>
+<span class="sd">            -\overline{\beta} (\alpha A - \beta B)^{-H}</span>
+<span class="sd">            &amp; \overline{\alpha} (\alpha A - \beta B)^{-H}</span>
 <span class="sd">        \end{bmatrix}.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    E</span>
+<span class="sd">    alpha</span>
+<span class="sd">        Scalar.</span>
+<span class="sd">    beta</span>
+<span class="sd">        Scalar.</span>
+<span class="sd">    A</span>
 <span class="sd">        |Operator|.</span>
-<span class="sd">    K</span>
+<span class="sd">    B</span>
 <span class="sd">        |Operator|.</span>
 <span class="sd">    """</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">K</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">([[</span><span class="kc">None</span><span class="p">,</span> <span class="n">IdentityOperator</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">source</span><span class="p">)],</span>
-                          <span class="p">[</span><span class="n">K</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">E</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)]])</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+        <span class="n">eye</span> <span class="o">=</span> <span class="n">IdentityOperator</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">source</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">([[</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">eye</span><span class="p">,</span> <span class="n">beta</span> <span class="o">*</span> <span class="n">eye</span><span class="p">],</span>
+                          <span class="p">[</span><span class="n">B</span><span class="p">,</span> <span class="n">A</span><span class="p">]])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
 
 <div class="viewcode-block" id="SecondOrderModelOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.block.SecondOrderModelOperator.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
-        <span class="n">V_blocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
-                    <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)]</span>
+        <span class="n">V_blocks</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">*</span> <span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)]</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">V_blocks</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SecondOrderModelOperator.apply_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.block.SecondOrderModelOperator.apply_adjoint">[docs]</a>    <span class="k">def</span> <span class="nf">apply_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">assert</span> <span class="n">V</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span>
-        <span class="n">U_blocks</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">),</span>
-                    <span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)]</span>
+        <span class="n">U_blocks</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span> <span class="o">*</span> <span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">),</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span> <span class="o">*</span> <span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)]</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">U_blocks</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SecondOrderModelOperator.apply_inverse"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.block.SecondOrderModelOperator.apply_inverse">[docs]</a>    <span class="k">def</span> <span class="nf">apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">initial_guess</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="k">assert</span> <span class="n">V</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span>
         <span class="k">assert</span> <span class="n">initial_guess</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">initial_guess</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">initial_guess</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
-        <span class="n">U_blocks</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">+</span> <span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span>
-                                          <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">),</span>
-                    <span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">)]</span>
+        <span class="n">aAmbB</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">)</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">aAmbB_V1</span> <span class="o">=</span> <span class="n">aAmbB</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+        <span class="n">aAmbB_A_V0</span> <span class="o">=</span> <span class="n">aAmbB</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">),</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+        <span class="n">aAmbB_B_V0</span> <span class="o">=</span> <span class="n">aAmbB</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">),</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+        <span class="n">U_blocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">aAmbB_A_V0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">*</span> <span class="n">aAmbB_V1</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">aAmbB_V1</span> <span class="o">-</span> <span class="n">aAmbB_B_V0</span><span class="p">]</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">U_blocks</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SecondOrderModelOperator.apply_inverse_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.block.SecondOrderModelOperator.apply_inverse_adjoint">[docs]</a>    <span class="k">def</span> <span class="nf">apply_inverse_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">initial_guess</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
         <span class="k">assert</span> <span class="n">initial_guess</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">initial_guess</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">initial_guess</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span>
-        <span class="n">KitU0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
-        <span class="n">V_blocks</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">KitU0</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">+</span> <span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
-                    <span class="o">-</span><span class="n">KitU0</span><span class="p">]</span>
+        <span class="n">aAmbB</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">)</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">aAmbB_U0</span> <span class="o">=</span> <span class="n">aAmbB</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+        <span class="n">aAmbB_U1</span> <span class="o">=</span> <span class="n">aAmbB</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
+        <span class="n">V_blocks</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">aAmbB_U0</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">aAmbB_U1</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">),</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span> <span class="o">*</span> <span class="n">aAmbB_U1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span> <span class="o">*</span> <span class="n">aAmbB_U0</span><span class="p">]</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">V_blocks</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SecondOrderModelOperator.assemble"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.block.SecondOrderModelOperator.assemble">[docs]</a>    <span class="k">def</span> <span class="nf">assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="n">E</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">K</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">E</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span> <span class="ow">and</span> <span class="n">K</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="p">:</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">A</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="ow">and</span> <span class="n">B</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">K</span><span class="p">)</span></div></div>
-
-
-<div class="viewcode-block" id="ShiftedSecondOrderModelOperator"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.block.ShiftedSecondOrderModelOperator">[docs]</a><span class="k">class</span> <span class="nc">ShiftedSecondOrderModelOperator</span><span class="p">(</span><span class="n">BlockOperator</span><span class="p">):</span>
-    <span class="sa">r</span><span class="sd">"""BlockOperator appearing in second-order systems.</span>
-
-<span class="sd">    This represents a block operator</span>
-
-<span class="sd">    .. math::</span>
-<span class="sd">        a \mathcal{E} + b \mathcal{A} =</span>
-<span class="sd">        \begin{bmatrix}</span>
-<span class="sd">            a I &amp; b I \\</span>
-<span class="sd">            -b K &amp; a M - b E</span>
-<span class="sd">        \end{bmatrix},</span>
-
-<span class="sd">    which satisfies</span>
-
-<span class="sd">    .. math::</span>
-<span class="sd">        (a \mathcal{E} + b \mathcal{A})^H</span>
-<span class="sd">        &amp;=</span>
-<span class="sd">        \begin{bmatrix}</span>
-<span class="sd">            \overline{a} I &amp; -\overline{b} K^H \\</span>
-<span class="sd">            \overline{b} I &amp; \overline{a} M^H - \overline{b} E^H</span>
-<span class="sd">        \end{bmatrix}, \\</span>
-<span class="sd">        (a \mathcal{E} + b \mathcal{A})^{-1}</span>
-<span class="sd">        &amp;=</span>
-<span class="sd">        \begin{bmatrix}</span>
-<span class="sd">            (a^2 M - a b E + b^2 K)^{-1} (a M - b E)</span>
-<span class="sd">            &amp; -b (a^2 M - a b E + b^2 K)^{-1} \\</span>
-<span class="sd">            b (a^2 M - a b E + b^2 K)^{-1} K</span>
-<span class="sd">            &amp; a (a^2 M - a b E + b^2 K)^{-1}</span>
-<span class="sd">        \end{bmatrix}, \\</span>
-<span class="sd">        (a \mathcal{E} + b \mathcal{A})^{-H}</span>
-<span class="sd">        &amp;=</span>
-<span class="sd">        \begin{bmatrix}</span>
-<span class="sd">            (a M - b E)^H (a^2 M - a b E + b^2 K)^{-H}</span>
-<span class="sd">            &amp; \overline{b} K^H (a^2 M - a b E + b^2 K)^{-H} \\</span>
-<span class="sd">            -\overline{b} (a^2 M - a b E + b^2 K)^{-H}</span>
-<span class="sd">            &amp; \overline{a} (a^2 M - a b E + b^2 K)^{-H}</span>
-<span class="sd">        \end{bmatrix}.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    M</span>
-<span class="sd">        |Operator|.</span>
-<span class="sd">    E</span>
-<span class="sd">        |Operator|.</span>
-<span class="sd">    K</span>
-<span class="sd">        |Operator|.</span>
-<span class="sd">    a, b</span>
-<span class="sd">        Complex numbers.</span>
-<span class="sd">    """</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">([[</span><span class="n">IdentityOperator</span><span class="p">(</span><span class="n">M</span><span class="o">.</span><span class="n">source</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span><span class="p">,</span> <span class="n">IdentityOperator</span><span class="p">(</span><span class="n">M</span><span class="o">.</span><span class="n">source</span><span class="p">)</span> <span class="o">*</span> <span class="n">b</span><span class="p">],</span>
-                          <span class="p">[((</span><span class="o">-</span><span class="n">b</span><span class="p">)</span> <span class="o">*</span> <span class="n">K</span><span class="p">)</span><span class="o">.</span><span class="n">assemble</span><span class="p">(),</span> <span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">M</span> <span class="o">-</span> <span class="n">b</span> <span class="o">*</span> <span class="n">E</span><span class="p">)</span><span class="o">.</span><span class="n">assemble</span><span class="p">()]])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
-
-<div class="viewcode-block" id="ShiftedSecondOrderModelOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.block.ShiftedSecondOrderModelOperator.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
-        <span class="n">V_blocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span>
-                    <span class="o">+</span> <span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
-                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">M</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span>
-                    <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">]</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">V_blocks</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="ShiftedSecondOrderModelOperator.apply_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.block.ShiftedSecondOrderModelOperator.apply_adjoint">[docs]</a>    <span class="k">def</span> <span class="nf">apply_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">assert</span> <span class="n">V</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span>
-        <span class="n">U_blocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
-                    <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">conjugate</span><span class="p">(),</span>
-                    <span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
-                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">M</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
-                    <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()]</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">U_blocks</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="ShiftedSecondOrderModelOperator.apply_inverse"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.block.ShiftedSecondOrderModelOperator.apply_inverse">[docs]</a>    <span class="k">def</span> <span class="nf">apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">initial_guess</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="k">assert</span> <span class="n">V</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span>
-        <span class="k">assert</span> <span class="n">initial_guess</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">initial_guess</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">initial_guess</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
-        <span class="n">aMmbEV0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">M</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span>
-        <span class="n">KV0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">a2MmabEpb2K</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">M</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="p">)</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">a2MmabEpb2KiV1</span> <span class="o">=</span> <span class="n">a2MmabEpb2K</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
-        <span class="n">U_blocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">a2MmabEpb2K</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">aMmbEV0</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
-                    <span class="o">-</span> <span class="n">a2MmabEpb2KiV1</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span>
-                    <span class="n">a2MmabEpb2K</span><span class="o">.</span><span class="n">apply_inverse</span><span class="p">(</span><span class="n">KV0</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span>
-                    <span class="o">+</span> <span class="n">a2MmabEpb2KiV1</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">]</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">U_blocks</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="ShiftedSecondOrderModelOperator.apply_inverse_adjoint"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.block.ShiftedSecondOrderModelOperator.apply_inverse_adjoint">[docs]</a>    <span class="k">def</span> <span class="nf">apply_inverse_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">initial_guess</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
-        <span class="k">assert</span> <span class="n">initial_guess</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">initial_guess</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">initial_guess</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span>
-        <span class="n">a2MmabEpb2K</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">M</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="p">)</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">a2MmabEpb2KitU0</span> <span class="o">=</span> <span class="n">a2MmabEpb2K</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
-        <span class="n">a2MmabEpb2KitU1</span> <span class="o">=</span> <span class="n">a2MmabEpb2K</span><span class="o">.</span><span class="n">apply_inverse_adjoint</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="n">least_squares</span><span class="p">)</span>
-        <span class="n">V_blocks</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">M</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">a2MmabEpb2KitU0</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
-                    <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">a2MmabEpb2KitU0</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
-                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="o">.</span><span class="n">apply_adjoint</span><span class="p">(</span><span class="n">a2MmabEpb2KitU1</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">conjugate</span><span class="p">(),</span>
-                    <span class="o">-</span><span class="n">a2MmabEpb2KitU0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
-                    <span class="o">+</span> <span class="n">a2MmabEpb2KitU1</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()]</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">V_blocks</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="ShiftedSecondOrderModelOperator.assemble"><a class="viewcode-back" href="../../../generated/pymor.operators.html#pymor.operators.block.ShiftedSecondOrderModelOperator.assemble">[docs]</a>    <span class="k">def</span> <span class="nf">assemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="n">M</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">M</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">E</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
-        <span class="n">K</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">M</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">M</span> <span class="ow">and</span> <span class="n">E</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span> <span class="ow">and</span> <span class="n">K</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">)</span></div></div>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span></div></div>
 </pre></div>
 
           </article>
@@ -733,7 +636,7 @@
               
           </div>
             Last updated on
-              Mar 16, 2021.
+              Mar 17, 2021.
             <br/>
             Created using
             <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
