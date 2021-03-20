@@ -18,7 +18,7 @@ plt.rcParams['axes.grid'] = True
 
 k = 50
 n = 2 * k + 1
-l = 40
+l = 50
 
 E = sps.eye(n, format='lil')
 E[0, 0] = E[-1, -1] = 0.5
@@ -41,11 +41,11 @@ fom = LTIModel.from_matrices(A, B, C, E=E)
 ast_spectrum = fom.get_ast_spectrum()
 print(ast_spectrum[1])
 
-ast_spectrum = fom.get_ast_spectrum(ast_pole_data={'k':10, 'sigma':0})
+ast_spectrum = fom.get_ast_spectrum(ast_pole_data={'k': 10, 'sigma': 0})
 print(ast_spectrum[1])
 
 from pymor.reductors.bt import FDBTReductor
-fdbt = FDBTReductor(fom, ast_pole_data={'k':10, 'sigma':0})
+fdbt = FDBTReductor(fom, ast_pole_data={'k': 10, 'sigma': 0})
 
 error_bounds = fdbt.error_bounds()
 fig, ax = plt.subplots()
