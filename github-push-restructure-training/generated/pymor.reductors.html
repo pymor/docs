@@ -46,7 +46,7 @@
   
   
   
-    <title>pymor.reductors package &#8212; pyMOR v2021.1rc0+118.g5a3fb25e Manual</title>
+    <title>pymor.reductors package &#8212; pyMOR v2021.1rc0+119.gd6538059 Manual</title>
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../_static/jupyter-sphinx.css" />
@@ -90,11 +90,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="../index.html" title="pyMOR v2021.1rc0+118.g5a3fb25e Manual"
+        <a href="../index.html" title="pyMOR v2021.1rc0+119.gd6538059 Manual"
            class="md-header-nav__button md-logo">
           
               <img src="../_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR v2021.1rc0+118.g5a3fb25e Manual logo">
+                   alt="pyMOR v2021.1rc0+119.gd6538059 Manual logo">
           
         </a>
       </div>
@@ -160,7 +160,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="../index.html" class="md-tabs__link">pyMOR v2021.1rc0+118.g5a3fb25e Manual</a></li>
+          <li class="md-tabs__item"><a href="../index.html" class="md-tabs__link">pyMOR v2021.1rc0+119.gd6538059 Manual</a></li>
           <li class="md-tabs__item"><a href="pymor.html" class="md-tabs__link">pymor package</a></li>
       </ul>
     </div>
@@ -173,13 +173,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="../index.html" title="pyMOR v2021.1rc0+118.g5a3fb25e Manual" class="md-nav__button md-logo">
+    <a href="../index.html" title="pyMOR v2021.1rc0+119.gd6538059 Manual" class="md-nav__button md-logo">
       
         <img src="../_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="../index.html"
-       title="pyMOR v2021.1rc0+118.g5a3fb25e Manual">Documentation</a>
+       title="pyMOR v2021.1rc0+119.gd6538059 Manual">Documentation</a>
   </label>
   
 
@@ -2777,6 +2777,7 @@ it is possible to reproduce former results.</p>
 <p>This method either performs a predefined number of restarts and returns
 the best trained network or tries to reach a given target loss and
 stops training when the target loss is reached.</p>
+<p>See <a class="reference internal" href="#pymor.reductors.neural_network.train_neural_network" title="pymor.reductors.neural_network.train_neural_network"><code class="xref py py-func docutils literal notranslate"><span class="pre">train_neural_network</span></code></a> for more information on the parameters.</p>
 <div class="admonition-parameters admonition">
 <p class="admonition-title">Parameters</p>
 <dl class="simple">
@@ -2821,15 +2822,36 @@ of restarts.</p>
 <div class="admonition-parameters admonition">
 <p class="admonition-title">Parameters</p>
 <dl class="simple">
-<dt>training_data</dt><dd><p>Data to use during the training phase.</p>
+<dt>training_data</dt><dd><p>Data to use during the training phase. Has to be a list of tuples,
+where each tuple consists of two PyTorch-tensors (<code class="docutils literal notranslate"><span class="pre">torch.DoubleTensor</span></code>).
+The first tensor contains the input data, the second tensor contains
+the target values.</p>
 </dd>
-<dt>validation_data</dt><dd><p>Data to use during the validation phase.</p>
+<dt>validation_data</dt><dd><p>Data to use during the validation phase. Has to be a list of tuples,
+where each tuple consists of two PyTorch-tensors (<code class="docutils literal notranslate"><span class="pre">torch.DoubleTensor</span></code>).
+The first tensor contains the input data, the second tensor contains
+the target values.</p>
 </dd>
-<dt>neural_network</dt><dd><p>The neural network to train (can also be a pre-trained model).</p>
+<dt>neural_network</dt><dd><p>The neural network to train (can also be a pre-trained model).
+Has to be a PyTorch-Module.</p>
 </dd>
 <dt>training_parameters</dt><dd><p>Dictionary with additional parameters for the training routine like
-the type of the optimizer, the batch size, the learning rate or the
-loss function to use.</p>
+the type of the optimizer, the (maximum) number of epochs, the batch
+size, the learning rate or the loss function to use.
+Possible keys are <code class="docutils literal notranslate"><span class="pre">'optimizer'</span></code> (an optimizer from the PyTorch <code class="docutils literal notranslate"><span class="pre">optim</span></code>
+package; if not provided, the LBFGS-optimizer is taken as default),
+<code class="docutils literal notranslate"><span class="pre">'epochs'</span></code> (an integer that determines the number of epochs to use
+for training the neural network (if training is not interrupted
+prematurely due to early stopping); if not provided, 1000 is taken as
+default value), <code class="docutils literal notranslate"><span class="pre">'batch_size'</span></code> (an integer that determines the number
+of samples to pass to the optimizer at once; if not provided, 20 is
+taken as default value; not used in the case of the LBFGS-optimizer
+since LBFGS does not support mini-batching), <code class="docutils literal notranslate"><span class="pre">'learning_rate'</span></code> (a
+positive real number used as the (initial) step size of the optimizer;
+if not provided, 1 is taken as default value; thus far, no learning
+rate schedulers are supported in this implementation), and
+<code class="docutils literal notranslate"><span class="pre">'loss_function'</span></code> (a loss function from PyTorch; if not provided, the
+MSE loss is taken as default).</p>
 </dd>
 </dl>
 </div>
@@ -2838,7 +2860,10 @@ loss function to use.</p>
 <dl class="simple">
 <dt>best_neural_network</dt><dd><p>The best trained neural network with respect to validation loss.</p>
 </dd>
-<dt>losses</dt><dd><p>The corresponding losses.</p>
+<dt>losses</dt><dd><p>The corresponding losses as a dictionary with keys <code class="docutils literal notranslate"><span class="pre">'full'</span></code> (for the
+full loss containing the training and the validation average loss),
+<code class="docutils literal notranslate"><span class="pre">'train'</span></code> (for the average loss on the training set), and <code class="docutils literal notranslate"><span class="pre">'val'</span></code>
+(for the average loss on the validation set).</p>
 </dd>
 </dl>
 </div>
@@ -4082,7 +4107,7 @@ this option only if necessary.</p>
               
           </div>
             Last updated on
-              Mar 29, 2021.
+              Apr 09, 2021.
             <br/>
             Created using
             <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.2.

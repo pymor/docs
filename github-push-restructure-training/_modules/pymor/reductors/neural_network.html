@@ -46,7 +46,7 @@
   
   
   
-    <title>pymor.reductors.neural_network &#8212; pyMOR v2021.1rc0+118.g5a3fb25e Manual</title>
+    <title>pymor.reductors.neural_network &#8212; pyMOR v2021.1rc0+119.gd6538059 Manual</title>
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/jupyter-sphinx.css" />
@@ -87,11 +87,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="../../../index.html" title="pyMOR v2021.1rc0+118.g5a3fb25e Manual"
+        <a href="../../../index.html" title="pyMOR v2021.1rc0+119.gd6538059 Manual"
            class="md-header-nav__button md-logo">
           
               <img src="../../../_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR v2021.1rc0+118.g5a3fb25e Manual logo">
+                   alt="pyMOR v2021.1rc0+119.gd6538059 Manual logo">
           
         </a>
       </div>
@@ -157,7 +157,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="../../../index.html" class="md-tabs__link">pyMOR v2021.1rc0+118.g5a3fb25e Manual</a></li>
+          <li class="md-tabs__item"><a href="../../../index.html" class="md-tabs__link">pyMOR v2021.1rc0+119.gd6538059 Manual</a></li>
           <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">Module code</a></li>
       </ul>
     </div>
@@ -170,13 +170,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="../../../index.html" title="pyMOR v2021.1rc0+118.g5a3fb25e Manual" class="md-nav__button md-logo">
+    <a href="../../../index.html" title="pyMOR v2021.1rc0+119.gd6538059 Manual" class="md-nav__button md-logo">
       
         <img src="../../../_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="../../../index.html"
-       title="pyMOR v2021.1rc0+118.g5a3fb25e Manual">Documentation</a>
+       title="pyMOR v2021.1rc0+119.gd6538059 Manual">Documentation</a>
   </label>
   
 
@@ -706,22 +706,46 @@
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        training_data</span>
-<span class="sd">            Data to use during the training phase.</span>
+<span class="sd">            Data to use during the training phase. Has to be a list of tuples,</span>
+<span class="sd">            where each tuple consists of two PyTorch-tensors (`torch.DoubleTensor`).</span>
+<span class="sd">            The first tensor contains the input data, the second tensor contains</span>
+<span class="sd">            the target values.</span>
 <span class="sd">        validation_data</span>
-<span class="sd">            Data to use during the validation phase.</span>
+<span class="sd">            Data to use during the validation phase. Has to be a list of tuples,</span>
+<span class="sd">            where each tuple consists of two PyTorch-tensors (`torch.DoubleTensor`).</span>
+<span class="sd">            The first tensor contains the input data, the second tensor contains</span>
+<span class="sd">            the target values.</span>
 <span class="sd">        neural_network</span>
 <span class="sd">            The neural network to train (can also be a pre-trained model).</span>
+<span class="sd">            Has to be a PyTorch-Module.</span>
 <span class="sd">        training_parameters</span>
 <span class="sd">            Dictionary with additional parameters for the training routine like</span>
-<span class="sd">            the type of the optimizer, the batch size, the learning rate or the</span>
-<span class="sd">            loss function to use.</span>
+<span class="sd">            the type of the optimizer, the (maximum) number of epochs, the batch</span>
+<span class="sd">            size, the learning rate or the loss function to use.</span>
+<span class="sd">            Possible keys are `'optimizer'` (an optimizer from the PyTorch `optim`</span>
+<span class="sd">            package; if not provided, the LBFGS-optimizer is taken as default),</span>
+<span class="sd">            `'epochs'` (an integer that determines the number of epochs to use</span>
+<span class="sd">            for training the neural network (if training is not interrupted</span>
+<span class="sd">            prematurely due to early stopping); if not provided, 1000 is taken as</span>
+<span class="sd">            default value), `'batch_size'` (an integer that determines the number</span>
+<span class="sd">            of samples to pass to the optimizer at once; if not provided, 20 is</span>
+<span class="sd">            taken as default value; not used in the case of the LBFGS-optimizer</span>
+<span class="sd">            since LBFGS does not support mini-batching), `'learning_rate'` (a</span>
+<span class="sd">            positive real number used as the (initial) step size of the optimizer;</span>
+<span class="sd">            if not provided, 1 is taken as default value; thus far, no learning</span>
+<span class="sd">            rate schedulers are supported in this implementation), and</span>
+<span class="sd">            `'loss_function'` (a loss function from PyTorch; if not provided, the</span>
+<span class="sd">            MSE loss is taken as default).</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        best_neural_network</span>
 <span class="sd">            The best trained neural network with respect to validation loss.</span>
 <span class="sd">        losses</span>
-<span class="sd">            The corresponding losses.</span>
+<span class="sd">            The corresponding losses as a dictionary with keys `'full'` (for the</span>
+<span class="sd">            full loss containing the training and the validation average loss),</span>
+<span class="sd">            `'train'` (for the average loss on the training set), and `'val'`</span>
+<span class="sd">            (for the average loss on the validation set).</span>
 <span class="sd">        """</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">neural_network</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">training_data</span><span class="p">,</span> <span class="n">validation_data</span><span class="p">:</span>
@@ -822,6 +846,8 @@
 <span class="sd">        This method either performs a predefined number of restarts and returns</span>
 <span class="sd">        the best trained network or tries to reach a given target loss and</span>
 <span class="sd">        stops training when the target loss is reached.</span>
+
+<span class="sd">        See :func:`train_neural_network` for more information on the parameters.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -928,7 +954,7 @@
               
           </div>
             Last updated on
-              Mar 29, 2021.
+              Apr 09, 2021.
             <br/>
             Created using
             <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
