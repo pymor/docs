@@ -46,7 +46,7 @@
   
   
   
-    <title>pymor.bindings.ngsolve &#8212; pyMOR v2021.1rc0+134.ga30be64b Manual</title>
+    <title>pymor.bindings.ngsolve &#8212; pyMOR v2021.1rc0+137.g8d31a266 Manual</title>
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/jupyter-sphinx.css" />
@@ -87,11 +87,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="../../../index.html" title="pyMOR v2021.1rc0+134.ga30be64b Manual"
+        <a href="../../../index.html" title="pyMOR v2021.1rc0+137.g8d31a266 Manual"
            class="md-header-nav__button md-logo">
           
               <img src="../../../_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR v2021.1rc0+134.ga30be64b Manual logo">
+                   alt="pyMOR v2021.1rc0+137.g8d31a266 Manual logo">
           
         </a>
       </div>
@@ -157,7 +157,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="../../../index.html" class="md-tabs__link">pyMOR v2021.1rc0+134.ga30be64b Manual</a></li>
+          <li class="md-tabs__item"><a href="../../../index.html" class="md-tabs__link">pyMOR v2021.1rc0+137.g8d31a266 Manual</a></li>
           <li class="md-tabs__item"><a href="../../index.html" class="md-tabs__link">Module code</a></li>
       </ul>
     </div>
@@ -170,13 +170,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="../../../index.html" title="pyMOR v2021.1rc0+134.ga30be64b Manual" class="md-nav__button md-logo">
+    <a href="../../../index.html" title="pyMOR v2021.1rc0+137.g8d31a266 Manual" class="md-nav__button md-logo">
       
         <img src="../../../_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="../../../index.html"
-       title="pyMOR v2021.1rc0+134.ga30be64b Manual">Documentation</a>
+       title="pyMOR v2021.1rc0+137.g8d31a266 Manual">Documentation</a>
   </label>
   
 
@@ -271,12 +271,15 @@
 <span></span><span class="c1"># This file is part of the pyMOR project (http://www.pymor.org).</span>
 <span class="c1"># Copyright 2013-2020 pyMOR developers and contributors. All rights reserved.</span>
 <span class="c1"># License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">copy</span>
+
 <span class="kn">from</span> <span class="nn">scipy.sparse</span> <span class="kn">import</span> <span class="n">csr_matrix</span>
 
 <span class="kn">from</span> <span class="nn">pymor.core.config</span> <span class="kn">import</span> <span class="n">config</span>
 <span class="kn">from</span> <span class="nn">pymor.core.defaults</span> <span class="kn">import</span> <span class="n">defaults</span>
 <span class="kn">from</span> <span class="nn">pymor.operators.interface</span> <span class="kn">import</span> <span class="n">Operator</span>
 <span class="kn">from</span> <span class="nn">pymor.operators.numpy</span> <span class="kn">import</span> <span class="n">NumpyMatrixOperator</span>
+<span class="kn">from</span> <span class="nn">pymor.tools.floatcmp</span> <span class="kn">import</span> <span class="n">float_cmp</span>
 
 <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">HAVE_NGSOLVE</span><span class="p">:</span>
     <span class="kn">import</span> <span class="nn">ngsolve</span> <span class="k">as</span> <span class="nn">ngs</span>
@@ -464,6 +467,21 @@
                 <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">legend</span><span class="p">):</span>
                     <span class="n">ngs</span><span class="o">.</span><span class="n">Draw</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">real_part</span><span class="o">.</span><span class="n">impl</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div></div>
 
+    <span class="k">def</span> <span class="nf">_check_dc_conform</span><span class="p">(</span><span class="n">vecarray</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">fail</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">vecarray</span><span class="o">.</span><span class="n">_list</span><span class="p">:</span>
+            <span class="n">_check_dc_conform_single</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">real_part</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">V</span><span class="o">=</span><span class="n">vecarray</span><span class="o">.</span><span class="n">space</span><span class="o">.</span><span class="n">V</span><span class="p">,</span> <span class="n">fail</span><span class="o">=</span><span class="n">fail</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_check_dc_conform_single</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">fail</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">vec</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">impl</span><span class="o">.</span><span class="n">vec</span>
+        <span class="k">for</span> <span class="n">ii</span><span class="p">,</span> <span class="n">free</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">FreeDofs</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">free</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">vec</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">bc</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">float_cmp</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">fail</span><span class="p">:</span>
+                    <span class="k">assert</span> <span class="kc">False</span>
+                <span class="n">vec</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span> <span class="o">=</span> <span class="n">b</span>
 
 <div class="viewcode-block" id="NGSolveOperator"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.ngsolve.NGSolveOperator">[docs]</a>    <span class="k">class</span> <span class="nc">NGSolveOperator</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
         <span class="sd">"""Wraps a general NGSolve Bilinear form as an |Operator|."""</span>
@@ -471,16 +489,16 @@
         <span class="n">linear</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="n">parametric</span> <span class="o">=</span> <span class="kc">True</span>
 
-        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">form</span><span class="p">,</span> <span class="n">source_space</span><span class="p">,</span> <span class="n">range_space</span><span class="p">,</span> <span class="n">source_function</span><span class="p">,</span> <span class="n">dirichlet_bc</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">form</span><span class="p">,</span> <span class="n">source_space</span><span class="p">,</span> <span class="n">range_space</span><span class="p">,</span> <span class="n">dirichlet_bc</span><span class="p">,</span> <span class="n">boundary_penalty</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                      <span class="n">parameter_setter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="p">{},</span> <span class="n">solver_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">source_space</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">range_space</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">parameters_own</span> <span class="o">=</span> <span class="n">parameters</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">_null</span> <span class="o">=</span> <span class="n">ngs</span><span class="o">.</span><span class="n">LinearForm</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">space</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_null</span> <span class="o">+=</span> <span class="mi">0</span> <span class="o">*</span> <span class="n">form</span><span class="o">.</span><span class="n">space</span><span class="o">.</span><span class="n">TestFunction</span><span class="p">()</span> <span class="o">*</span> <span class="n">ngs</span><span class="o">.</span><span class="n">dx</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_null</span><span class="o">.</span><span class="n">Assemble</span><span class="p">()</span>
+        <span class="k">def</span> <span class="nf">check_bc_conform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vecarray</span><span class="p">,</span> <span class="n">fail</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_check_dc_conform</span><span class="p">(</span><span class="n">vecarray</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_bc</span><span class="o">.</span><span class="n">vec</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span>
+
 
         <span class="k">def</span> <span class="nf">_set_mu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
             <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">assert_compatible</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
@@ -495,9 +513,11 @@
                 <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">imag_part</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
                 <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">zero_vector</span><span class="p">()</span>
-                <span class="c1"># r.real_part.impl.vec.data = self.dirichlet_bc.vec</span>
-                <span class="c1"># not clear if this touches only freedofs</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Apply</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">real_part</span><span class="o">.</span><span class="n">impl</span><span class="o">.</span><span class="n">vec</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">real_part</span><span class="o">.</span><span class="n">impl</span><span class="o">.</span><span class="n">vec</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">real_part</span><span class="o">.</span><span class="n">impl</span><span class="o">.</span><span class="n">vec</span><span class="p">)):</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">V</span><span class="o">.</span><span class="n">FreeDofs</span><span class="p">()[</span><span class="n">ii</span><span class="p">]:</span>
+                        <span class="n">r</span><span class="o">.</span><span class="n">real_part</span><span class="o">.</span><span class="n">impl</span><span class="o">.</span><span class="n">vec</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
                 <span class="n">R</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">make_array</span><span class="p">(</span><span class="n">R</span><span class="p">)</span></div>
 
@@ -527,24 +547,28 @@
                 <span class="k">if</span> <span class="n">element</span><span class="o">.</span><span class="n">elementnode</span> <span class="ow">in</span> <span class="n">affected_element_nodes</span><span class="p">:</span>
                     <span class="n">source_dofs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">dofs</span><span class="p">)</span>
             <span class="n">source_dofs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">source_dofs</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">intc</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">RestrictedNGSolveOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_dofs</span><span class="p">,</span> <span class="n">restrict_to_dofs</span><span class="p">,</span> <span class="n">re_elements</span><span class="p">),</span> <span class="n">source_dofs</span></div>
+            <span class="k">return</span> <span class="n">RestrictedNGSolveOperator</span><span class="p">(</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">source_dofs</span><span class="p">,</span> <span class="n">restrict_to_dofs</span><span class="p">,</span>
+                                             <span class="n">re_elements</span><span class="p">),</span> <span class="n">source_dofs</span></div></div>
 
-<div class="viewcode-block" id="NGSolveOperator.apply_inverse"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.ngsolve.NGSolveOperator.apply_inverse">[docs]</a>        <span class="k">def</span> <span class="nf">apply_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">initial_guess</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">least_squares</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">least_squares</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">NotImplementedError</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_set_mu</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
-
-            <span class="n">result</span> <span class="o">=</span> <span class="n">ngs</span><span class="o">.</span><span class="n">GridFunction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">V</span><span class="p">)</span>
-            <span class="n">result</span><span class="o">.</span><span class="n">vec</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichlet_bc</span><span class="o">.</span><span class="n">vec</span>
-
-            <span class="n">c</span> <span class="o">=</span> <span class="n">ngs</span><span class="o">.</span><span class="n">Preconditioner</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="p">,</span> <span class="s2">"local"</span><span class="p">)</span>  <span class="c1"># &lt;- Jacobi preconditioner</span>
-            <span class="c1"># c = Preconditioner(a,"direct") #&lt;- sparse direct solver</span>
-            <span class="n">c</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
-            <span class="n">ngs</span><span class="o">.</span><span class="n">solvers</span><span class="o">.</span><span class="n">BVP</span><span class="p">(</span><span class="n">bf</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="p">,</span> <span class="n">lf</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_null</span><span class="p">,</span> <span class="n">gf</span><span class="o">=</span><span class="n">result</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="n">c</span><span class="p">)</span>
-
-            <span class="n">rr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">))</span>
-            <span class="n">rr</span><span class="o">.</span><span class="n">_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">real_part</span><span class="o">.</span><span class="n">impl</span><span class="o">.</span><span class="n">vec</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">vec</span>
-            <span class="k">return</span> <span class="n">rr</span></div></div>
+        <span class="c1"># pyMOR's own newton performs much better in its default settings than this</span>
+        <span class="c1"># def apply_inverse(self, V, mu=None, initial_guess=None, least_squares=False):</span>
+        <span class="c1">#     if least_squares or len(V) &gt; 1:</span>
+        <span class="c1">#         raise NotImplementedError</span>
+        <span class="c1">#     self._set_mu(mu)</span>
+        <span class="c1">#</span>
+        <span class="c1">#     result = ngs.GridFunction(self.range.V)</span>
+        <span class="c1">#     if initial_guess:</span>
+        <span class="c1">#         result.vec.data = initial_guess._list[0].real_part.impl.vec</span>
+        <span class="c1">#         assert(False)</span>
+        <span class="c1">#     else:</span>
+        <span class="c1">#         result.vec.data = self.dirichlet_bc.vec</span>
+        <span class="c1">#</span>
+        <span class="c1">#     ngs.solvers.Newton(a=self.form, u=result, dirichletvalues=self.dirichlet_bc.vec)</span>
+        <span class="c1">#     rr = self.range.zeros(len(V))</span>
+        <span class="c1">#</span>
+        <span class="c1">#     rr._list[0].real_part.impl.vec.data = result.vec</span>
+        <span class="c1">#     _check_dc_conform(rr, bc=self.dirichlet_bc.vec, fail=True)</span>
+        <span class="c1">#     return rr</span>
 
 
 <div class="viewcode-block" id="RestrictedNGSolveOperator"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.ngsolve.RestrictedNGSolveOperator">[docs]</a>    <span class="k">class</span> <span class="nc">RestrictedNGSolveOperator</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
@@ -555,15 +579,19 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">__auto_init</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">source_dofs</span><span class="p">))</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">range</span> <span class="o">=</span> <span class="n">NumpyVectorSpace</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">restricted_range_dofs</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">free_dofs</span> <span class="o">=</span> <span class="p">[</span><span class="n">free</span> <span class="k">for</span> <span class="n">ii</span><span class="p">,</span> <span class="n">free</span> <span class="ow">in</span>
+                              <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">unrestricted_op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">V</span><span class="o">.</span><span class="n">FreeDofs</span><span class="p">())</span> <span class="k">if</span> <span class="n">ii</span> <span class="ow">in</span> <span class="n">restricted_range_dofs</span><span class="p">]</span>
 
 <div class="viewcode-block" id="RestrictedNGSolveOperator.apply"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.ngsolve.RestrictedNGSolveOperator.apply">[docs]</a>        <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
             <span class="k">assert</span> <span class="n">U</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">unrestricted_op</span><span class="o">.</span><span class="n">_set_mu</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+
             <span class="n">UU</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unrestricted_op</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">))</span>
             <span class="k">for</span> <span class="n">uu</span><span class="p">,</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">UU</span><span class="o">.</span><span class="n">_list</span><span class="p">,</span> <span class="n">U</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()):</span>
                 <span class="n">uu</span><span class="o">.</span><span class="n">real_part</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="bp">self</span><span class="o">.</span><span class="n">source_dofs</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
 
             <span class="n">VV</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unrestricted_op</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">))</span>
+
             <span class="n">visited</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">patch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">restricted_elements</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">patch</span><span class="p">:</span>
@@ -584,7 +612,8 @@
 
             <span class="n">V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">))</span>
             <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">vv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">VV</span><span class="o">.</span><span class="n">_list</span><span class="p">):</span>
-                <span class="n">v</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">vv</span><span class="o">.</span><span class="n">real_part</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="bp">self</span><span class="o">.</span><span class="n">restricted_range_dofs</span><span class="p">]</span>
+                <span class="n">vv_np</span> <span class="o">=</span> <span class="n">vv</span><span class="o">.</span><span class="n">real_part</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+                <span class="n">v</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">vv_np</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">restricted_range_dofs</span><span class="p">]</span>
             <span class="k">return</span> <span class="n">V</span></div>
 
 <div class="viewcode-block" id="RestrictedNGSolveOperator.jacobian"><a class="viewcode-back" href="../../../generated/pymor.bindings.html#pymor.bindings.ngsolve.RestrictedNGSolveOperator.jacobian">[docs]</a>        <span class="k">def</span> <span class="nf">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -615,6 +644,7 @@
                     <span class="k">for</span> <span class="n">ii</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">element_matrix</span><span class="o">.</span><span class="n">NumPy</span><span class="p">()):</span>
                         <span class="k">for</span> <span class="n">jj</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">row</span><span class="p">):</span>
                             <span class="n">matrix</span><span class="p">[</span><span class="n">local_dofs</span><span class="p">[</span><span class="n">ii</span><span class="p">],</span> <span class="n">local_dofs</span><span class="p">[</span><span class="n">jj</span><span class="p">]]</span> <span class="o">+=</span> <span class="n">val</span>
+
             <span class="n">re_mat</span> <span class="o">=</span> <span class="n">matrix</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_dofs</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">restricted_range_dofs</span><span class="p">,</span> <span class="p">:]</span>
             <span class="k">return</span> <span class="n">NumpyMatrixOperator</span><span class="p">(</span><span class="n">re_mat</span><span class="p">)</span></div></div>
 </pre></div>
@@ -641,7 +671,7 @@
               
           </div>
             Last updated on
-              Mar 25, 2021.
+              Apr 13, 2021.
             <br/>
             Created using
             <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
