@@ -46,7 +46,7 @@ reductor = NeuralNetworkReductor(fom,
 
 rom = reductor.reduce(restarts=100)
 
-mu = parameter_space.sample_randomly(1)[0]
+mu = parameter_space.sample_randomly()
 
 U = fom.solve(mu)
 U_red = rom.solve(mu)
