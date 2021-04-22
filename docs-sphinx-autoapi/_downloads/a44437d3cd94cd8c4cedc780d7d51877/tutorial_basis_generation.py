@@ -34,7 +34,7 @@ fom.visualize(U)
 
 trivial_basis = U.copy()
 
-V = fom.solve(parameter_space.sample_randomly(1)[0])
+V = fom.solve(parameter_space.sample_randomly())
 
 G = trivial_basis.gramian()
 
