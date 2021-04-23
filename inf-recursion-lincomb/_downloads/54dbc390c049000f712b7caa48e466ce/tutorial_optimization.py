@@ -77,7 +77,7 @@ def compute_value_matrix(f, x, y):
 def plot_3d_surface(f, x, y, alpha=1):
     X, Y = x, y
     fig = plt.figure()
-    ax = fig.gca(projection='3d')
+    ax = fig.add_subplot(111, projection='3d')
     x, y, f_of_x = compute_value_matrix(f, x, y)
     ax.plot_surface(x, y, f_of_x, cmap='Blues',
                     linewidth=0, antialiased=False, alpha=alpha)
