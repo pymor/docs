@@ -1,0 +1,315 @@
+:mod:`pymor.analyticalproblems.functions`
+=========================================
+
+.. py:module:: pymor.analyticalproblems.functions
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.analyticalproblems.functions.Function
+   pymor.analyticalproblems.functions.ConstantFunction
+   pymor.analyticalproblems.functions.GenericFunction
+   pymor.analyticalproblems.functions.ExpressionFunction
+   pymor.analyticalproblems.functions.LincombFunction
+   pymor.analyticalproblems.functions.ProductFunction
+   pymor.analyticalproblems.functions.BitmapFunction
+
+
+
+
+.. class:: Function
+
+
+   Bases: :py:obj:`pymor.parameters.base.ParametricObject`
+
+   Interface for |Parameter| dependent analytical functions.
+
+   Every |Function| is a map of the form ::
+
+      f(μ): Ω ⊆ R^d -> R^(shape_range)
+
+   The returned values are |NumPy arrays| of arbitrary (but fixed)
+   shape. Note that NumPy distinguishes between one-dimensional
+   arrays of length 1 (with shape `(1,)`) and zero-dimensional
+   scalar arrays (with shape `()`). In pyMOR, we usually
+   expect scalar-valued functions to have `shape_range == ()`.
+
+   While the function might raise an error if it is evaluated
+   for an argument not in the domain Ω, the exact behavior is left
+   undefined.
+
+   Functions are vectorized in the sense, that if `x.ndim == k`, then ::
+
+      f(x, μ)[i0, i1, ..., i(k-2)] == f(x[i0, i1, ..., i(k-2)], μ).
+
+   In particular, `f(x, μ).shape == x.shape[:-1] + shape_range`.
+
+   .. attribute:: dim_domain
+
+      The dimension d > 0.
+
+   .. attribute:: shape_range
+
+      The shape of the function values.
+      
+
+   .. attribute:: __rmul__
+      
+
+      
+
+   .. method:: evaluate(self, x, mu=None)
+      :abstractmethod:
+
+      Evaluate the function for given argument `x` and |parameter values| `mu`.
+
+
+   .. method:: __call__(self, x, mu=None)
+
+      Shorthand for :meth:`~Function.evaluate`.
+
+
+   .. method:: _add_sub(self, other, sign)
+
+
+   .. method:: _radd_sub(self, other, sign)
+
+
+   .. method:: __add__(self, other)
+
+
+   .. method:: __sub__(self, other)
+
+
+   .. method:: __radd__(self, other)
+
+
+   .. method:: __rsub__(self, other)
+
+
+   .. method:: __mul__(self, other)
+
+
+   .. method:: __neg__(self)
+
+
+
+.. class:: ConstantFunction(value=np.array(1.0), dim_domain=1, name=None)
+
+
+   Bases: :py:obj:`Function`
+
+   A constant |Function|
+
+   Defined as ::
+
+       f: R^d -> R^shape(c), f(x) = c
+
+   .. admonition:: Parameters
+
+       value
+           The constant c.
+       dim_domain
+           The dimension d.
+       name
+           The name of the function.
+           
+
+   .. method:: __str__(self)
+
+      Return str(self).
+
+
+   .. method:: evaluate(self, x, mu=None)
+
+      Evaluate the function for given argument `x` and |parameter values| `mu`.
+
+
+
+.. class:: GenericFunction(mapping, dim_domain=1, shape_range=(), parameters={}, name=None)
+
+
+   Bases: :py:obj:`Function`
+
+   Wrapper making an arbitrary Python function between |NumPy arrays| a proper |Function|.
+
+   Note that a :class:`GenericFunction` can only be :mod:`pickled <pymor.core.pickle>`
+   if the function it is wrapping can be pickled (cf. :func:`~pymor.core.pickle.dumps_function`).
+   For this reason, it is usually preferable to use :class:`ExpressionFunction`
+   instead of :class:`GenericFunction`.
+
+   .. admonition:: Parameters
+
+       mapping
+           The function to wrap. If `parameters` is `None`, the function is of
+           the form `mapping(x)`. If `parameters` is not `None`, the function has
+           to have the signature `mapping(x, mu)`. Moreover, the function is expected
+           to be vectorized, i.e.::
+           
+               mapping(x).shape == x.shape[:-1] + shape_range.
+           
+       dim_domain
+           The dimension of the domain.
+       shape_range
+           The shape of the values returned by the mapping.
+       parameters
+           The |Parameters| the mapping accepts.
+       name
+           The name of the function.
+           
+
+   .. method:: __str__(self)
+
+      Return str(self).
+
+
+   .. method:: evaluate(self, x, mu=None)
+
+      Evaluate the function for given argument `x` and |parameter values| `mu`.
+
+
+
+.. class:: ExpressionFunction(expression, dim_domain=1, shape_range=(), parameters={}, values=None, name=None)
+
+
+   Bases: :py:obj:`GenericFunction`
+
+   Turns a Python expression given as a string into a |Function|.
+
+   Some |NumPy| arithmetic functions like 'sin', 'log', 'min' are supported.
+   For a full list see the `functions` class attribute.
+
+   .. warning::
+      :meth:`eval` is used to evaluate the given expression.
+      Using this class with expression strings from untrusted sources will cause
+      mayhem and destruction!
+
+   .. admonition:: Parameters
+
+       expression
+           A Python expression of one variable `x` and a parameter `mu` given as
+           a string.
+       dim_domain
+           The dimension of the domain.
+       shape_range
+           The shape of the values returned by the expression.
+       parameters
+           The |Parameters| the expression accepts.
+       values
+           Dictionary of additional constants that can be used in `expression`
+           with their corresponding value.
+       name
+           The name of the function.
+           
+
+   .. attribute:: functions
+      
+
+      
+
+   .. method:: __reduce__(self)
+
+      Helper for pickle.
+
+
+
+.. class:: LincombFunction(functions, coefficients, name=None)
+
+
+   Bases: :py:obj:`Function`
+
+   A |Function| representing a linear combination of |Functions|.
+
+   The linear coefficients can be provided either as scalars or as
+   |ParameterFunctionals|.
+
+   .. admonition:: Parameters
+
+       functions
+           List of |Functions| whose linear combination is formed.
+       coefficients
+           A list of linear coefficients. A linear coefficient can
+           either be a fixed number or a |ParameterFunctional|.
+       name
+           Name of the function.
+           
+   .. attribute:: functions
+
+   .. attribute:: coefficients
+
+      
+
+   .. method:: evaluate_coefficients(self, mu)
+
+      Compute the linear coefficients for given |parameter values| `mu`.
+
+
+   .. method:: evaluate(self, x, mu=None)
+
+      Evaluate the function for given argument `x` and |parameter values| `mu`.
+
+
+
+.. class:: ProductFunction(functions, name=None)
+
+
+   Bases: :py:obj:`Function`
+
+   A |Function| representing a product of |Functions|.
+
+   .. admonition:: Parameters
+
+       functions
+           List of |Functions| whose product is formed.
+       name
+           Name of the function.
+           
+   .. attribute:: functions
+
+      
+
+   .. method:: evaluate(self, x, mu=None)
+
+      Evaluate the function for given argument `x` and |parameter values| `mu`.
+
+
+
+.. class:: BitmapFunction(filename, bounding_box=None, range=None)
+
+
+   Bases: :py:obj:`Function`
+
+   Define a 2D |Function| via a grayscale image.
+
+   .. admonition:: Parameters
+
+       filename
+           Path of the image representing the function.
+       bounding_box
+           Lower left and upper right coordinates of the domain of the function.
+       range
+           A pixel of value p is mapped to `(p / 255.) * range[1] + range[0]`.
+           
+
+   .. attribute:: dim_domain
+      :annotation: = 2
+
+      
+
+   .. attribute:: shape_range
+      :annotation: = []
+
+      
+
+   .. method:: evaluate(self, x, mu=None)
+
+      Evaluate the function for given argument `x` and |parameter values| `mu`.
+
+
+

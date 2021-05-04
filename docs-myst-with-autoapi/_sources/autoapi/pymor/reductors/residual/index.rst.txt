@@ -1,0 +1,257 @@
+:mod:`pymor.reductors.residual`
+===============================
+
+.. py:module:: pymor.reductors.residual
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.reductors.residual.ResidualReductor
+   pymor.reductors.residual.ResidualOperator
+   pymor.reductors.residual.NonProjectedResidualOperator
+   pymor.reductors.residual.ImplicitEulerResidualReductor
+   pymor.reductors.residual.ImplicitEulerResidualOperator
+   pymor.reductors.residual.NonProjectedImplicitEulerResidualOperator
+
+
+
+
+.. class:: ResidualReductor(RB, operator, rhs=None, product=None, riesz_representatives=False)
+
+
+   Bases: :py:obj:`pymor.core.base.BasicObject`
+
+   Generic reduced basis residual reductor.
+
+   Given an operator and a right-hand side, the residual is given by::
+
+       residual.apply(U, mu) == operator.apply(U, mu) - rhs.as_range_array(mu)
+
+   When operator maps to functionals instead of vectors, we are interested in the Riesz
+   representative of the residual::
+
+       residual.apply(U, mu)
+           == product.apply_inverse(operator.apply(U, mu) - rhs.as_range_array(mu))
+
+   Given a basis `RB` of a subspace of the source space of `operator`, this reductor
+   uses :func:`~pymor.algorithms.image.estimate_image_hierarchical` to determine
+   a low-dimensional subspace containing the image of the subspace under
+   `residual` (resp. `riesz_residual`), computes an orthonormal basis
+   `residual_range` for this range space and then returns the Petrov-Galerkin projection ::
+
+       projected_residual
+           == project(residual, range_basis=residual_range, source_basis=RB)
+
+   of the residual operator. Given a reduced basis coefficient vector `u`, w.r.t.
+   `RB`, the (dual) norm of the residual can then be computed as ::
+
+       projected_residual.apply(u, mu).norm()
+
+   Moreover, a `reconstruct` method is provided such that ::
+
+       residual_reductor.reconstruct(projected_residual.apply(u, mu))
+           == residual.apply(RB.lincomb(u), mu)
+
+   .. admonition:: Parameters
+
+       RB
+           |VectorArray| containing a basis of the reduced space onto which to project.
+       operator
+           See definition of `residual`.
+       rhs
+           See definition of `residual`. If `None`, zero right-hand side is assumed.
+       product
+           Inner product |Operator| w.r.t. which to orthonormalize and w.r.t. which to
+           compute the Riesz representatives in case `operator` maps to functionals.
+       riesz_representatives
+           If `True` compute the Riesz representative of the residual.
+           
+
+   .. method:: reduce(self)
+
+
+   .. method:: reconstruct(self, u)
+
+      Reconstruct high-dimensional residual vector from reduced vector `u`.
+
+
+
+.. class:: ResidualOperator(operator, rhs, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.interface.Operator`
+
+   Instantiated by :class:`ResidualReductor`.
+
+   .. method:: apply(self, U, mu=None)
+
+      Apply the operator to a |VectorArray|.
+
+      .. admonition:: Parameters
+
+          U
+              |VectorArray| of vectors to which the operator is applied.
+          mu
+              The |parameter values| for which to evaluate the operator.
+              
+      .. admonition:: Returns
+
+          |VectorArray| of the operator evaluations.
+              
+
+
+   .. method:: projected_to_subbasis(self, dim_range=None, dim_source=None, name=None)
+
+
+
+.. class:: NonProjectedResidualOperator(operator, rhs, riesz_representatives, product)
+
+
+   Bases: :py:obj:`ResidualOperator`
+
+   Instantiated by :class:`ResidualReductor`.
+
+   Not to be used directly.
+
+   .. method:: apply(self, U, mu=None)
+
+      Apply the operator to a |VectorArray|.
+
+      .. admonition:: Parameters
+
+          U
+              |VectorArray| of vectors to which the operator is applied.
+          mu
+              The |parameter values| for which to evaluate the operator.
+              
+      .. admonition:: Returns
+
+          |VectorArray| of the operator evaluations.
+              
+
+
+   .. method:: projected_to_subbasis(self, dim_range=None, dim_source=None, name=None)
+
+
+
+.. class:: ImplicitEulerResidualReductor(RB, operator, mass, dt, rhs=None, product=None)
+
+
+   Bases: :py:obj:`pymor.core.base.BasicObject`
+
+   Reduced basis residual reductor with mass operator for implicit Euler timestepping.
+
+   Given an operator, mass and a functional, the concatenation of residual operator
+   with the Riesz isomorphism is given by::
+
+       riesz_residual.apply(U, U_old, mu)
+           == product.apply_inverse(operator.apply(U, mu) + 1/dt*mass.apply(U, mu)
+               - 1/dt*mass.apply(U_old, mu) - rhs.as_vector(mu))
+
+   This reductor determines a low-dimensional subspace of the image of a reduced basis space under
+   `riesz_residual` using :func:`~pymor.algorithms.image.estimate_image_hierarchical`, computes an
+   orthonormal basis `residual_range` of this range space and then returns the Petrov-Galerkin
+   projection ::
+
+       projected_riesz_residual
+           == riesz_residual.projected(range_basis=residual_range, source_basis=RB)
+
+   of the `riesz_residual` operator. Given reduced basis coefficient vectors `u` and `u_old`,
+   the dual norm of the residual can then be computed as ::
+
+       projected_riesz_residual.apply(u, u_old, mu).norm()
+
+   Moreover, a `reconstruct` method is provided such that ::
+
+       residual_reductor.reconstruct(projected_riesz_residual.apply(u, u_old, mu))
+           == riesz_residual.apply(RB.lincomb(u), RB.lincomb(u_old), mu)
+
+   .. admonition:: Parameters
+
+       operator
+           See definition of `riesz_residual`.
+       mass
+           The mass operator. See definition of `riesz_residual`.
+       dt
+           The time step size. See definition of `riesz_residual`.
+       rhs
+           See definition of `riesz_residual`. If `None`, zero right-hand side is assumed.
+       RB
+           |VectorArray| containing a basis of the reduced space onto which to project.
+       product
+           Inner product |Operator| w.r.t. which to compute the Riesz representatives.
+           
+
+   .. method:: reduce(self)
+
+
+   .. method:: reconstruct(self, u)
+
+      Reconstruct high-dimensional residual vector from reduced vector `u`.
+
+
+
+.. class:: ImplicitEulerResidualOperator(operator, mass, rhs, dt, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.interface.Operator`
+
+   Instantiated by :class:`ImplicitEulerResidualReductor`.
+
+   .. method:: apply(self, U, U_old, mu=None)
+
+      Apply the operator to a |VectorArray|.
+
+      .. admonition:: Parameters
+
+          U
+              |VectorArray| of vectors to which the operator is applied.
+          mu
+              The |parameter values| for which to evaluate the operator.
+              
+      .. admonition:: Returns
+
+          |VectorArray| of the operator evaluations.
+              
+
+
+   .. method:: projected_to_subbasis(self, dim_range=None, dim_source=None, name=None)
+
+
+
+.. class:: NonProjectedImplicitEulerResidualOperator(operator, mass, rhs, dt, product)
+
+
+   Bases: :py:obj:`ImplicitEulerResidualOperator`
+
+   Instantiated by :class:`ImplicitEulerResidualReductor`.
+
+   Not to be used directly.
+
+   .. method:: apply(self, U, U_old, mu=None)
+
+      Apply the operator to a |VectorArray|.
+
+      .. admonition:: Parameters
+
+          U
+              |VectorArray| of vectors to which the operator is applied.
+          mu
+              The |parameter values| for which to evaluate the operator.
+              
+      .. admonition:: Returns
+
+          |VectorArray| of the operator evaluations.
+              
+
+
+   .. method:: projected_to_subbasis(self, dim_range=None, dim_source=None, name=None)
+
+
+
