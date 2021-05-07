@@ -85,3 +85,43 @@ np.average(absolute_errors)
 np.average(relative_errors)
 
 np.median(speedups)
+
+problem = problem.with_(outputs=[('l2', problem.rhs), ('l2_boundary', problem.dirichlet_data)])
+
+fom, _ = discretize_stationary_cg(problem, diameter=1/50)
+
+from pymor.reductors.neural_network import NeuralNetworkOutputReductor
+
+output_reductor = NeuralNetworkOutputReductor(fom,
+                                              training_set,
+                                              validation_set,
+                                              validation_loss=1e-5)
+
+output_rom = output_reductor.reduce(restarts=100)
+
+outputs = []
+outputs_red = []
+outputs_speedups = []
+
+for mu in test_set:
+    tic = time.perf_counter()
+    outputs.append(fom.output(mu=mu))
+    time_fom = time.perf_counter() - tic
+
+    tic = time.perf_counter()
+    outputs_red.append(output_rom.output(mu=mu))
+    time_red = time.perf_counter() - tic
+
+    outputs_speedups.append(time_fom / time_red)
+
+outputs = np.squeeze(np.array(outputs))
+outputs_red = np.squeeze(np.array(outputs_red))
+
+outputs_absolute_errors = np.abs(outputs - outputs_red)
+outputs_relative_errors = np.abs(outputs - outputs_red) / np.abs(outputs)
+
+np.average(outputs_absolute_errors)
+
+np.average(outputs_relative_errors)
+
+np.median(outputs_speedups)
