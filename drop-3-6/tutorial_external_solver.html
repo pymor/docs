@@ -4,8 +4,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17: http://docutils.sourceforge.net/" />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="x-ua-compatible" content="ie=edge">
   <meta name="lang:clipboard.copy" content="Copy to clipboard">
@@ -47,11 +46,12 @@
   
   
   
-    <title>Tutorial: Binding an external PDE solver to pyMOR &#8212; pyMOR v2021.1rc0+213.gd5be78e5 Manual</title>
+    <title>Tutorial: Binding an external PDE solver to pyMOR &#8212; pyMOR v2021.1rc0+248.g8f9f8e1a Manual</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="_static/jupyter-sphinx.css" />
     <link rel="stylesheet" type="text/css" href="_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
     <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
@@ -91,11 +91,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="pyMOR v2021.1rc0+213.gd5be78e5 Manual"
+        <a href="index.html" title="pyMOR v2021.1rc0+248.g8f9f8e1a Manual"
            class="md-header-nav__button md-logo">
           
               <img src="_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR v2021.1rc0+213.gd5be78e5 Manual logo">
+                   alt="pyMOR v2021.1rc0+248.g8f9f8e1a Manual logo">
           
         </a>
       </div>
@@ -161,7 +161,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">pyMOR v2021.1rc0+213.gd5be78e5 Manual</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">pyMOR v2021.1rc0+248.g8f9f8e1a Manual</a></li>
           <li class="md-tabs__item"><a href="tutorials.html" class="md-tabs__link">pyMOR Tutorials</a></li>
       </ul>
     </div>
@@ -174,13 +174,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="pyMOR v2021.1rc0+213.gd5be78e5 Manual" class="md-nav__button md-logo">
+    <a href="index.html" title="pyMOR v2021.1rc0+248.g8f9f8e1a Manual" class="md-nav__button md-logo">
       
         <img src="_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="index.html"
-       title="pyMOR v2021.1rc0+213.gd5be78e5 Manual">Documentation</a>
+       title="pyMOR v2021.1rc0+248.g8f9f8e1a Manual">Documentation</a>
   </label>
   
 
@@ -331,14 +331,14 @@
     <li class="md-nav__item">
     
     
-      <a href="generated/pymor.html" class="md-nav__link">pymor package</a>
+      <a href="autoapi/index.html" class="md-nav__link">API Reference</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="generated/pymordemos.html" class="md-nav__link">pymordemos package</a>
+      <a href="autoapi/pymor/index.html" class="md-nav__link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">pymor</span></code></a>
       
     
     </li>
@@ -364,14 +364,14 @@
         <div class="md-content">
           <article class="md-content__inner md-typeset" role="main">
             
-  <section id="tutorial-binding-an-external-pde-solver-to-pymor">
+  
 <h1 id="tutorial-external-solver--page-root">Tutorial: Binding an external PDE solver to pyMOR<a class="headerlink" href="#tutorial-external-solver--page-root" title="Permalink to this headline">¶</a></h1>
 <p>One of pyMOR’s main features is easy integration of external solvers that implement the full-order model. In this tutorial
 we will do this step-by-step for a custom toy solver written in C++.
 If you use the <a class="reference external" href="https://fenicsproject.org">FEniCS</a> or <a class="reference external" href="https://ngsolve.org">NGSovle</a> PDE solver libraries,
-you can find ready-to-use pyMOR bindings in the <a class="reference internal" href="generated/pymor.bindings.html#module-pymor.bindings" title="pymor.bindings"><code class="xref py py-mod docutils literal notranslate"><span class="pre">bindings</span></code></a> package. pyMOR support for
+you can find ready-to-use pyMOR bindings in the <a class="reference internal" href="autoapi/pymor/bindings/index.html#module-pymor.bindings" title="pymor.bindings"><code class="xref py py-mod docutils literal notranslate"><span class="pre">bindings</span></code></a> package. pyMOR support for
 <a class="reference external" href="https://dealii.org">deal.II</a> can be found in a <a class="reference external" href="https://github.com/pymor/pymor-deal.II">separate repository</a>.</p>
-<section id="defining-the-pde-solver">
+
 <h2 id="defining-the-pde-solver">Defining the PDE solver<a class="headerlink" href="#defining-the-pde-solver" title="Permalink to this headline">¶</a></h2>
 <p>Our solver discretizes the one-dimensional Laplace equation <span class="math notranslate nohighlight">\(u''(x)=0\)</span> on the interval <span class="math notranslate nohighlight">\([\text{left},\text{right}]\)</span>
 using a central differences scheme with <span class="math notranslate nohighlight">\(h=\frac{|\text{right}-\text{left}|}{n}\)</span>.
@@ -464,17 +464,17 @@ instances of the C++ <code class="docutils literal notranslate"><span class="pre
 <a class="reference external" href="https://github.com/pybind/pybind11">pybind11</a>, <a class="reference external" href="https://cython.org">Cython</a> or
 <a class="reference external" href="https://docs.python.org/3/library/ctypes.html">ctypes</a> is the preferred way of integrating
 external solvers, as it offers maximal flexibility and performance. For instance, in this
-example we will actually completely implement the <a class="reference internal" href="generated/pymor.models.html#pymor.models.interface.Model" title="pymor.models.interface.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">Model</span></code></a> in Python using a
-<a class="reference internal" href="generated/pymor.algorithms.html#module-pymor.algorithms.timestepping" title="pymor.algorithms.timestepping"><code class="xref py py-mod docutils literal notranslate"><span class="pre">time</span> <span class="pre">stepper</span></code></a> from pyMOR to
-<a class="reference internal" href="generated/pymor.models.html#pymor.models.interface.Model.solve" title="pymor.models.interface.Model.solve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">solve</span></code></a> the <a class="reference internal" href="generated/pymor.models.html#pymor.models.interface.Model" title="pymor.models.interface.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">Model</span></code></a>.</p>
+example we will actually completely implement the <a class="reference internal" href="autoapi/pymor/models/interface/index.html#pymor.models.interface.Model" title="pymor.models.interface.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">Model</span></code></a> in Python using a
+<a class="reference internal" href="autoapi/pymor/algorithms/timestepping/index.html#module-pymor.algorithms.timestepping" title="pymor.algorithms.timestepping"><code class="xref py py-mod docutils literal notranslate"><span class="pre">time</span> <span class="pre">stepper</span></code></a> from pyMOR to
+<a class="reference internal" href="autoapi/pymor/models/interface/index.html#pymor.models.interface.Model.solve" title="pymor.models.interface.Model.solve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">solve</span></code></a> the <a class="reference internal" href="autoapi/pymor/models/interface/index.html#pymor.models.interface.Model" title="pymor.models.interface.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">Model</span></code></a>.</p>
 <p>When this is not an option,
 <a class="reference external" href="https://en.wikipedia.org/wiki/Remote_procedure_call">RPC</a>-based approaches are
 possible as well. For small to medium-sized linear problems, another option it to import
 system matrices and snapshot data into pyMOR via file exchange and to use NumPy-based
-<a class="reference internal" href="generated/pymor.operators.html#module-pymor.operators.numpy" title="pymor.operators.numpy"><code class="xref py py-mod docutils literal notranslate"><span class="pre">Operators</span></code></a> and <a class="reference internal" href="generated/pymor.vectorarrays.html#module-pymor.vectorarrays.numpy" title="pymor.vectorarrays.numpy"><code class="xref py py-mod docutils literal notranslate"><span class="pre">VectorArrays</span></code></a>
+<a class="reference internal" href="autoapi/pymor/operators/numpy/index.html#module-pymor.operators.numpy" title="pymor.operators.numpy"><code class="xref py py-mod docutils literal notranslate"><span class="pre">Operators</span></code></a> and <a class="reference internal" href="autoapi/pymor/vectorarrays/numpy/index.html#module-pymor.vectorarrays.numpy" title="pymor.vectorarrays.numpy"><code class="xref py py-mod docutils literal notranslate"><span class="pre">VectorArrays</span></code></a>
 to represent the full-order model.</p>
-</section>
-<section id="binding-the-solver-to-python">
+
+
 <h2 id="binding-the-solver-to-python">Binding the solver to Python<a class="headerlink" href="#binding-the-solver-to-python" title="Permalink to this headline">¶</a></h2>
 <p>All of the C++ code related to the extension module is defined inside a scope started with</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">PYBIND11_MODULE</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
@@ -703,23 +703,23 @@ interpreter looks for things to import. Afterwards we can import the module and 
 </div>
 </div>
 </div>
-</section>
-<section id="using-the-exported-python-classes-with-pymor">
+
+
 <h2 id="using-the-exported-python-classes-with-pymor">Using the exported Python classes with pyMOR<a class="headerlink" href="#using-the-exported-python-classes-with-pymor" title="Permalink to this headline">¶</a></h2>
-<p>All of pyMOR’s algorithms operate on <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a> and <a class="reference internal" href="generated/pymor.operators.html#pymor.operators.interface.Operator" title="pymor.operators.interface.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a> objects that all share the same programming interface. To be able to use
+<p>All of pyMOR’s algorithms operate on <a class="reference internal" href="autoapi/pymor/vectorarrays/interface/index.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a> and <a class="reference internal" href="autoapi/pymor/operators/interface/index.html#pymor.operators.interface.Operator" title="pymor.operators.interface.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a> objects that all share the same programming interface. To be able to use
 our Python <code class="docutils literal notranslate"><span class="pre">model.Vector</span></code> and <code class="docutils literal notranslate"><span class="pre">model.DiffusionOperator</span></code> in pyMOR, we have to provide implementations of
-<a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a>, <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorSpace" title="pymor.vectorarrays.interface.VectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorSpace</span></code></a> and <a class="reference internal" href="generated/pymor.operators.html#pymor.operators.interface.Operator" title="pymor.operators.interface.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a> that wrap the classes defined in the extension module
+<a class="reference internal" href="autoapi/pymor/vectorarrays/interface/index.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a>, <a class="reference internal" href="autoapi/pymor/vectorarrays/interface/index.html#pymor.vectorarrays.interface.VectorSpace" title="pymor.vectorarrays.interface.VectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorSpace</span></code></a> and <a class="reference internal" href="autoapi/pymor/operators/interface/index.html#pymor.operators.interface.Operator" title="pymor.operators.interface.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a> that wrap the classes defined in the extension module
 and translate calls to the interface methods into operations on <code class="docutils literal notranslate"><span class="pre">model.Vector</span></code> and <code class="docutils literal notranslate"><span class="pre">model.DiffusionOperator</span></code>.</p>
-<p>Instead of writing a full implementaion of a <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a> that manages multiple <code class="docutils literal notranslate"><span class="pre">model.Vector</span></code>
+<p>Instead of writing a full implementaion of a <a class="reference internal" href="autoapi/pymor/vectorarrays/interface/index.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a> that manages multiple <code class="docutils literal notranslate"><span class="pre">model.Vector</span></code>
 instances, we can instead implement a wrapper <code class="docutils literal notranslate"><span class="pre">WrappedVector</span></code> for a single <code class="docutils literal notranslate"><span class="pre">model.Vector</span></code> instance based on
-<a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.list.CopyOnWriteVector" title="pymor.vectorarrays.list.CopyOnWriteVector"><code class="xref py py-class docutils literal notranslate"><span class="pre">CopyOnWriteVector</span></code></a> which will be used to create
-<a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.list.ListVectorArray" title="pymor.vectorarrays.list.ListVectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">ListVectorArrays</span></code></a> via a <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.list.ListVectorSpace" title="pymor.vectorarrays.list.ListVectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">ListVectorSpace</span></code></a>-based <code class="docutils literal notranslate"><span class="pre">WrappedVectorSpace</span></code>.</p>
-<p>The <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.list.CopyOnWriteVector" title="pymor.vectorarrays.list.CopyOnWriteVector"><code class="xref py py-class docutils literal notranslate"><span class="pre">CopyOnWriteVector</span></code></a> base class manages a reference count for
-us and automatically copies data when necessary in methods <code class="xref py py-meth docutils literal notranslate"><span class="pre">scal</span></code>
-and <code class="xref py py-meth docutils literal notranslate"><span class="pre">axpy</span></code>. To use this, we need to implement
-<code class="xref py py-meth docutils literal notranslate"><span class="pre">_scal</span></code>
-and <code class="xref py py-meth docutils literal notranslate"><span class="pre">_axpy</span></code> in addition to all the abstract
-methods from  <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.list.CopyOnWriteVector" title="pymor.vectorarrays.list.CopyOnWriteVector"><code class="xref py py-class docutils literal notranslate"><span class="pre">CopyOnWriteVector</span></code></a>. We can get away
+<a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.CopyOnWriteVector" title="pymor.vectorarrays.list.CopyOnWriteVector"><code class="xref py py-class docutils literal notranslate"><span class="pre">CopyOnWriteVector</span></code></a> which will be used to create
+<a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.ListVectorArray" title="pymor.vectorarrays.list.ListVectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">ListVectorArrays</span></code></a> via a <a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.ListVectorSpace" title="pymor.vectorarrays.list.ListVectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">ListVectorSpace</span></code></a>-based <code class="docutils literal notranslate"><span class="pre">WrappedVectorSpace</span></code>.</p>
+<p>The <a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.CopyOnWriteVector" title="pymor.vectorarrays.list.CopyOnWriteVector"><code class="xref py py-class docutils literal notranslate"><span class="pre">CopyOnWriteVector</span></code></a> base class manages a reference count for
+us and automatically copies data when necessary in methods <a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.CopyOnWriteVector.scal" title="pymor.vectorarrays.list.CopyOnWriteVector.scal"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scal</span></code></a>
+and <a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.CopyOnWriteVector.axpy" title="pymor.vectorarrays.list.CopyOnWriteVector.axpy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">axpy</span></code></a>. To use this, we need to implement
+<a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.CopyOnWriteVector._scal" title="pymor.vectorarrays.list.CopyOnWriteVector._scal"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_scal</span></code></a>
+and <a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.CopyOnWriteVector._axpy" title="pymor.vectorarrays.list.CopyOnWriteVector._axpy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_axpy</span></code></a> in addition to all the abstract
+methods from  <a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.CopyOnWriteVector" title="pymor.vectorarrays.list.CopyOnWriteVector"><code class="xref py py-class docutils literal notranslate"><span class="pre">CopyOnWriteVector</span></code></a>. We can get away
 with using just a stub that raises an <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#NotImplementedError" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">NotImplementedError</span></code></a> in some methods that are not actually called in our example.</p>
 <div class="jupyter_cell jupyter_container docutils container">
 <div class="cell_input code_cell docutils container">
@@ -783,7 +783,7 @@ with using just a stub that raises an <a class="reference external" href="https:
 </div>
 </div>
 <p>The implementation of the <code class="docutils literal notranslate"><span class="pre">WrappedVectorSpace</span></code> is very short as most of the necessary methods
-of <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorSpace" title="pymor.vectorarrays.interface.VectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorSpace</span></code></a> are implemented in <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.list.ListVectorSpace" title="pymor.vectorarrays.list.ListVectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">ListVectorSpace</span></code></a>.</p>
+of <a class="reference internal" href="autoapi/pymor/vectorarrays/interface/index.html#pymor.vectorarrays.interface.VectorSpace" title="pymor.vectorarrays.interface.VectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorSpace</span></code></a> are implemented in <a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.ListVectorSpace" title="pymor.vectorarrays.list.ListVectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">ListVectorSpace</span></code></a>.</p>
 <div class="jupyter_cell jupyter_container docutils container">
 <div class="cell_input code_cell docutils container">
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">WrappedVectorSpace</span><span class="p">(</span><span class="n">ListVectorSpace</span><span class="p">):</span>
@@ -807,7 +807,7 @@ of <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.v
 </div>
 </div>
 <p>Wrapping the <code class="docutils literal notranslate"><span class="pre">model.DiffusionOperator</span></code> is straightforward as well. We just need to attach
-suitable <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorSpace" title="pymor.vectorarrays.interface.VectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorSpaces</span></code></a> to the class and implement the application of the operator on a <a class="reference internal" href="generated/pymor.vectorarrays.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a>
+suitable <a class="reference internal" href="autoapi/pymor/vectorarrays/interface/index.html#pymor.vectorarrays.interface.VectorSpace" title="pymor.vectorarrays.interface.VectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorSpaces</span></code></a> to the class and implement the application of the operator on a <a class="reference internal" href="autoapi/pymor/vectorarrays/interface/index.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a>
 as a sequence of applications on single vectors.</p>
 <div class="jupyter_cell jupyter_container docutils container">
 <div class="cell_input code_cell docutils container">
@@ -838,8 +838,8 @@ as a sequence of applications on single vectors.</p>
 <div class="cell_output docutils container">
 </div>
 </div>
-</section>
-<section id="putting-it-all-together">
+
+
 <h2 id="putting-it-all-together">Putting it all together<a class="headerlink" href="#putting-it-all-together" title="Permalink to this headline">¶</a></h2>
 <p>As a demonstration, we will use our toy Laplace solver to compute an approximation for
 the transient diffusion equation</p>
@@ -849,7 +849,7 @@ the transient diffusion equation</p>
 <p>with explicit timestepping provided by pyMOR, with a parameterized, block-wise defined,  diffusion
 coefficient  <span class="math notranslate nohighlight">\(\alpha_\mu\)</span>.</p>
 <p>First up, we implement a <code class="docutils literal notranslate"><span class="pre">discretize</span></code> function that uses the <code class="docutils literal notranslate"><span class="pre">WrappedDiffusionOperator</span></code> and <code class="docutils literal notranslate"><span class="pre">WrappedVectorSpace</span></code>
-to assemble an <a class="reference internal" href="generated/pymor.models.html#pymor.models.basic.InstationaryModel" title="pymor.models.basic.InstationaryModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">InstationaryModel</span></code></a>.</p>
+to assemble an <a class="reference internal" href="autoapi/pymor/models/basic/index.html#pymor.models.basic.InstationaryModel" title="pymor.models.basic.InstationaryModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">InstationaryModel</span></code></a>.</p>
 <div class="jupyter_cell jupyter_container docutils container">
 <div class="cell_input code_cell docutils container">
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pymor.algorithms.pod</span> <span class="kn">import</span> <span class="n">pod</span>
@@ -934,7 +934,7 @@ Those wrapped classes are only directly used in the <code class="docutils litera
 </div>
 <div class="cell_output docutils container">
 <script type="application/vnd.jupyter.widget-view+json">
-{"version_major": 2, "version_minor": 0, "model_id": "76f22b60fb394d2c8ee66e989a93ad17"}
+{"version_major": 2, "version_minor": 0, "model_id": "d1e5434c31134d0e962b06e0f3e1dd15"}
 </script><div class="output text_html"><div style="float: left; padding: 10px;">
 <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css" rel="stylesheet"/>
 <script language="javascript">
@@ -1117,36 +1117,36 @@ input[type=range].anim-slider {
 }
 </style>
 <div class="animation">
-<img id="_anim_imgf2dba8eb7c5e41749bcd82c319340e82"/>
+<img id="_anim_img2701a566c16f49d79e514b6b5064e8f2"/>
 <div class="anim-controls">
-<input class="anim-slider" id="_anim_sliderf2dba8eb7c5e41749bcd82c319340e82" max="1" min="0" name="points" oninput="animf2dba8eb7c5e41749bcd82c319340e82.set_frame(parseInt(this.value));" step="1" type="range" value="0"/>
+<input class="anim-slider" id="_anim_slider2701a566c16f49d79e514b6b5064e8f2" max="1" min="0" name="points" oninput="anim2701a566c16f49d79e514b6b5064e8f2.set_frame(parseInt(this.value));" step="1" type="range" value="0"/>
 <div class="anim-buttons">
-<button aria-label="Decrease speed" onclick="animf2dba8eb7c5e41749bcd82c319340e82.slower()" title="Decrease speed">
+<button aria-label="Decrease speed" onclick="anim2701a566c16f49d79e514b6b5064e8f2.slower()" title="Decrease speed">
 <i class="fa fa-minus"></i></button>
-<button aria-label="First frame" onclick="animf2dba8eb7c5e41749bcd82c319340e82.first_frame()" title="First frame">
+<button aria-label="First frame" onclick="anim2701a566c16f49d79e514b6b5064e8f2.first_frame()" title="First frame">
 <i class="fa fa-fast-backward"></i></button>
-<button aria-label="Previous frame" onclick="animf2dba8eb7c5e41749bcd82c319340e82.previous_frame()" title="Previous frame">
+<button aria-label="Previous frame" onclick="anim2701a566c16f49d79e514b6b5064e8f2.previous_frame()" title="Previous frame">
 <i class="fa fa-step-backward"></i></button>
-<button aria-label="Play backwards" onclick="animf2dba8eb7c5e41749bcd82c319340e82.reverse_animation()" title="Play backwards">
+<button aria-label="Play backwards" onclick="anim2701a566c16f49d79e514b6b5064e8f2.reverse_animation()" title="Play backwards">
 <i class="fa fa-play fa-flip-horizontal"></i></button>
-<button aria-label="Pause" onclick="animf2dba8eb7c5e41749bcd82c319340e82.pause_animation()" title="Pause">
+<button aria-label="Pause" onclick="anim2701a566c16f49d79e514b6b5064e8f2.pause_animation()" title="Pause">
 <i class="fa fa-pause"></i></button>
-<button aria-label="Play" onclick="animf2dba8eb7c5e41749bcd82c319340e82.play_animation()" title="Play">
+<button aria-label="Play" onclick="anim2701a566c16f49d79e514b6b5064e8f2.play_animation()" title="Play">
 <i class="fa fa-play"></i></button>
-<button aria-label="Next frame" onclick="animf2dba8eb7c5e41749bcd82c319340e82.next_frame()" title="Next frame">
+<button aria-label="Next frame" onclick="anim2701a566c16f49d79e514b6b5064e8f2.next_frame()" title="Next frame">
 <i class="fa fa-step-forward"></i></button>
-<button aria-label="Last frame" onclick="animf2dba8eb7c5e41749bcd82c319340e82.last_frame()" title="Last frame">
+<button aria-label="Last frame" onclick="anim2701a566c16f49d79e514b6b5064e8f2.last_frame()" title="Last frame">
 <i class="fa fa-fast-forward"></i></button>
-<button aria-label="Increase speed" onclick="animf2dba8eb7c5e41749bcd82c319340e82.faster()" title="Increase speed">
+<button aria-label="Increase speed" onclick="anim2701a566c16f49d79e514b6b5064e8f2.faster()" title="Increase speed">
 <i class="fa fa-plus"></i></button>
 </div>
-<form action="#n" aria-label="Repetition mode" class="anim-state" name="_anim_loop_selectf2dba8eb7c5e41749bcd82c319340e82" title="Repetition mode">
-<input id="_anim_radio1_f2dba8eb7c5e41749bcd82c319340e82" name="state" type="radio" value="once"/>
-<label for="_anim_radio1_f2dba8eb7c5e41749bcd82c319340e82">Once</label>
-<input checked="" id="_anim_radio2_f2dba8eb7c5e41749bcd82c319340e82" name="state" type="radio" value="loop"/>
-<label for="_anim_radio2_f2dba8eb7c5e41749bcd82c319340e82">Loop</label>
-<input id="_anim_radio3_f2dba8eb7c5e41749bcd82c319340e82" name="state" type="radio" value="reflect"/>
-<label for="_anim_radio3_f2dba8eb7c5e41749bcd82c319340e82">Reflect</label>
+<form action="#n" aria-label="Repetition mode" class="anim-state" name="_anim_loop_select2701a566c16f49d79e514b6b5064e8f2" title="Repetition mode">
+<input id="_anim_radio1_2701a566c16f49d79e514b6b5064e8f2" name="state" type="radio" value="once"/>
+<label for="_anim_radio1_2701a566c16f49d79e514b6b5064e8f2">Once</label>
+<input checked="" id="_anim_radio2_2701a566c16f49d79e514b6b5064e8f2" name="state" type="radio" value="loop"/>
+<label for="_anim_radio2_2701a566c16f49d79e514b6b5064e8f2">Loop</label>
+<input id="_anim_radio3_2701a566c16f49d79e514b6b5064e8f2" name="state" type="radio" value="reflect"/>
+<label for="_anim_radio3_2701a566c16f49d79e514b6b5064e8f2">Reflect</label>
 </form>
 </div>
 </div>
@@ -1154,13 +1154,13 @@ input[type=range].anim-slider {
   /* Instantiate the Animation class. */
   /* The IDs given should match those used in the template above. */
   (function() {
-    var img_id = "_anim_imgf2dba8eb7c5e41749bcd82c319340e82";
-    var slider_id = "_anim_sliderf2dba8eb7c5e41749bcd82c319340e82";
-    var loop_select_id = "_anim_loop_selectf2dba8eb7c5e41749bcd82c319340e82";
+    var img_id = "_anim_img2701a566c16f49d79e514b6b5064e8f2";
+    var slider_id = "_anim_slider2701a566c16f49d79e514b6b5064e8f2";
+    var loop_select_id = "_anim_loop_select2701a566c16f49d79e514b6b5064e8f2";
     var frames = new Array(20);
 
   frames[0] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAALf0lEQVR4nO3dXahl91nH8d/TxCjSF8UZQfM2EVNwrELLGOtNqzRIEjC5sJUE\
 gkaCgUq8sCIECq3Gq1pUEALNiMUXqGnaCxlxSi5qJFBMycRo6KRExpgmkwqZao0Xoa2xjxdnB47D\
 THMyOWev/cz5fODAXnuvOTz/2Wf4nrX2nr2quwMA07xp6QEA4EIIGAAjCRgAIwkYACMJGAAjCRgA\
@@ -1216,7 +1216,7 @@ BsBIAgbASAIGwEgCBsBIAgbASAIGwEgCBsBIAgbASAIGwEgCBsBIAgbASAIGwEj/B35bD4p6cfwq\
 AAAAAElFTkSuQmCC\
 "
   frames[1] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAUoElEQVR4nO3da3Bcd3nH8d+zu1rdJUuW4ptky3GcUJGrI0JCgIQh0HCZpJSk\
 JNNMoM00U5h0pqXTGTpMKQMvemHaTjtNB9KWoTCl3DqlnuI0LyA0k4CDbRLiSy4ovsqW8U2WZeu2\
 l6cvzkqWHTuRHWl3H+v7mdnZs2ePVv+/Zemrc85q19xdAABEk6r0AAAAuBgEDAAQEgEDAIREwAAA\
@@ -1313,7 +1313,7 @@ wAAAIREwAEBIBAwAEBIBAwCERMAAACERMABASAQMABASAQMAhETAAAAhETAAQEj/D2dng9cvLDSM\
 AAAAAElFTkSuQmCC\
 "
   frames[2] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAXlklEQVR4nO3deXCc9X3H8c93D2m1um/LlmT5tjGXjTlCUy5TAqTBISQBUtLQ\
 yYQUhh5Jm5ZMOmkKmUmatGmOyTSQqzkmgUA5HCBhEkggJVwGH9j4wLcly5ZkybqPPX79YxePMLaR\
 jbS7P+37NbOz1yPxfZCs9z7PPrtrzjkBAOCbQLYHAADgVBAwAICXCBgAwEsEDADgJQIGAPASAQMA\
@@ -1423,7 +1423,7 @@ ImAAAC8RMACAlwgYAMBLBAwA4CUCBgDwEgEDAHiJgAEAvETAAABeImAAAC8RMACAlwgYAMBLBAwA\
 4CUCBgDw0v8DRLNbhierEmwAAAAASUVORK5CYII=\
 "
   frames[3] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAZBUlEQVR4nO3de3TUd53/8dc7M7nfrwRIQgiFckfKpaC1VNtaWtei1XbpWld7\
 qrXrT89PV/2dup7fuj91XXf97eq6x99x0VW77rbV1tWl9r7am93SEkq5hAKlECA3kkDIfSaZmc/v\
 jxkotNCGkszMhzwf58xhbkzfX5L0me98v/P9mnNOAAD4JiPVAwAA8HYQMACAlwgYAMBLBAwA4CUC\
@@ -1539,7 +1539,7 @@ LxEwAICXCBgAwEsEDADgJQIGAPASAQMAeImAAQC8RMAAAF4iYAAALxEwAICXCBgAwEsEDADgJQIG\
 APASAQMAeImAAQC8RMAAAF4iYAAALxEwAICXCBgAwEv/H5gdP5Dg/01cAAAAAElFTkSuQmCC\
 "
   frames[4] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAaAklEQVR4nO3deZRU9Z338c+vqqv3fYOmF5pdEGRrEDGjuCQaJwEnLsGoUUdF\
 k4wzZzLjeXLOPCczk8mcJJOZyZNkMlGiGJ+YROOShDF6TFxwQVkaUJC9gWZpoPd9ra76zR9VUSQg\
 DXRX3V/X+3VOn6rqKprvpYF336XuNdZaAQDgGl+8BwAA4FwQMACAkwgYAMBJBAwA4CQCBgBwEgED\
@@ -1660,7 +1660,7 @@ AMBJBAwA4CQCBgBwEgEDADiJgAEAnETAAABOImAAACcRMACAkwgYAMBJBAwA4CQCBgBwEgEDADjp\
 fwFlW6AxCWmdFAAAAABJRU5ErkJggg==\
 "
   frames[5] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAapklEQVR4nO3deXzV9Z3v8fc3Odk3QlaSEJKwSUAUCCC1iigqtdSl1rrU0jq2\
 TK323t7WdvqYaTsd5/Zxr9VOO844tmity7TutWKrQ6sVlU1AIsi+BAgJhOz7ek6+94+TMpELEjE5\
 v/PNeT0fjzzOmuTzM8FXfr/zO7+fsdYKAADXRHk9AAAAZ4OAAQCcRMAAAE4iYAAAJxEwAICTCBgA\
@@ -1784,7 +1784,7 @@ JxEwAICTCBgAwEkEDADgJAIGAHASAQMAOImAAQCcRMAAAE4iYAAAJxEwAICTCBgAwEn/D57Trm/i\
 b0uaAAAAAElFTkSuQmCC\
 "
   frames[6] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAbMUlEQVR4nO3de3hU9Z3H8c8vk0zuF0JCCCQhCVcjikAAQRSp2HrpQtVV0fIo\
 1kvp1t22u3Xbbne7+7Tbi7Vq62q91HvVXkRtWYvFogiKaAmgiEAgQAjhloQkkAu5zMxv/5isRQs1\
 YDJnfpn363nyMEmG5HtIwnt+c07OMdZaAQDgmjivBwAA4FQQMACAkwgYAMBJBAwA4CQCBgBwEgED\
@@ -1910,7 +1910,7 @@ wEkEDADgJAIGAHASAQMAOImAAQCcRMAAAE4iYAAAJxEwAICTCBgAwEkEDADgJAIGAHASAQMAOImA\
 AQCcRMAAAE4iYAAAJxEwAICT/g/vxfxhsqamEQAAAABJRU5ErkJggg==\
 "
   frames[7] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAbyElEQVR4nO3deXhV9b3v8c9v78xkgkxAQggBwjwaUCwKAraUW8EZ9Dj0Fg+n\
 g7ZWba/n2lof72lv1ePUHqzi0ap11mMt1rFSBouAhFFApjBkAEIgM5n3/p0/duqhjhGSrP1L3q/n\
 yePeO5vw/ZmQd9baK2sZa60AAHCNz+sBAAA4FQQMAOAkAgYAcBIBAwA4iYABAJxEwAAATiJgAAAn\
@@ -2039,7 +2039,7 @@ kwgYAMBJBAwA4CQCBgBwEgEDADiJgAEAnETAAABOImAAACcRMACAkwgYAMBJBAwA4CQCBgBw0n8D\
 EEkBtwwjdmsAAAAASUVORK5CYII=\
 "
   frames[8] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAbtElEQVR4nO3deXSV9b3v8c8v80RmQiAkhFHmMYKIMkiraK1oVY5a6li1emzr\
 0eptr/e2Xq2nVWvVq6xrcdajYEWteMXqUUAcmMIg8xAgZGAIGUjInOz9O3/syEIPSoAkz/4l79da\
 WRn2Ttb3R0je2c/z7Ocx1loBAOCaEK8HAADgVBAwAICTCBgAwEkEDADgJAIGAHASAQMAOImAAQCc\
@@ -2167,7 +2167,7 @@ MACAkwgYAMBJBAwA4CQCBgBwEgEDADiJgAEAnETAAABOImAAACcRMACAkwgYAMBJBAwA4CQCBgBw\
 EgEDADiJgAEAnETAAABOImAAACcRMACAkwgYAMBJBAwA4KT/Ak8+HxuHZoVsAAAAAElFTkSuQmCC\
 "
   frames[9] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAb+ElEQVR4nO3deXxU9b3/8fc3k43sK0kgG/sqIoRViyguuFIVr1CpS235XbTW\
 Vnu9+qu3dbm9P+tSl16vlVpbr9aFugJatSqKiiDIEhZZw5IQloSQkJA98/39MZGiRQiY5Mw383o+\
 HvPITGYgn5PtlXPmzDnGWisAAFwT5vUAAACcCAIGAHASAQMAOImAAQCcRMAAAE4iYAAAJxEwAICT\
@@ -2297,7 +2297,7 @@ AE4iYAAAJxEwAICTCBgAwEkEDADgJAIGAHASAQMAOImAAQCcRMAAAE4iYAAAJ/1/CfAeIyWPPjIA\
 AAAASUVORK5CYII=\
 "
   frames[10] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAb30lEQVR4nO3deXhV9b3v8c9v70xkJiQkYCZmiUxCVBQqqKDiUTh1qBNq1VbF\
 qm3Vtvba515r7zm1dWyP3qNo0da2OBUVrRYnFJlnkCAgc0IgZCATGXf27/6xcyhVkQBJ1v4l79fz\
 5MneySZ8V6Z31rDXMtZaAQDgGp/XAwAAcDwIGADASQQMAOAkAgYAcBIBAwA4iYABAJxEwAAATiJg\
@@ -2426,7 +2426,7 @@ BAwA4CQCBgBwEgEDADiJgAEAnETAAABOImAAACcRMACAkwgYAMBJBAwA4CQCBgBwEgEDADiJgAEA\
 nETAAABOImAAACcRMACAkwgYAMBJ/x8bGRhFpQfsyQAAAABJRU5ErkJggg==\
 "
   frames[11] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcV0lEQVR4nO3deXzU9Z3H8fd3Jhe5b8KRg3DKoRxBDjmkAiqtWlvvWtSKtmrd\
 aq2PtdvWru3aw9aj7tq13sd6rlVERakHiKAg4ZD7CHdCIAmQkJA7890/JrXUBQ2Q5DffzOv5eOSR\
 SWYInx8hec3vN7/DWGsFAIBrfF4PAADAiSBgAAAnETAAgJMIGADASQQMAOAkAgYAcBIBAwA4iYAB\
@@ -2557,7 +2557,7 @@ JAIGAHASAQMAOImAAQCcRMAAAE4iYAAAJxEwAICTCBgAwEkEDADgJAIGAHASAQMAOImAAQCcRMAA\
 AE4iYAAAJxEwAICTCBgAwEkEDADgJAIGAHDS/wEkGC3BwzzVOgAAAABJRU5ErkJggg==\
 "
   frames[12] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcLElEQVR4nO3deXxU5b3H8e+TfV9ISAgJCSAgqwoGxIqAiktRQbHibl2utlrr\
 FenifdnW3tpWbWtdWm21uLV1wa0WrwtuKIsiO0KQJWxZICQQErInM/PcPyZ60esSMMmZJ/N5v17z\
 yiQZ4u8YyCfPmTPnGGutAABwTYTXAwAAcDgIGADASQQMAOAkAgYAcBIBAwA4iYABAJxEwAAATiJg\
@@ -2688,7 +2688,7 @@ cBIBAwA4iYABAJxEwAAATiJgAAAnETAAgJMIGADASQQMAOAkAgYAcNL/ApWtShdVUBeWAAAAAElF\
 TkSuQmCC\
 "
   frames[13] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcM0lEQVR4nO3dd3xUdb7/8fd3ZlIhpNMSklCCVFGMgEpR0RW5rlzXim2t3Kvr\
 6uq6xd3fT+9vvVvca8O9/FbRdS13Fbty7SiKoKAEEekQakgBQgqB1Jl87x8TuSxrCZDkzDfzej4e\
 88g0wueQkFfOmTPnGGutAABwjc/rAQAAOBIEDADgJAIGAHASAQMAOImAAQCcRMAAAE4iYAAAJxEw\
@@ -2819,7 +2819,7 @@ GADASQQMAOAkAgYAcBIBAwA4iYABAJxEwAAATiJgAAAnETAAgJMIGADASQQMAOCk/wH4dSCuhCNB\
 /AAAAABJRU5ErkJggg==\
 "
   frames[14] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAchUlEQVR4nO3deXjU5b338c+dSSb7BklICAmRRcK+RUQBAaGKS7VW61Zarahd\
 tIs+tZvtY489PaeW1lqfWltr3XrcW1TqAlZlExUJoJhg2JckEJJAEhKyTnI/f0zkUBcMkuQ3d+b9\
 uq5cTJIhfH8JyTv3zD3zM9ZaAQDgmgivBwAA4LMgYAAAJxEwAICTCBgAwEkEDADgJAIGAHASAQMA\
@@ -2951,7 +2951,7 @@ gAEAnETAAABOImAAACcRMACAkwgYAMBJBAwA4CQCBgBwEgEDADiJgAEAnETAAABOImAAACcRMACA\
 kwgYAMBJBAwA4CQCBgBw0v8HF+QFB7N+mmMAAAAASUVORK5CYII=\
 "
   frames[15] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcZElEQVR4nO3dd3jV9d3/8dcnOyELyCAJCZERgbANOAEHKkVFbd31Z0Wt1tE6\
 bv1Z7/469K73pfV2Sy+lrVatrdYJ7gXIEDQsmRJWgCRAQgZZZJycz++Pk3qjVQmQ5Hs+Oc/HdeU6\
 Jzkn4f0lhGe+43y/xlorAABcE+b1AAAAHA4CBgBwEgEDADiJgAEAnETAAABOImAAACcRMACAkwgY\
@@ -3083,7 +3083,7 @@ JxEwAICTCBgAwEkEDADgJAIGAHASAQMAOImAAQCcRMAAAE4iYAAAJ/1/jZk3JCBcCXYAAAAASUVO\
 RK5CYII=\
 "
   frames[16] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcT0lEQVR4nO3deXTV9Z3/8dcne8iekAAJkLAKBGULAloWd2sraEVFShWr1dqj\
 pxWn6kx7ppZuo9a9/NzqVvtTcVwqdBQXFCMgq+xbgBAgbEkghOzJvfnMHzfDIKMQIMn3fnKfj3Ny\
 cpP7TXh/CeGZ75Lv11hrBQCAa8K8HgAAgNNBwAAATiJgAAAnETAAgJMIGADASQQMAOAkAgYAcBIB\
@@ -3214,7 +3214,7 @@ AICTCBgAwEkEDADgJAIGAHASAQMAOImAAQCcRMAAAE4iYAAAJxEwAICTCBgAwEkEDADgJAIGAHAS\
 AQMAOImAAQCcRMAAAE4iYAAAJ/03sYRr593rRj8AAAAASUVORK5CYII=\
 "
   frames[17] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcnElEQVR4nO3deXxU5b3H8e+TfU8gC2EJCUtYAwiExYIgYBVFcUURl+tWW2/1\
 tlptr9faWr3d1N5Wq1bRWq22VMWquKIoCgjILhBAdkLYkkASQvbJPPePSSmlLgGTnHkyn/frlVcm\
 mUn4PQTmk3PmzBljrRUAAK4J83oAAABOBgEDADiJgAEAnETAAABOImAAACcRMACAkwgYAMBJBAwA\
@@ -3347,7 +3347,7 @@ AQMAOImAAQCcRMAAAE4iYAAAJxEwAICTCBgAwEkEDADgJAIGAHDS/wMI/ECmCS/2OgAAAABJRU5E\
 rkJggg==\
 "
   frames[18] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAceUlEQVR4nO3deXxU9b3/8fd3JjtJSCAJCYQkyI4sJUTUKiBaFEGhVbBSsXXp\
 9aeWXrUuP217e3+1tVer1mprVbTudf9ZxYpQq2yCIIvs+xKWBEhIyAIhy2S+94+JXuSqBExy5pt5\
 PR+PPDKZmYTPIcm8cs6cOcdYawUAgGt8Xg8AAMDJIGAAACcRMACAkwgYAMBJBAwA4CQCBgBwEgED\
@@ -3479,7 +3479,7 @@ AE4iYAAAJxEwAICTCBgAwEkEDADgJAIGAHASAQMAOImAAQCcRMAAAE4iYAAAJxEwAICTCBgAwEkE\
 DADgpP8GU9VYovUyEQkAAAAASUVORK5CYII=\
 "
   frames[19] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcbklEQVR4nO3deXhU9b3H8c8vmSxkhWwkhCUsYZFNIFAssikqgoVa0Op1KS71\
 WmttXdt6fW5be2+1arViqVuLvXjrXq24IFgXUARlk10gbCFhSQJJCIQsM/O7f0zqpbgQIMmZX+b9\
 ep48mWQO4XuyvXPOnDnHWGsFAIBrorweAACAk0HAAABOImAAACcRMACAkwgYAMBJBAwA4CQCBgBw\
@@ -3615,7 +3615,7 @@ GeRNAAAAAElFTkSuQmCC\
     /* set a timeout to make sure all the above elements are created before
        the object is initialized. */
     setTimeout(function() {
-        animf2dba8eb7c5e41749bcd82c319340e82 = new Animation(frames, img_id, slider_id, 200.0,
+        anim2701a566c16f49d79e514b6b5064e8f2 = new Animation(frames, img_id, slider_id, 200.0,
                                  loop_select_id);
     }, 0);
   })()
@@ -3803,36 +3803,36 @@ input[type=range].anim-slider {
 }
 </style>
 <div class="animation">
-<img id="_anim_imgc897318fba874ac1b20e2118bd6eb19b"/>
+<img id="_anim_img489b11a3ede445958df66031d3bfef3e"/>
 <div class="anim-controls">
-<input class="anim-slider" id="_anim_sliderc897318fba874ac1b20e2118bd6eb19b" max="1" min="0" name="points" oninput="animc897318fba874ac1b20e2118bd6eb19b.set_frame(parseInt(this.value));" step="1" type="range" value="0"/>
+<input class="anim-slider" id="_anim_slider489b11a3ede445958df66031d3bfef3e" max="1" min="0" name="points" oninput="anim489b11a3ede445958df66031d3bfef3e.set_frame(parseInt(this.value));" step="1" type="range" value="0"/>
 <div class="anim-buttons">
-<button aria-label="Decrease speed" onclick="animc897318fba874ac1b20e2118bd6eb19b.slower()" title="Decrease speed">
+<button aria-label="Decrease speed" onclick="anim489b11a3ede445958df66031d3bfef3e.slower()" title="Decrease speed">
 <i class="fa fa-minus"></i></button>
-<button aria-label="First frame" onclick="animc897318fba874ac1b20e2118bd6eb19b.first_frame()" title="First frame">
+<button aria-label="First frame" onclick="anim489b11a3ede445958df66031d3bfef3e.first_frame()" title="First frame">
 <i class="fa fa-fast-backward"></i></button>
-<button aria-label="Previous frame" onclick="animc897318fba874ac1b20e2118bd6eb19b.previous_frame()" title="Previous frame">
+<button aria-label="Previous frame" onclick="anim489b11a3ede445958df66031d3bfef3e.previous_frame()" title="Previous frame">
 <i class="fa fa-step-backward"></i></button>
-<button aria-label="Play backwards" onclick="animc897318fba874ac1b20e2118bd6eb19b.reverse_animation()" title="Play backwards">
+<button aria-label="Play backwards" onclick="anim489b11a3ede445958df66031d3bfef3e.reverse_animation()" title="Play backwards">
 <i class="fa fa-play fa-flip-horizontal"></i></button>
-<button aria-label="Pause" onclick="animc897318fba874ac1b20e2118bd6eb19b.pause_animation()" title="Pause">
+<button aria-label="Pause" onclick="anim489b11a3ede445958df66031d3bfef3e.pause_animation()" title="Pause">
 <i class="fa fa-pause"></i></button>
-<button aria-label="Play" onclick="animc897318fba874ac1b20e2118bd6eb19b.play_animation()" title="Play">
+<button aria-label="Play" onclick="anim489b11a3ede445958df66031d3bfef3e.play_animation()" title="Play">
 <i class="fa fa-play"></i></button>
-<button aria-label="Next frame" onclick="animc897318fba874ac1b20e2118bd6eb19b.next_frame()" title="Next frame">
+<button aria-label="Next frame" onclick="anim489b11a3ede445958df66031d3bfef3e.next_frame()" title="Next frame">
 <i class="fa fa-step-forward"></i></button>
-<button aria-label="Last frame" onclick="animc897318fba874ac1b20e2118bd6eb19b.last_frame()" title="Last frame">
+<button aria-label="Last frame" onclick="anim489b11a3ede445958df66031d3bfef3e.last_frame()" title="Last frame">
 <i class="fa fa-fast-forward"></i></button>
-<button aria-label="Increase speed" onclick="animc897318fba874ac1b20e2118bd6eb19b.faster()" title="Increase speed">
+<button aria-label="Increase speed" onclick="anim489b11a3ede445958df66031d3bfef3e.faster()" title="Increase speed">
 <i class="fa fa-plus"></i></button>
 </div>
-<form action="#n" aria-label="Repetition mode" class="anim-state" name="_anim_loop_selectc897318fba874ac1b20e2118bd6eb19b" title="Repetition mode">
-<input id="_anim_radio1_c897318fba874ac1b20e2118bd6eb19b" name="state" type="radio" value="once"/>
-<label for="_anim_radio1_c897318fba874ac1b20e2118bd6eb19b">Once</label>
-<input checked="" id="_anim_radio2_c897318fba874ac1b20e2118bd6eb19b" name="state" type="radio" value="loop"/>
-<label for="_anim_radio2_c897318fba874ac1b20e2118bd6eb19b">Loop</label>
-<input id="_anim_radio3_c897318fba874ac1b20e2118bd6eb19b" name="state" type="radio" value="reflect"/>
-<label for="_anim_radio3_c897318fba874ac1b20e2118bd6eb19b">Reflect</label>
+<form action="#n" aria-label="Repetition mode" class="anim-state" name="_anim_loop_select489b11a3ede445958df66031d3bfef3e" title="Repetition mode">
+<input id="_anim_radio1_489b11a3ede445958df66031d3bfef3e" name="state" type="radio" value="once"/>
+<label for="_anim_radio1_489b11a3ede445958df66031d3bfef3e">Once</label>
+<input checked="" id="_anim_radio2_489b11a3ede445958df66031d3bfef3e" name="state" type="radio" value="loop"/>
+<label for="_anim_radio2_489b11a3ede445958df66031d3bfef3e">Loop</label>
+<input id="_anim_radio3_489b11a3ede445958df66031d3bfef3e" name="state" type="radio" value="reflect"/>
+<label for="_anim_radio3_489b11a3ede445958df66031d3bfef3e">Reflect</label>
 </form>
 </div>
 </div>
@@ -3840,13 +3840,13 @@ input[type=range].anim-slider {
   /* Instantiate the Animation class. */
   /* The IDs given should match those used in the template above. */
   (function() {
-    var img_id = "_anim_imgc897318fba874ac1b20e2118bd6eb19b";
-    var slider_id = "_anim_sliderc897318fba874ac1b20e2118bd6eb19b";
-    var loop_select_id = "_anim_loop_selectc897318fba874ac1b20e2118bd6eb19b";
+    var img_id = "_anim_img489b11a3ede445958df66031d3bfef3e";
+    var slider_id = "_anim_slider489b11a3ede445958df66031d3bfef3e";
+    var loop_select_id = "_anim_loop_select489b11a3ede445958df66031d3bfef3e";
     var frames = new Array(20);
 
   frames[0] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAALf0lEQVR4nO3dXahl91nH8d/TxCjSF8UZQfM2EVNwrELLGOtNqzRIEjC5sJUE\
 gkaCgUq8sCIECq3Gq1pUEALNiMUXqGnaCxlxSi5qJFBMycRo6KRExpgmkwqZao0Xoa2xjxdnB47D\
 THMyOWev/cz5fODAXnuvOTz/2Wf4nrX2nr2quwMA07xp6QEA4EIIGAAjCRgAIwkYACMJGAAjCRgA\
@@ -3902,7 +3902,7 @@ BsBIAgbASAIGwEgCBsBIAgbASAIGwEgCBsBIAgbASAIGwEgCBsBIAgbASAIGwEj/B35bD4p6cfwq\
 AAAAAElFTkSuQmCC\
 "
   frames[1] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAUaElEQVR4nO3de4xcd3mH8e87l5293+zdxF7fsaPEuZF4k4ZSSCvS1kQoKYGQ\
 RKA2FSICRFWVqlIqVIrgD1pokVopFaQ0aqlEIVCpsqghEqkRF2EaG0hCfCGO48smXq/tXe96r7Mz\
 8/aPM7teu3a8dnZn5vU+H2l0zplzZvM7mfU8e87czN0FAEA0qWoPAACAK0HAAAAhETAAQEgEDAAQ\
@@ -3998,7 +3998,7 @@ EgEDAIREwAAAIREwAEBIBAwAEBIBAwCERMAAACERMABASAQMABASAQMAhETAAAAh/R/BXx+8z3A6\
 GwAAAABJRU5ErkJggg==\
 "
   frames[2] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAXRklEQVR4nO3deXDc5X3H8c93T923fMmSZRsf2MZgIijQciSQmJAGcpAAKU3I\
 pCElk3TStMnkmqRNeiSh6fQYOsGlTJq0CQGagJuQQAgEl4AJAmPwhQ/5kGxkWfetvZ7+sWsjjG1k\
 I+3uI71fMzv7292fpeexbL31O7Q/c84JAADfBHI9AAAAzgQBAwB4iYABALxEwAAAXiJgAAAvETAA\
@@ -4107,7 +4107,7 @@ ImAAAC8RMACAlwgYAMBLBAwA4CUCBgDwEgEDAHiJgAEAvETAAABeImAAAC8RMACAlwgYAMBLBAwA\
 TkSuQmCC\
 "
   frames[3] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAZMUlEQVR4nO3deXTc5X3v8c93ZjTad8mrLEvesI3xgoWJQ4AAAXwh12ShYNKE\
 hiYhaZucnuY2Se+Bk9uTtmlKTnKatDk3MUlOKG0gCUmoc4FQyuYs2FjGxni3bGzJsi3JkrUvsz33\
 jxkcATYWRpqZx3q/ztHRLD+Nnsda3vot/v3MOScAAHwTyPQAAAA4HwQMAOAlAgYA8BIBAwB4iYAB\
@@ -4224,7 +4224,7 @@ AICXCBgAwEsEDADgJQIGAPASAQMAeImAAQC8RMAAAF4iYAAALxEwAICXCBgAwEsEDADgJQIGAPAS\
 AQMAeImAAQC8RMAAAF4iYAAAL/1/qS1Bl4wwqYQAAAAASUVORK5CYII=\
 "
   frames[4] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAaAElEQVR4nO3de3SdZZ3o8e+zc22Stmma9Jqm6Q1oKQVKKRe5SZEROFPmKA4X\
 UVAR8XiZ5eisNS7nzDh6XEeP6zg6Z5zDIHAQb6A4ao+geENQSqGthUJbLr3QJr23aZM2l+b2nD92\
 6BROgQBJ9n6S72etvbJ39tvd39uk+eZ997vfHWKMSJKUmkyuB5Ak6c0wYJKkJBkwSVKSDJgkKUkG\
@@ -4345,7 +4345,7 @@ SpIBkyQlyYBJkpJkwCRJSTJgkqQkGTBJUpIMmCQpSQZMkpQkAyZJSpIBkyQlyYBJkpJkwCRJSfp/\
 xmyBoYQgiCIAAAAASUVORK5CYII=\
 "
   frames[5] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAaxElEQVR4nO3deXxV9Z3/8fc3N/uekATIRiBssu8qWipiHVwKWmuFah0dW8ba\
 jqPt9PfobzqPTh92+phWbTt2pmqtdWm1omWsUrViRzaLgIRdUEJYQhZIAiEbWW/ud/64KQUGNGBy\
 z/3mvp6Px33k3ptD8jmG+OKce+45xlorAABcE+X1AAAAXAgCBgBwEgEDADiJgAEAnETAAABOImAA\
@@ -4469,7 +4469,7 @@ AJxEwAAATiJgAAAnETAAgJMIGADASQQMAOAkAgYAcBIBAwA4iYABAJxEwAAATiJgAAAnETAAgJMI\
 GADASQQMAOAkAgYAcBIBAwA4iYABAJz0v6k61wOpZPkIAAAAAElFTkSuQmCC\
 "
   frames[6] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAbV0lEQVR4nO3deXzU9Z3H8fc3k/u+QwgEEu5D5AiIoojHWspasauy2nrVgy7b\
 du1hd2u7j17b3ce6Xd3WrtriUa2rxVuxarUiFhS5wiE3BAgkARJCQu5rZr77R1JECxIgmd98k9fz\
 8ZhHJjM/Mp8fSXgxv/nN72estQIAwDURXg8AAMCZIGAAACcRMACAkwgYAMBJBAwA4CQCBgBwEgED\
@@ -4596,7 +4596,7 @@ gJMIGADASQQMAOAkAgYAcBIBAwA4iYABAJxEwAAATiJgAAAnETAAgJMIGADASQQMAOAkAgYAcNL/\
 A7zE+LKuJISaAAAAAElFTkSuQmCC\
 "
   frames[7] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAbjklEQVR4nO3deXzU9Z3H8fd3JhchF5BAAiGE+waBAFqV01YElWqLB9rW9XpU\
 V63a1l23x67uWrer1qNaFau19lAsqxZPVBBBBTUYRIwcIRzhCDkgJCHkmJnv/jHRRYsaIJnffDOv\
 5+Mxj0wy4/j5Eni88vvNL7+fsdYKAADX+LweAACAY0HAAABOImAAACcRMACAkwgYAMBJBAwA4CQC\
@@ -4724,7 +4724,7 @@ CBgAwEkEDADgJAIGAHASAQMAOImAAQCcRMAAAE4iYAAAJxEwAICTCBgAwEkEDADgJAIGAHDS/wHH\
 iBY+xrz1RgAAAABJRU5ErkJggg==\
 "
   frames[8] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAb/ElEQVR4nO3deXhV5b238e+zd0aSEAIZGJIQZkFmAjgCinpwOPLWAdGjWGul\
 tdpWW3tOh+u0Pfp2UI/Uam0VlddqnWurWGvFAoIiU2SSQYYwJGFIAiGBzHt4zh9JeakHNUCStZ+9\
 78915WInWcDvIcCdtfbaaxlrrQAAcI3P6wEAADgVBAwA4CQCBgBwEgEDADiJgAEAnETAAABOImAA\
@@ -4854,7 +4854,7 @@ kwgYAMBJBAwA4CQCBgBwEgEDADiJgAEAnETAAABOImAAACcRMACAkwgYAMBJBAwA4KT/AVePI4s+\
 uMRtAAAAAElFTkSuQmCC\
 "
   frames[9] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcGklEQVR4nO3deXxU9b3/8fc3k43sCUnYsrHve0CRCqiguNR9wa1qXapeq3Wp\
 2tvl11vvbdVWrbZaxVbRWkTrihvaKoKKLEEgAmUnCQkEQkhCyJ7J9/4xuf7QqgRIcuabeT0fjzwy\
 SSb4+ZrllXPmzDnGWisAAFwT5vUAAAAcCQIGAHASAQMAOImAAQCcRMAAAE4iYAAAJxEwAICTCBgA\
@@ -4984,7 +4984,7 @@ ImAAACcRMACAkwgYAMBJBAwA4CQCBgBwEgEDADiJgAEAnETAAABOImAAACcRMACAkwgYAMBJBAwA\
 AABOImAAACcRMACAkwgYAMBJBAwA4KT/BeuQLIfII26xAAAAAElFTkSuQmCC\
 "
   frames[10] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcWklEQVR4nO3deXxV9Z3/8fc3680eQhaWJIQlgMhOxJ1NQavWZXCjdaw/sVot\
 2lZkbKeP9tc6/c1Y99FhtGjVquOCSgVBi1ZBFkUJ+75DSNhCFkjIfu/398dNHUpdAiQ595v7ej4e\
 ITe5F/h8CfDKOffcc4y1VgAAuCbC6wEAADgVBAwA4CQCBgBwEgEDADiJgAEAnETAAABOImAAACcR\
@@ -5115,7 +5115,7 @@ GADASQQMAOAkAgYAcBIBAwA4iYABAJxEwAAATiJgAAAnETAAgJMIGADASQQMAOAkAgYAcBIBAwA4\
 iYABAJxEwAAATiJgAAAnETAAgJMIGADASQQMAOCk/w/iGBRjminISAAAAABJRU5ErkJggg==\
 "
   frames[11] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcpklEQVR4nO3deXxU9b3/8fd3JpN9gaxASEjYBCQKGAUFWSpWilXrilbrUpVb\
 rd7aam8Xu/16e2u11uX6swta29patWpVqii9yiK1su8ISAxbIJBAErIvM/O9fyTlgV6RAEnOfDOv\
 5+ORBzOZCX6+BnjlnDlzjrHWCgAA1/i8HgAAgBNBwAAATiJgAAAnETAAgJMIGADASQQMAOAkAgYA\
@@ -5248,7 +5248,7 @@ ETAAgJMIGADASQQMAOAkAgYAcBIBAwA4iYABAJxEwAAATiJgAAAnETAAgJMIGADASf8LSsVDKWuW\
 IMkAAAAASUVORK5CYII=\
 "
   frames[12] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcUUlEQVR4nO3deXxV9Z3/8fc3N/u+hxBIwi77Fha1CioqaAXrKG641WqrYutS\
 daadGVvbn53Wcf3Vjku1VqtVixso6oiyqBUkbGGXnWyQBEJCyJ58f3/cyA95KAZMcu439/V8PPLw\
 3uQQP4eQvHLOPYux1goAANeEeD0AAAAngoABAJxEwAAATiJgAAAnETAAgJMIGADASQQMAOAkAgYA\
@@ -5379,7 +5379,7 @@ AQMAOImAAQCcRMAAAE4iYAAAJxEwAICTCBgAwEkEDADgJAIGAHASAQMAOImAAQCcRMAAAE4iYAAA\
 JxEwAICTCBgAwEkEDADgJAIGAHDS/wNniB4SQ3WHvgAAAABJRU5ErkJggg==\
 "
   frames[13] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAclklEQVR4nO3deXxV9Z3/8fc3+x6ykLCEJOy7CARxQUDBilqh7murHVuntfVX\
 l7Gdju2MXa1dxqW2pVht61RbcUGwP3FBZXFhCUtE9hC2EMhCgJA9997v/JGMZRiEAMk993vv6/l4\
 5JF7k0P4HELyuufcc88x1loBAOCaKK8HAADgdBAwAICTCBgAwEkEDADgJAIGAHASAQMAOImAAQCc\
@@ -5511,7 +5511,7 @@ AJxEwAAATiJgAAAnETAAgJMIGADASQQMAOAkAgYAcBIBAwA4iYABAJxEwAAATiJgAAAnETAAgJMI\
 GADASQQMAOAkAgYAcBIBAwA4iYABAJxEwAAATiJgAAAn/TeVR2LfWECirAAAAABJRU5ErkJggg==\
 "
   frames[14] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcpklEQVR4nO3deXhV9Z3H8c8vNytJCNlZAiRAECKLYEAUVBCoFHfcQC1WrXRq\
 te6dLj6dsR07Oo4tSK0U3Go7ImpHxVatG4uKLGFT9p0QlgRCyL7de3/zRyJDqULAJOf+kvfrefLk\
 Jrm5fE8S8s5Z7jnGWisAAFwT5vUAAACcDgIGAHASAQMAOImAAQCcRMAAAE4iYAAAJxEwAICTCBgA\
@@ -5644,7 +5644,7 @@ CBgAwEkEDADgJAIGAHASAQMAOImAAQCcRMAAAE4iYAAAJxEwAICTCBgAwEkEDADgpP8DXQqIKHnI\
 lcUAAAAASUVORK5CYII=\
 "
   frames[15] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcoElEQVR4nO3deVyWdb7/8feXXXYEARUVd8U9cWsxzSyz0vZje03LzFSz1DRz\
 OmdmmrVzTqdpGqdl2teT02Q9ShvbFzNzRU0KzR0BRRFBQHbu+/v746Z+To8yTOC6v9yv5+PBQ264\
 wM8l4Itrua/LWGsFAIBrwrweAACA74KAAQCcRMAAAE4iYAAAJxEwAICTCBgAwEkEDADgJAIGAHAS\
@@ -5777,7 +5777,7 @@ MACAkwgYAMBJBAwA4CQCBgBwEgEDADiJgAEAnETAAABOImAAACcRMACAk/4f1gxQLQLlRU4AAAAA\
 SUVORK5CYII=\
 "
   frames[16] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAceklEQVR4nO3deXzV9Z3v8fc3G9n3BAIJCQiILCIQAVHAXcBRtC4VsXUFx9a6\
 Xq/2zr3tXNvpjMtYRalLVaxbUXEq1BVlEVHZ98VA2AMBEgghe3JyvvPHyVBqEQIk+Z1vzuv5eOSR\
 k+Tk8PmR5ZXfcn4/Y60VAACuCfN6AAAATgYBAwA4iYABAJxEwAAATiJgAAAnETAAgJMIGADASQQM\
@@ -5909,7 +5909,7 @@ DADgJAIGAHASAQMAOImAAQCcRMAAAE4iYAAAJxEwAICTCBgAwEkEDADgJAIGAHASAQMAOImAAQCc\
 RMAAAE76b0xaP7nVx48hAAAAAElFTkSuQmCC\
 "
   frames[17] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAclklEQVR4nO3deXhV9b3v8c8vO/NIyEQgCRASZJQpaJAjYB2qcAoWxWK1ljpV\
 r7baanvtOadXb4drj1Ot1l6lPbbUXoeqVeixCCqjFhSQGRliDBASyEBIICHj/t0/dmopdQiQZO3f\
 3u/X8+TJTrISvotA3lnDXstYawUAgGsivB4AAIDTQcAAAE4iYAAAJxEwAICTCBgAwEkEDADgJAIG\
@@ -6041,7 +6041,7 @@ gJMIGADASQQMAOAkAgYAcBIBAwA4iYABAJxEwAAATiJgAAAnETAAgJMIGADASQQMAOAkAgYAcBIB\
 AwA4iYABAJxEwAAATiJgAAAnETAAgJMIGADASQQMAOCk/w88JUIGxL8nagAAAABJRU5ErkJggg==\
 "
   frames[18] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcp0lEQVR4nO3dd3yV9d3/8fc3e5HNCCQhTCWArEhFZLnFgVoUaa2z0trbtlp/\
 Vjt+2hvbW+9bpWq1Ku3P2Yp74EBwsBRQAwgYdlgJIwkji8yT873/ONEftSIBklznm/N6Ph555CS5\
 CJ+LhLxyjXNdxlorAABcE+b1AAAAHAsCBgBwEgEDADiJgAEAnETAAABOImAAACcRMACAkwgYAMBJ\
@@ -6174,7 +6174,7 @@ OImAAQCcRMAAAE4iYAAAJxEwAICTCBgAwEkEDADgJAIGAHASAQMAOImAAQCcRMAAAE76XwCNNi0e\
 75HBAAAAAElFTkSuQmCC\
 "
   frames[19] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAcn0lEQVR4nO3dd3yV9d3/8fc3m2wyGUkIEBAjMiSiqCxxoKBoVeqg3lar1hZv\
 R2/Hrz6s3nrXu8NJ9RZx3Frroo6KuAcIiCChICMKhBVCgIRAFtkn3/uPk/KjViFAkut8c17Px+M8\
 cpJcHD4XSXjlXOcaxlorAABcE+L1AAAAHAkCBgBwEgEDADiJgAEAnETAAABOImAAACcRMACAkwgY\
@@ -6311,7 +6311,7 @@ RU5ErkJggg==\
     /* set a timeout to make sure all the above elements are created before
        the object is initialized. */
     setTimeout(function() {
-        animc897318fba874ac1b20e2118bd6eb19b = new Animation(frames, img_id, slider_id, 200.0,
+        anim489b11a3ede445958df66031d3bfef3e = new Animation(frames, img_id, slider_id, 200.0,
                                  loop_select_id);
     }, 0);
   })()
@@ -6509,36 +6509,36 @@ input[type=range].anim-slider {
 }
 </style>
 <div class="animation">
-<img id="_anim_img090b3941dc374e5781f005fc5b85e4ae"/>
+<img id="_anim_imgb7847d4cf7f84b1fb2e228f38f8c1300"/>
 <div class="anim-controls">
-<input class="anim-slider" id="_anim_slider090b3941dc374e5781f005fc5b85e4ae" max="1" min="0" name="points" oninput="anim090b3941dc374e5781f005fc5b85e4ae.set_frame(parseInt(this.value));" step="1" type="range" value="0"/>
+<input class="anim-slider" id="_anim_sliderb7847d4cf7f84b1fb2e228f38f8c1300" max="1" min="0" name="points" oninput="animb7847d4cf7f84b1fb2e228f38f8c1300.set_frame(parseInt(this.value));" step="1" type="range" value="0"/>
 <div class="anim-buttons">
-<button aria-label="Decrease speed" onclick="anim090b3941dc374e5781f005fc5b85e4ae.slower()" title="Decrease speed">
+<button aria-label="Decrease speed" onclick="animb7847d4cf7f84b1fb2e228f38f8c1300.slower()" title="Decrease speed">
 <i class="fa fa-minus"></i></button>
-<button aria-label="First frame" onclick="anim090b3941dc374e5781f005fc5b85e4ae.first_frame()" title="First frame">
+<button aria-label="First frame" onclick="animb7847d4cf7f84b1fb2e228f38f8c1300.first_frame()" title="First frame">
 <i class="fa fa-fast-backward"></i></button>
-<button aria-label="Previous frame" onclick="anim090b3941dc374e5781f005fc5b85e4ae.previous_frame()" title="Previous frame">
+<button aria-label="Previous frame" onclick="animb7847d4cf7f84b1fb2e228f38f8c1300.previous_frame()" title="Previous frame">
 <i class="fa fa-step-backward"></i></button>
-<button aria-label="Play backwards" onclick="anim090b3941dc374e5781f005fc5b85e4ae.reverse_animation()" title="Play backwards">
+<button aria-label="Play backwards" onclick="animb7847d4cf7f84b1fb2e228f38f8c1300.reverse_animation()" title="Play backwards">
 <i class="fa fa-play fa-flip-horizontal"></i></button>
-<button aria-label="Pause" onclick="anim090b3941dc374e5781f005fc5b85e4ae.pause_animation()" title="Pause">
+<button aria-label="Pause" onclick="animb7847d4cf7f84b1fb2e228f38f8c1300.pause_animation()" title="Pause">
 <i class="fa fa-pause"></i></button>
-<button aria-label="Play" onclick="anim090b3941dc374e5781f005fc5b85e4ae.play_animation()" title="Play">
+<button aria-label="Play" onclick="animb7847d4cf7f84b1fb2e228f38f8c1300.play_animation()" title="Play">
 <i class="fa fa-play"></i></button>
-<button aria-label="Next frame" onclick="anim090b3941dc374e5781f005fc5b85e4ae.next_frame()" title="Next frame">
+<button aria-label="Next frame" onclick="animb7847d4cf7f84b1fb2e228f38f8c1300.next_frame()" title="Next frame">
 <i class="fa fa-step-forward"></i></button>
-<button aria-label="Last frame" onclick="anim090b3941dc374e5781f005fc5b85e4ae.last_frame()" title="Last frame">
+<button aria-label="Last frame" onclick="animb7847d4cf7f84b1fb2e228f38f8c1300.last_frame()" title="Last frame">
 <i class="fa fa-fast-forward"></i></button>
-<button aria-label="Increase speed" onclick="anim090b3941dc374e5781f005fc5b85e4ae.faster()" title="Increase speed">
+<button aria-label="Increase speed" onclick="animb7847d4cf7f84b1fb2e228f38f8c1300.faster()" title="Increase speed">
 <i class="fa fa-plus"></i></button>
 </div>
-<form action="#n" aria-label="Repetition mode" class="anim-state" name="_anim_loop_select090b3941dc374e5781f005fc5b85e4ae" title="Repetition mode">
-<input id="_anim_radio1_090b3941dc374e5781f005fc5b85e4ae" name="state" type="radio" value="once"/>
-<label for="_anim_radio1_090b3941dc374e5781f005fc5b85e4ae">Once</label>
-<input checked="" id="_anim_radio2_090b3941dc374e5781f005fc5b85e4ae" name="state" type="radio" value="loop"/>
-<label for="_anim_radio2_090b3941dc374e5781f005fc5b85e4ae">Loop</label>
-<input id="_anim_radio3_090b3941dc374e5781f005fc5b85e4ae" name="state" type="radio" value="reflect"/>
-<label for="_anim_radio3_090b3941dc374e5781f005fc5b85e4ae">Reflect</label>
+<form action="#n" aria-label="Repetition mode" class="anim-state" name="_anim_loop_selectb7847d4cf7f84b1fb2e228f38f8c1300" title="Repetition mode">
+<input id="_anim_radio1_b7847d4cf7f84b1fb2e228f38f8c1300" name="state" type="radio" value="once"/>
+<label for="_anim_radio1_b7847d4cf7f84b1fb2e228f38f8c1300">Once</label>
+<input checked="" id="_anim_radio2_b7847d4cf7f84b1fb2e228f38f8c1300" name="state" type="radio" value="loop"/>
+<label for="_anim_radio2_b7847d4cf7f84b1fb2e228f38f8c1300">Loop</label>
+<input id="_anim_radio3_b7847d4cf7f84b1fb2e228f38f8c1300" name="state" type="radio" value="reflect"/>
+<label for="_anim_radio3_b7847d4cf7f84b1fb2e228f38f8c1300">Reflect</label>
 </form>
 </div>
 </div>
@@ -6546,13 +6546,13 @@ input[type=range].anim-slider {
   /* Instantiate the Animation class. */
   /* The IDs given should match those used in the template above. */
   (function() {
-    var img_id = "_anim_img090b3941dc374e5781f005fc5b85e4ae";
-    var slider_id = "_anim_slider090b3941dc374e5781f005fc5b85e4ae";
-    var loop_select_id = "_anim_loop_select090b3941dc374e5781f005fc5b85e4ae";
+    var img_id = "_anim_imgb7847d4cf7f84b1fb2e228f38f8c1300";
+    var slider_id = "_anim_sliderb7847d4cf7f84b1fb2e228f38f8c1300";
+    var loop_select_id = "_anim_loop_selectb7847d4cf7f84b1fb2e228f38f8c1300";
     var frames = new Array(20);
 
   frames[0] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAK3klEQVR4nO3df8jud13H8dd7riUtXcMV5HTOcGMdFcoOw4KsMMIGbWQpM6SM\
 oWQW9BOSKPvBiIgUIsNmST/A0oTiSMr+8AfL2hmeIalnYKxldmbhlmuVw9b03R/fa3l7s3ku7933\
 de19rscDDlz3dX+v3e/Prvuc5319r+/9/VZ3BwCmOW/bAwDAQQgYACMJGAAjCRgAIwkYACMJGAAj\
@@ -6605,7 +6605,7 @@ SAIGwEgCBsBIAgbASAIGwEgCBsBIAgbASAIGwEgCBsBIAgbASAIGwEgCBsBIAgbASAIGwEgCBsBI\
 /wflIudvMtE80wAAAABJRU5ErkJggg==\
 "
   frames[1] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOUklEQVR4nO3dfYxld13H8c/vzuxDn3ZBiqQWSlFKsECiWAmaiBh8wP4B8YkU\
 QxRDIFY08TGBGJVoiDFGSYwYLEoUEhQwamrE9A/EIEoJrUSkJJhaEVpqKFK23e7u7Ny5P/84Z3bv\
 zO62l+3snX53Xq9kcs8959x7f7+Z2fue+7Dntt57AKCayW4PAADOh4ABUJKAAVCSgAFQkoABUJKA\
@@ -6673,7 +6673,7 @@ KEnAAChJwAAoScAAKEnAAChJwAAoScAAKEnAAChJwAAoScAAKEnAAChJwAAoScAAKEnAAChJwAAo\
 ScAAKEnAAChJwAAoScAAKEnAAChJwAAoScAAKOn/AXpjMVzWtP09AAAAAElFTkSuQmCC\
 "
   frames[2] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOUUlEQVR4nO3de4ysd13H8c9vZnfPaY8UK9VEgdIqbbBColgJSkQMxmD/gHgj\
 xRCtIRARTbwmEuMlGmKMERIjBosSLwkImGiOEdM/EIMoJbQhICXBVOTSIgEEC5zL3ubnH8+zu7Nz\
 zqHLYc9sv93XKzlnn5l5nmd+v5ndee9cdqb13gMA1UyOegAAcDkEDICSBAyAkgQMgJIEDICSBAyA\
@@ -6741,7 +6741,7 @@ lCRgAJQkYACUJGAAlCRgAJQkYACUJGAAlCRgAJQkYACUJGAAlCRgAJQkYACUJGAAlCRgAJQkYACU\
 JGAAlCRgAJQkYACUJGAAlCRgAJQkYACUJGAAlPT/H/tm1JzVIRIAAAAASUVORK5CYII=\
 "
   frames[3] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAANsklEQVR4nO3de4ysd13H8c93ds/BiIBINVGgtEobrJAoVoISEYMxyB8Qb6QY\
 ojUEIqKJ10RivERDjDFCYsRgUeIlQUETTY2Y/oEYRCmhDREoCaYil1YMIJUoBc45uz//eJ45Ozvd\
 Q9fD7my/Z1+vnJN95plnZn6/ub1nZmdnaowRAOhmcdIDAIDLIWAAtCRgALQkYAC0JGAAtCRgALQk\
@@ -6807,7 +6807,7 @@ AQOgJQEDoCUBA6AlAQOgJQEDoCUBA6AlAQOgJQEDoCUBA6AlAQOgpf8D49Mf1xKNvOoAAAAASUVO\
 RK5CYII=\
 "
   frames[4] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAM2klEQVR4nO3dfYhs913H8c93b4xirDU2Cpo2TbQJMbag9RqqxVqpSM0fCT6V\
 VIpGQouxCj6CRXxACSJiC2Klplp8gGpbQbliS/6olVhNQm8o1iRQibG2iZYmNoaa0KS5+/OPM3N3\
 drKTO97szuZ79/UigTNnzrnz++3O7PvM7OyZGmMEALrZOuwBAMDZEDAAWhIwAFoSMABaEjAAWhIw\
@@ -6869,7 +6869,7 @@ EjAAWhIwAFoSMABaEjAAWhIwAFoSMABaEjAAWhIwAFoSMABaEjAAWhIwAFoSMABaEjAAWvo/TjFj\
 vwHqpGgAAAAASUVORK5CYII=\
 "
   frames[5] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAANIUlEQVR4nO3dbYis513H8d9/ToxirDE2Cpo2TSQJMbagNYZqsVoqUvsiwaeS\
 StFIaLGtgo9gER9QgojYglipqRYfoNpWUI5YzYtaidUkNKFYk0AlxtomWpvYGGpCkp7s5Yt7Znd2\
 snvO9GTPbP5nPx9Idh7u2bmue+6Z78zsnHtqjBEA6GZ22AMAgNMhYAC0JGAAtCRgALQkYAC0JGAA\
@@ -6932,7 +6932,7 @@ gJYEDICWBAyAlgQMgJYEDICWBAyAlgQMgJYEDICWBAyAlgQMgJYEDICWBAyAlgQMgJYEDICWBAyA\
 lgQMgJYEDICW/h+GDHS5WEzHqQAAAABJRU5ErkJggg==\
 "
   frames[6] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAANsklEQVR4nO3df6jseV3H8dd7zrmbZGbmFpS67pa72KZQtoklmWGE+YfSL1lD\
 akOUzIJ+QhL9oJCISCEybC3pB1RqUGxk7R9mmOWKu0jmCsZmprslapqVonvvmU9/fL9zzpzZc/ce\
 r/fO2fc9jwcs9zsz35n5fObH9znfObMzNcYIAHSzOOkBAMDFEDAAWhIwAFoSMABaEjAAWhIwAFoS\
@@ -6998,7 +6998,7 @@ EjAAWhIwAFoSMABaEjAAWhIwAFoSMABaEjAAWhIwAFoSMABaEjAAWvp/LCsWzWIS9+sAAAAASUVO\
 RK5CYII=\
 "
   frames[7] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAN9klEQVR4nO3df6jseV3H8dd7zr13JTUzt6DUdbfcxTaFsk0syQwjzD+Ufska\
 UhuiZBb0E5LoB4VERAqRYWtJP6BSg2IjY/8wwyxX3EUyVzA2M91NUdOWUrw/znz64/ude77n7K57\
 up47Z997Hg+4zHdmvjPz+Xznx3NmztyZGmMEALpZHfcAAOBSCBgALQkYAC0JGAAtCRgALQkYAC0J\
@@ -7065,7 +7065,7 @@ A6AlAQOgJQEDoCUBA6AlAQOgJQEDoCUBA6AlAQOgJQEDoCUBA6AlAQOgJQEDoCUBA6Cl/wO4FnTi\
 R9uUKwAAAABJRU5ErkJggg==\
 "
   frames[8] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAORklEQVR4nO3df4xsZ13H8c8zs3t7L4gFqSYKlFZpgxUSxStBiYjBGOSPNv4i\
 xRCtaSAimvgzkRh/REOMMUJixGBR4o8EBEw0NaL9AzEVpYQ2RKRNMLUitEoAwaqlvXd35/GPc2b3\
 7HBL19vd2X67r1eymTMzZ2aeZ2Z23mdmZ2da7z0AUM3suAcAABdDwAAoScAAKEnAAChJwAAoScAA\
@@ -7133,7 +7133,7 @@ gJIEDICSBAyAkgQMgJIEDICSBAyAkgQMgJIEDICSBAyAkgQMgJIEDICSBAyAkgQMgJIEDICSBAyA\
 kgQMgJIEDICSBAyAkgQMgJL+D9Tyren+uTSzAAAAAElFTkSuQmCC\
 "
   frames[9] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOSUlEQVR4nO3dfYxsd13H8c93du+9pS0iUkwUKK3SBiskipWgRMRgjPIHxCdS\
 DFEIgYho4mMiMT5EQ4wxQmLEYFHiQ4KCJpoaMTVBDKKU0IaIlARTEaFFAshDtA/33t35+cc5uzu7\
 95aut/fO8u2+XrmbnZk9Z+f3m9k97zNn587UGCMA0M3iqAcAABdCwABoScAAaEnAAGhJwABoScAA\
@@ -7201,7 +7201,7 @@ WhIwAFoSMABaEjAAWhIwAFoSMABaEjAAWhIwAFoSMABaEjAAWhIwAFoSMABaEjAAWhIwAFoSMABa\
 EjAAWhIwAFoSMABaEjAAWhIwAFr6Pxi6ugBLuT2gAAAAAElFTkSuQmCC\
 "
   frames[10] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOjklEQVR4nO3dfYxsd13H8c93du+9pS1ipZooUKjSBiskipWgRMRgjPIHxCdS\
 DFEIgYho4mMiMT5EQ4wxQmLEYFHiQ4KCJpoaMTVBDKKU0IaIlARTEaFFAshDbGt7uzs//zhn7s5u\
 b9vt5d7ZfruvVzLdmTPn7P5+s3v3fc7Z6UyNMQIA3SyOegAAcC4EDICWBAyAlgQMgJYEDICWBAyA\
@@ -7270,7 +7270,7 @@ koAB0JKAAdCSgAHQkoAB0JKAAdCSgAHQkoAB0JKAAdCSgAHQkoAB0JKAAdCSgAHQkoAB0JKAAdCS\
 gAHQkoAB0JKAAdCSgAHQkoAB0JKAAdCSgAHQkoAB0NL/A/dKyxN9SxFaAAAAAElFTkSuQmCC\
 "
   frames[11] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOk0lEQVR4nO3df4zkd13H8ddnZvf22utRkapRoLRIG6yQKFaCEhGDMcgfEH+R\
 YojWEIiIJv5MJMYf0RBjjJAYMViU+CNBARNNjWj/QExFW0IbIlISTEWEVgkgCLTH/diZj398v7M7\
 u3fXW4692XvfPh7Jdb4z8/3ufj4ze31+v9+dm2m99wBANZODHgAAXAwBA6AkAQOgJAEDoCQBA6Ak\
@@ -7340,7 +7340,7 @@ ScAAKEnAAChJwAAoScAAKEnAAChJwAAoScAAKEnAAChJwAAo6f8BPmLeMHKfqoAAAAAASUVORK5C\
 YII=\
 "
   frames[12] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOfElEQVR4nO3dfYxsd13H8c93Z/fe0gcqUk0QKFRpgxUSxUpQImIwBvkD4hMp\
 hmgNgYho4mMiMT5EQ4wxQmLEYFHiQ4ICJpoa0f6BGEQpoQ0RKQmmIkKrBBCE0od77+78/OPM7s5u\
 723Xy97Zfu++Xslkzsw5M/M7M7v3fc7ZuTM1xggAdLN21AMAgPMhYAC0JGAAtCRgALQkYAC0JGAA\
@@ -7409,7 +7409,7 @@ MABaEjAAWhIwAFoSMABaEjAAWhIwAFoSMABaEjAAWhIwAFoSMABaEjAAWhIwAFoSMABaEjAAWhIw\
 AFoSMABaEjAAWhIwAFr6P0Yw70ZN+GNxAAAAAElFTkSuQmCC\
 "
   frames[13] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOp0lEQVR4nO3de4ysd13H8c9vZvdcei4VKCYKlFZpgxUSxUpQImIwBvkD4o0U\
 Q7SGQEQ08ZpIjJdoiDFGSIwYLEq8JCBgoqkR0z8QgygltCEiJcFURGiFAIK9n8vO/PzjeXZ3Znva\
 s57uzvbbfb2Sc+aZZ5458/vt7f08z86Zab33AEA1k4MeAABcCgEDoCQBA6AkAQOgJAEDoCQBA6Ak\
@@ -7479,7 +7479,7 @@ SQIGQEkCBkBJAgZASQIGQEkCBkBJAgZASQIGQEkCBkBJAgZASQIGQEkCBkBJAgZASQIGQEkCBkBJ\
 /wdad/MFVA0pAQAAAABJRU5ErkJggg==\
 "
   frames[14] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOcklEQVR4nO3df4zkd13H8ddnZvfuev1xVqpGgdIqbbBColgJSkQMxiB/QPxF\
 iiEKIRARTfyZSIw/oiHGGCExYrAoUUlQwERTI6Z/IKailNCGiJQEUxGhFQIItsD17nZ3Pv7x/c7O\
 3HDHrde92Xt3H490850f35n5fHZ27/n9fnc603rvAYBqJgc9AAC4GAIGQEkCBkBJAgZASQIGQEkC\
@@ -7548,7 +7548,7 @@ lCRgAJQkYACUJGAAlCRgAJQkYACUJGAAlCRgAJQkYACUJGAAlCRgAJQkYACUJGAAlCRgAJQkYACU\
 JGAAlPR/HwT8GzrpmP4AAAAASUVORK5CYII=\
 "
   frames[15] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOd0lEQVR4nO3dfYxsd13H8c9vZvc+cLm3VKoGC6VV2kCFRLESlIgYjEH+gPhE\
 iiEKIRARTXxMJMaHaIgxRkiMGCxKVBIUMNHUiOkfiEGUEtoQkZJgKiK0QgDBQlvu3Z2dn3+cM7uz\
 67296+3e2X67r1cymadzdn6/fbjvc87MnWm99wBANZPDHgAAXAoBA6AkAQOgJAEDoCQBA6AkAQOg\
@@ -7617,7 +7617,7 @@ gJIEDICSBAyAkgQMgJIEDICSBAyAkgQMgJIEDICSBAyAkgQMgJIEDICSBAyAkgQMgJIEDICSBAyA\
 kgQMgJIEDICS/hf07vpTLpmVIQAAAABJRU5ErkJggg==\
 "
   frames[16] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOa0lEQVR4nO3dfYxsd13H8c9vZna39/a2pVBNFCit0gYrJIqVoETEYAzyB8Qn\
 UgxRCIGIaOJjIjE+REOMMUJixGBR4kOCAiaaGjH9AzGIUkIbIlISTEWEVgggUKDl3rs78/OPc2Z3\
 dtvbLpd7Z/vtvl7J3J2Hc3Z+v9nZfZ85M3em9d4DANVMjnoAAHA+BAyAkgQMgJIEDICSBAyAkgQM\
@@ -7686,7 +7686,7 @@ KEnAAChJwAAoScAAKEnAAChJwAAoScAAKEnAAChJwAAoScAAKEnAAChJwAAoScAAKEnAACjp/wFc\
 wvctBaSWCQAAAABJRU5ErkJggg==\
 "
   frames[17] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOc0lEQVR4nO3dfYxsd13H8c9vZnfvvb20t4VqokBplTa1QqJYCUpEDMYgf9D4\
 RIohCmkgIpr4mEiMD9EQY4yQGDFYlPiQoICJpka0fyCmopTQhoiUBFMRoVUCCLTQh3t3Z37+cc7s\
 zi73cpfL3tl+u69XspmZM2dmfr/d2X2fMzM703rvAYBqJoc9AAC4EAIGQEkCBkBJAgZASQIGQEkC\
@@ -7755,7 +7755,7 @@ KEnAAChJwAAoScAAKEnAAChJwAAoScAAKEnAAChJwAAoScAAKEnAAChJwAAoScAAKEnAAChJwAAo\
 ScAAKOn/AY9A+DwyEb3ZAAAAAElFTkSuQmCC\
 "
   frames[18] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOcklEQVR4nO3da6xsZ13H8d9/9t7n0jtSTRAordIGKySKlaBExGAM8gLijRRD\
 tIZARDTxmkiMl2iIMUZIjBgsSrwkKGCiqRHtC8QgSgltiEhJMBURWiWAQCstPd2Xxxdr7XNmb3rZ\
 HM6Z3X/355NMZtbMmpnnOfvyXWvtOTM1xggAdLM47AEAwNkQMABaEjAAWhIwAFoSMABaEjAAWhIw\
@@ -7824,7 +7824,7 @@ ScAAaEnAAGhJwABoScAAaEnAAGhJwABoScAAaEnAAGhJwABoScAAaEnAAGhJwABoScAAaEnAAGhJ\
 wABo6f8B42ACK2DetLQAAAAASUVORK5CYII=\
 "
   frames[19] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
-bGliIHZlcnNpb24zLjQuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/Z1A+gAAAACXBIWXMAAAsT\
+bGliIHZlcnNpb24zLjQuMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8rg+JYAAAACXBIWXMAAAsT\
 AAALEwEAmpwYAAAOrklEQVR4nO3df4zkd13H8ddnZnbvrtf2+FFNFChUaYMVEsVKUCJiMEb5A+Iv\
 UgzRGgIR0cSficT4IxpijBESIwaLEn8kKGCiqRHtH4hBlBLaEJGSYCoitEoAoS39cXc7Mx//+H53\
 d265o8txO9t39/FINvOdme/sfD67s/ec73fmvtN67wGAaiaHPQAAuBgCBkBJAgZASQIGQEkCBkBJ\
@@ -7898,7 +7898,7 @@ YACUJGAAlPT/MTAGXkgCBHUAAAAASUVORK5CYII=\
     /* set a timeout to make sure all the above elements are created before
        the object is initialized. */
     setTimeout(function() {
-        anim090b3941dc374e5781f005fc5b85e4ae = new Animation(frames, img_id, slider_id, 200.0,
+        animb7847d4cf7f84b1fb2e228f38f8c1300 = new Animation(frames, img_id, slider_id, 200.0,
                                  loop_select_id);
     }, 0);
   })()
@@ -7908,10 +7908,10 @@ YACUJGAAlPT/MTAGXkgCBHUAAAAASUVORK5CYII=\
 <p>You can download this demonstration plus the wrapper definitions as a
 notebook <a class="reference download internal" download="" href="_downloads/36d790e69b87fb8012d42aadb38afd2c/tutorial_external_solver.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">tutorial_external_solver.ipynb</span></code></a> or
 as a plain Python script <a class="reference download internal" download="" href="_downloads/a9bdbbb7b861ba62db14c536d1cde2a6/tutorial_external_solver.py"><code class="xref download docutils literal notranslate"><span class="pre">tutorial_external_solver.py</span></code></a>.</p>
-</section>
-</section>
+
+
 <script type="application/vnd.jupyter.widget-state+json">
-{"state": {"00f517f58ded457e8edf016e03c7e4c0": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "90158584a32f40f692557a961cb3e6ab": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "24dbf587955541ff803890881fb5337d": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_00f517f58ded457e8edf016e03c7e4c0", "placeholder": "\u200b", "style": "IPY_MODEL_90158584a32f40f692557a961cb3e6ab", "value": ""}}, "0e2ebb4ab4ce4255b09071edbc39a8a6": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "1bfb299aade44f67954a61f69a48e100": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_24dbf587955541ff803890881fb5337d"], "layout": "IPY_MODEL_0e2ebb4ab4ce4255b09071edbc39a8a6", "selected_index": null}}, "55b0b4c967e449498c0f6f9c2f060ef2": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "56b94c96454c4f4ab9830d8e43b2eb47": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "bb6ba118359149a1a43a6b2526220d62": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_55b0b4c967e449498c0f6f9c2f060ef2", "placeholder": "\u200b", "style": "IPY_MODEL_56b94c96454c4f4ab9830d8e43b2eb47", "value": ""}}, "b065c76b823041c899090a2bdbf120da": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "2b2f4d01eecc4f389e6274f04a6b09d0": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_bb6ba118359149a1a43a6b2526220d62"], "layout": "IPY_MODEL_b065c76b823041c899090a2bdbf120da", "selected_index": null}}, "070d5454ec384fa487a51202fd4b2261": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "0eb4c741eadb4c03a55b35004ea15b39": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "f9b98394d2594987adc42ce51cbce541": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_070d5454ec384fa487a51202fd4b2261", "placeholder": "\u200b", "style": "IPY_MODEL_0eb4c741eadb4c03a55b35004ea15b39", "value": ""}}, "872a175b72934fefb193c52a4a41c84b": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "360688568ea14132ac0d45a703723f11": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_f9b98394d2594987adc42ce51cbce541"], "layout": "IPY_MODEL_872a175b72934fefb193c52a4a41c84b", "selected_index": null}}, "e32a3dc877a14a1186e75a91208fd52e": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "0fe4d642f5394c36899c34f745e65fa6": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "23ef0db609a847218b16545fa08e9e72": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_e32a3dc877a14a1186e75a91208fd52e", "placeholder": "\u200b", "style": "IPY_MODEL_0fe4d642f5394c36899c34f745e65fa6", "value": ""}}, "a37931acf1574428b80fed34eb289bb1": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "1bf9eafca4b84b5180ef6bbe7a931cec": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_23ef0db609a847218b16545fa08e9e72"], "layout": "IPY_MODEL_a37931acf1574428b80fed34eb289bb1", "selected_index": null}}, "3031ceb192df4434996bbd4528b5cc0a": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "b01cc6e1967349bfb4b9eeb486b6b86e": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "33acde4288fd41b7b0fc44fc3f5eab05": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_3031ceb192df4434996bbd4528b5cc0a", "placeholder": "\u200b", "style": "IPY_MODEL_b01cc6e1967349bfb4b9eeb486b6b86e", "value": ""}}, "612c0f65672f4ded97ba4b44e543deaa": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "e42e9b85097640aaabbb8ef93922b7a5": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_33acde4288fd41b7b0fc44fc3f5eab05"], "layout": "IPY_MODEL_612c0f65672f4ded97ba4b44e543deaa", "selected_index": null}}, "d30d6aab74374954bb91413b1b7f0771": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "7ba167fde1934b7f8e70ebc4b4682d73": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "353df132279d47e2bb6c883f12b5d20e": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_d30d6aab74374954bb91413b1b7f0771", "placeholder": "\u200b", "style": "IPY_MODEL_7ba167fde1934b7f8e70ebc4b4682d73", "value": ""}}, "b31b05ece4724a81bae6710f133a74c5": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "6af17f5795124992b8dcb48afdae42ab": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_353df132279d47e2bb6c883f12b5d20e"], "layout": "IPY_MODEL_b31b05ece4724a81bae6710f133a74c5", "selected_index": null}}, "b69c2b3873844292b790e373b972a796": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "db63b9df4b454a828dc8e7482a2d7edf": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "0a7e07e99b6e45da8b0981368146dfd0": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_b69c2b3873844292b790e373b972a796", "placeholder": "\u200b", "style": "IPY_MODEL_db63b9df4b454a828dc8e7482a2d7edf", "value": "<p style=\"line-height:120%\">00:00 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:03 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:06 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:09 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:12 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:15 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:18 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:21 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:24 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:27 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:30 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:32 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:35 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:38 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:41 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:44 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:47 <bold>pod</bold>: Computing SVD ...</p><p style=\"line-height:120%\">00:47 |   <bold>method_of_snapshots</bold>: Computing Gramian (320 vectors) ...</p><p style=\"line-height:120%\">00:47 |   <bold>method_of_snapshots</bold>: Computing eigenvalue decomposition ...</p><p style=\"line-height:120%\">00:47 |   <bold>method_of_snapshots</bold>: Computing left-singular vectors (4 vectors) ...</p><p style=\"line-height:120%\">00:47 <bold>pod</bold>: Checking orthonormality ...</p><p style=\"line-height:120%\">00:47 <bold>InstationaryRBReductor</bold>: Operator projection ...</p><p style=\"line-height:120%\">00:47 <bold>InstationaryRBReductor</bold>: Building ROM ...</p><p style=\"line-height:120%\">00:47 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.4370861069626263, 0.9556428757689246, 0.7587945476302645, 0.6387926357773329]} ...</p><p style=\"line-height:120%\">00:51 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.24041677639819287, 0.2403950683025824, 0.15227525095137953, 0.8795585311974417]} ...</p><p style=\"line-height:120%\">00:54 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6410035105688879, 0.737265320016441, 0.1185260448662222, 0.9729188669457949]} ...</p><p style=\"line-height:120%\">00:57 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.8491983767203796, 0.29110519961044856, 0.26364247048639056, 0.2650640588680905]} ...</p><p style=\"line-height:120%\">01:01 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.373818018663584, 0.5722807884690141, 0.48875051677790415, 0.36210622617823773]} ...</p><p style=\"line-height:120%\">01:04 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6506676052501416, 0.22554447458683766, 0.3629301836816964, 0.4297256589643226]} ...</p><p style=\"line-height:120%\">01:07 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.5104629857953323, 0.8066583652537123, 0.2797064039425238, 0.5628109945722505]} ...</p><p style=\"line-height:120%\">01:11 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6331731119758383, 0.14180537144799796, 0.6467903667112945, 0.2534717113185624]} ...</p><p style=\"line-height:120%\">01:14 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1585464336867516, 0.9539969835279999, 0.9690688297671034, 0.827557613304815]} ...</p><p style=\"line-height:120%\">01:17 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.3741523922560336, 0.1879049026057455, 0.7158097238609412, 0.4961372443656412]} ...</p><p style=\"line-height:120%\">01:20 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1585464336867516, 0.9539969835279999, 0.9690688297671034, 0.827557613304815]} ...</p>"}}, "c1eeecc38c744d899f25a145f11f60fe": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "76f22b60fb394d2c8ee66e989a93ad17": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_0a7e07e99b6e45da8b0981368146dfd0"], "layout": "IPY_MODEL_c1eeecc38c744d899f25a145f11f60fe", "selected_index": null}}, "cd563572350b43d39ae1813b8e29eb67": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "c8786681c5574aaea9399532fc09d54d": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "8bf021db411445e49727086f42c3333f": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_cd563572350b43d39ae1813b8e29eb67", "placeholder": "\u200b", "style": "IPY_MODEL_c8786681c5574aaea9399532fc09d54d", "value": ""}}, "1090ea791d9a466380d36480396e323b": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "67ed7bfce752418c9d7198826c9528dd": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_8bf021db411445e49727086f42c3333f"], "layout": "IPY_MODEL_1090ea791d9a466380d36480396e323b", "selected_index": null}}}, "version_major": 2, "version_minor": 0}
+{"state": {"b9c4fed5d5cd465a99fc3b0c38390cde": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "70400e04400442458f9d53d75eb737e0": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "9095b92dd96040fca7cc3850594ec252": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_b9c4fed5d5cd465a99fc3b0c38390cde", "placeholder": "\u200b", "style": "IPY_MODEL_70400e04400442458f9d53d75eb737e0", "value": ""}}, "f8c7653e6c9e4cc8a66d3fe63d643f46": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "4e5b24fc77a5419ab94a98605979a955": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_9095b92dd96040fca7cc3850594ec252"], "layout": "IPY_MODEL_f8c7653e6c9e4cc8a66d3fe63d643f46", "selected_index": null}}, "a31410d276974a03b1cbb875e9a22e4f": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "f6b175403a0c42e7b4e7b74ac6754949": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "a08e0192c2ed47dcb880230aa0b514aa": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_a31410d276974a03b1cbb875e9a22e4f", "placeholder": "\u200b", "style": "IPY_MODEL_f6b175403a0c42e7b4e7b74ac6754949", "value": ""}}, "7bfb656786fc4c7a81fffdd11a68c47b": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "c396e1fdd27b42079e6649ffad5400b0": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_a08e0192c2ed47dcb880230aa0b514aa"], "layout": "IPY_MODEL_7bfb656786fc4c7a81fffdd11a68c47b", "selected_index": null}}, "747e3f876f7b42149cef1853ddbe6a39": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "0fd729ca6cbe40d989dcee0ef8647516": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "8cae61c2bad24354b38424de098c26c2": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_747e3f876f7b42149cef1853ddbe6a39", "placeholder": "\u200b", "style": "IPY_MODEL_0fd729ca6cbe40d989dcee0ef8647516", "value": ""}}, "2102a8a910684ca490262c4a543d3541": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "dbbb8d4d159e438c9c2051bcbeeae918": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_8cae61c2bad24354b38424de098c26c2"], "layout": "IPY_MODEL_2102a8a910684ca490262c4a543d3541", "selected_index": null}}, "fd5e05d2edbc4e448656d9aea9d38e90": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "2067b374b80444a28cb6531d1b718ab2": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "761c3a3a4352478a9295449b6c219342": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_fd5e05d2edbc4e448656d9aea9d38e90", "placeholder": "\u200b", "style": "IPY_MODEL_2067b374b80444a28cb6531d1b718ab2", "value": ""}}, "27c05c99c93548b18ed08c41d6894e43": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "3ac97e88a33e4465b7c9fff9b5bf3168": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_761c3a3a4352478a9295449b6c219342"], "layout": "IPY_MODEL_27c05c99c93548b18ed08c41d6894e43", "selected_index": null}}, "7fdd3b2905524ee9834cb3b5bf66d7fb": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "fa4f697e774d45f09c596917e155b8ec": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "e1104bff9ba2400681d3d25e674f3814": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_7fdd3b2905524ee9834cb3b5bf66d7fb", "placeholder": "\u200b", "style": "IPY_MODEL_fa4f697e774d45f09c596917e155b8ec", "value": ""}}, "e5197090aa5f420887e390cc735fdf96": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "d1caa923d7d34a2696e31e4f852e44de": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_e1104bff9ba2400681d3d25e674f3814"], "layout": "IPY_MODEL_e5197090aa5f420887e390cc735fdf96", "selected_index": null}}, "4f6ae1ec4b954bdb9fc6b771c485b2d4": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "1bf4cb10419e4ceea47819afebae3226": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "5330acc60dd24c7ebd1b220195c3aa3b": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_4f6ae1ec4b954bdb9fc6b771c485b2d4", "placeholder": "\u200b", "style": "IPY_MODEL_1bf4cb10419e4ceea47819afebae3226", "value": ""}}, "45f4f92b66f64e56b0b42d79a85b516d": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "ad13384e3fe44008be652c9bed2bdb00": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_5330acc60dd24c7ebd1b220195c3aa3b"], "layout": "IPY_MODEL_45f4f92b66f64e56b0b42d79a85b516d", "selected_index": null}}, "6534c6fdb4a244fa95a750881770f170": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "4318ea1be7064db3a680e3579983863f": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "e3dfaae84d484494ad580988d3b09b79": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_6534c6fdb4a244fa95a750881770f170", "placeholder": "\u200b", "style": "IPY_MODEL_4318ea1be7064db3a680e3579983863f", "value": "<p style=\"line-height:120%\">00:01 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:04 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:07 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:10 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:13 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:16 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:19 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:21 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:25 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:28 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:31 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:34 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:37 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:40 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:43 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:46 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:49 <bold>pod</bold>: Computing SVD ...</p><p style=\"line-height:120%\">00:49 |   <bold>method_of_snapshots</bold>: Computing Gramian (320 vectors) ...</p><p style=\"line-height:120%\">00:49 |   <bold>method_of_snapshots</bold>: Computing eigenvalue decomposition ...</p><p style=\"line-height:120%\">00:49 |   <bold>method_of_snapshots</bold>: Computing left-singular vectors (4 vectors) ...</p><p style=\"line-height:120%\">00:49 <bold>pod</bold>: Checking orthonormality ...</p><p style=\"line-height:120%\">00:49 <bold>InstationaryRBReductor</bold>: Operator projection ...</p><p style=\"line-height:120%\">00:49 <bold>InstationaryRBReductor</bold>: Building ROM ...</p><p style=\"line-height:120%\">00:50 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.4370861069626263, 0.9556428757689246, 0.7587945476302645, 0.6387926357773329]} ...</p><p style=\"line-height:120%\">00:53 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.24041677639819287, 0.2403950683025824, 0.15227525095137953, 0.8795585311974417]} ...</p><p style=\"line-height:120%\">00:57 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6410035105688879, 0.737265320016441, 0.1185260448662222, 0.9729188669457949]} ...</p><p style=\"line-height:120%\">01:00 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.8491983767203796, 0.29110519961044856, 0.26364247048639056, 0.2650640588680905]} ...</p><p style=\"line-height:120%\">01:04 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.373818018663584, 0.5722807884690141, 0.48875051677790415, 0.36210622617823773]} ...</p><p style=\"line-height:120%\">01:07 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6506676052501416, 0.22554447458683766, 0.3629301836816964, 0.4297256589643226]} ...</p><p style=\"line-height:120%\">01:10 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.5104629857953323, 0.8066583652537123, 0.2797064039425238, 0.5628109945722505]} ...</p><p style=\"line-height:120%\">01:14 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6331731119758383, 0.14180537144799796, 0.6467903667112945, 0.2534717113185624]} ...</p><p style=\"line-height:120%\">01:17 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1585464336867516, 0.9539969835279999, 0.9690688297671034, 0.827557613304815]} ...</p><p style=\"line-height:120%\">01:21 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.3741523922560336, 0.1879049026057455, 0.7158097238609412, 0.4961372443656412]} ...</p><p style=\"line-height:120%\">01:24 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1585464336867516, 0.9539969835279999, 0.9690688297671034, 0.827557613304815]} ...</p>"}}, "0a1f0860b27442cdb853c019be67fb5f": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "d1e5434c31134d0e962b06e0f3e1dd15": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_e3dfaae84d484494ad580988d3b09b79"], "layout": "IPY_MODEL_0a1f0860b27442cdb853c019be67fb5f", "selected_index": null}}, "d6d4c7ba70e240a0a8a602f06d2da2ce": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "aad838927ff9421296df8d319bcb61d3": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "936e6e573d2b47c5b2076bae2b0c8176": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_d6d4c7ba70e240a0a8a602f06d2da2ce", "placeholder": "\u200b", "style": "IPY_MODEL_aad838927ff9421296df8d319bcb61d3", "value": ""}}, "be09a2717193448b95689263e1b727fa": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "5079ca4ce3d2497481954963d460b07e": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_936e6e573d2b47c5b2076bae2b0c8176"], "layout": "IPY_MODEL_be09a2717193448b95689263e1b727fa", "selected_index": null}}}, "version_major": 2, "version_minor": 0}
 </script>
 
 
@@ -7961,10 +7961,10 @@ as a plain Python script <a class="reference download internal" download="" href
               
           </div>
             Last updated on
-              May 04, 2021.
+              May 11, 2021.
             <br/>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.3.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>
