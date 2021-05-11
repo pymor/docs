@@ -1,0 +1,977 @@
+:mod:`pymor.vectorarrays.list`
+==============================
+
+.. py:module:: pymor.vectorarrays.list
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.vectorarrays.list.Vector
+   pymor.vectorarrays.list.CopyOnWriteVector
+   pymor.vectorarrays.list.ComplexifiedVector
+   pymor.vectorarrays.list.NumpyVector
+   pymor.vectorarrays.list.ListVectorArray
+   pymor.vectorarrays.list.ListVectorSpace
+   pymor.vectorarrays.list.ComplexifiedListVectorSpace
+   pymor.vectorarrays.list.NumpyListVectorSpace
+   pymor.vectorarrays.list.ListVectorArrayView
+   pymor.vectorarrays.list.ListVectorArrayNumpyView
+
+
+
+
+.. class:: Vector
+
+   Bases: :py:obj:`pymor.core.base.BasicObject`
+
+   Interface for vectors used in conjunction with |ListVectorArray|.
+
+   This interface must be satisfied by the individual entries of the
+   vector `list` managed by |ListVectorArray|. All interface methods
+   have a direct counterpart in the |VectorArray| interface.
+
+   .. attribute:: __radd__
+      
+
+      
+
+   .. method:: copy(self, deep=False)
+      :abstractmethod:
+
+
+   .. method:: scal(self, alpha)
+      :abstractmethod:
+
+
+   .. method:: axpy(self, alpha, x)
+      :abstractmethod:
+
+
+   .. method:: inner(self, other)
+      :abstractmethod:
+
+
+   .. method:: norm(self)
+      :abstractmethod:
+
+
+   .. method:: norm2(self)
+      :abstractmethod:
+
+
+   .. method:: sup_norm(self)
+
+
+   .. method:: dofs(self, dof_indices)
+      :abstractmethod:
+
+
+   .. method:: amax(self)
+      :abstractmethod:
+
+
+   .. method:: __add__(self, other)
+
+
+   .. method:: __iadd__(self, other)
+
+
+   .. method:: __sub__(self, other)
+
+
+   .. method:: __isub__(self, other)
+
+
+   .. method:: __mul__(self, other)
+
+
+   .. method:: __imul__(self, other)
+
+
+   .. method:: __neg__(self)
+
+
+   .. method:: real(self)
+      :property:
+
+
+   .. method:: imag(self)
+      :property:
+
+
+   .. method:: conj(self)
+
+
+
+.. class:: CopyOnWriteVector
+
+   Bases: :py:obj:`Vector`
+
+   Interface for vectors used in conjunction with |ListVectorArray|.
+
+   This interface must be satisfied by the individual entries of the
+   vector `list` managed by |ListVectorArray|. All interface methods
+   have a direct counterpart in the |VectorArray| interface.
+
+   .. method:: from_instance(cls, instance)
+      :classmethod:
+
+
+   .. method:: _copy_data(self)
+      :abstractmethod:
+
+
+   .. method:: _scal(self, alpha)
+      :abstractmethod:
+
+
+   .. method:: _axpy(self, alpha, x)
+      :abstractmethod:
+
+
+   .. method:: copy(self, deep=False)
+
+
+   .. method:: scal(self, alpha)
+
+
+   .. method:: axpy(self, alpha, x)
+
+
+   .. method:: __del__(self)
+
+
+   .. method:: _copy_data_if_needed(self)
+
+
+
+.. class:: ComplexifiedVector(real_part, imag_part)
+
+
+   Bases: :py:obj:`Vector`
+
+   Interface for vectors used in conjunction with |ListVectorArray|.
+
+   This interface must be satisfied by the individual entries of the
+   vector `list` managed by |ListVectorArray|. All interface methods
+   have a direct counterpart in the |VectorArray| interface.
+
+   .. method:: copy(self, deep=False)
+
+
+   .. method:: scal(self, alpha)
+
+
+   .. method:: axpy(self, alpha, x)
+
+
+   .. method:: inner(self, other)
+
+
+   .. method:: norm(self)
+
+
+   .. method:: norm2(self)
+
+
+   .. method:: sup_norm(self)
+
+
+   .. method:: dofs(self, dof_indices)
+
+
+   .. method:: amax(self)
+
+
+   .. method:: to_numpy(self, ensure_copy=False)
+
+
+   .. method:: real(self)
+      :property:
+
+
+   .. method:: imag(self)
+      :property:
+
+
+   .. method:: conj(self)
+
+
+
+.. class:: NumpyVector(array)
+
+
+   Bases: :py:obj:`CopyOnWriteVector`
+
+   Vector stored in a NumPy 1D-array.
+
+   .. method:: from_instance(cls, instance)
+      :classmethod:
+
+
+   .. method:: to_numpy(self, ensure_copy=False)
+
+
+   .. method:: dim(self)
+      :property:
+
+
+   .. method:: _copy_data(self)
+
+
+   .. method:: _scal(self, alpha)
+
+
+   .. method:: _axpy(self, alpha, x)
+
+
+   .. method:: inner(self, other)
+
+
+   .. method:: norm(self)
+
+
+   .. method:: norm2(self)
+
+
+   .. method:: dofs(self, dof_indices)
+
+
+   .. method:: amax(self)
+
+
+   .. method:: real(self)
+      :property:
+
+
+   .. method:: imag(self)
+      :property:
+
+
+   .. method:: conj(self)
+
+
+
+.. class:: ListVectorArray(vectors, space)
+
+
+   Bases: :py:obj:`pymor.vectorarrays.interface.VectorArray`
+
+   |VectorArray| implemented as a Python list of vectors.
+
+   This |VectorArray| implementation is the first choice when
+   creating pyMOR wrappers for external solvers which are based
+   on single vector objects. In order to do so, a wrapping
+   subclass of :class:`Vector` has to be provided
+   on which the implementation of |ListVectorArray| will operate.
+   The associated |VectorSpace| is a subclass of
+   :class:`ListVectorSpace`.
+
+   For an example, see :class:`NumpyVector`, :class:`NumpyListVectorSpace`
+   or :class:`~pymor.bindings.fenics.FenicsVector`,
+   :class:`~pymor.bindings.fenics.FenicsVectorSpace`.
+
+   .. attribute:: _NONE
+      :annotation: = []
+
+      
+
+   .. method:: to_numpy(self, ensure_copy=False)
+
+      Return (len(self), self.dim) NumPy Array with the data stored in the array.
+
+      .. admonition:: Parameters
+
+          ensure_copy
+              If `False`, modifying the returned |NumPy array| might alter the original
+              |VectorArray|. If `True` always a copy of the array data is made.
+              
+
+
+   .. method:: _data(self)
+      :property:
+
+      Return list of NumPy Array views on vector data for hacking / interactive use.
+
+
+   .. method:: __len__(self)
+
+      The number of vectors in the array.
+
+
+   .. method:: __getitem__(self, ind)
+
+      Return a |VectorArray| view onto a subset of the vectors in the array.
+
+
+   .. method:: __delitem__(self, ind)
+
+      Remove vectors from the array.
+
+
+   .. method:: append(self, other, remove_from_other=False)
+
+      Append vectors to the array.
+
+      .. admonition:: Parameters
+
+          other
+              A |VectorArray| containing the vectors to be appended.
+          remove_from_other
+              If `True`, the appended vectors are removed from `other`.
+              For list-like implementations this can be used to prevent
+              unnecessary copies of the involved vectors.
+              
+
+
+   .. method:: copy(self, deep=False)
+
+      Returns a copy of the array.
+
+      All |VectorArray| implementations in pyMOR have copy-on-write semantics:
+      if not specified otherwise by setting `deep` to `True`, the returned
+      copy will hold a handle to the same array data as the original array,
+      and a deep copy of the data will only be performed when one of the arrays
+      is modified.
+
+      Note that for |NumpyVectorArray|, a deep copy is always performed when only
+      some vectors in the array are copied.
+
+      .. admonition:: Parameters
+
+          deep
+              Ensure that an actual copy of the array data is made (see above).
+              
+      .. admonition:: Returns
+
+          A copy of the |VectorArray|.
+              
+
+
+   .. method:: scal(self, alpha)
+
+      BLAS SCAL operation (in-place scalar multiplication).
+
+      This method calculates ::
+
+          self = alpha*self
+
+      If `alpha` is a scalar, each vector is multiplied by this scalar. Otherwise, `alpha`
+      has to be a one-dimensional |NumPy array| of the same length as `self`
+      containing the factors for each vector.
+
+      .. admonition:: Parameters
+
+          alpha
+              The scalar coefficient or one-dimensional |NumPy array| of coefficients
+              with which the vectors in `self` are multiplied.
+              
+
+
+   .. method:: axpy(self, alpha, x)
+
+      BLAS AXPY operation.
+
+      This method forms the sum ::
+
+          self = alpha*x + self
+
+      If the length of `x` is 1, the same `x` vector is used for all vectors
+      in `self`. Otherwise, the lengths of `self`  and `x` have to agree.
+      If `alpha` is a scalar, each `x` vector is multiplied with the same factor `alpha`.
+      Otherwise, `alpha` has to be a one-dimensional |NumPy array| of the same length as
+      `self` containing the coefficients for each `x` vector.
+
+      .. admonition:: Parameters
+
+          alpha
+              The scalar coefficient or one-dimensional |NumPy array| of coefficients with which
+              the vectors in `x` are multiplied.
+          x
+              A |VectorArray| containing the x-summands.
+              
+
+
+   .. method:: inner(self, other, product=None)
+
+      Returns the inner products between |VectorArray| elements.
+
+      If `product` is `None`, the Euclidean inner product between
+      the :meth:`dofs` of `self` and `other` are returned, i.e. ::
+
+          U.inner(V)
+
+      is equivalent to::
+
+          U.dofs(np.arange(U.dim)) @ V.dofs(np.arange(V.dim)).T
+
+      (Note, that :meth:`dofs` is only intended to be called for a
+      small number of DOF indices.)
+
+      If a `product` |Operator| is specified, this |Operator| is
+      used to compute the inner products using
+      :meth:`~pymor.operators.inerface.Operator.apply2`, i.e.
+      `U.inner(V, product)` is equivalent to::
+
+          product.apply2(U, V)
+
+      which in turn is, by default, implemented as::
+
+          U.inner(product.apply(V))
+
+      In the case of complex numbers, this is antilinear in the
+      first argument, i.e. in 'self'.
+      Complex conjugation is done in the first argument because
+      most numerical software in the community handles it this way:
+      Numpy, DUNE, FEniCS, Eigen, Matlab and BLAS do complex conjugation
+      in the first argument, only PetSc and deal.ii do complex
+      conjugation in the second argument.
+
+      .. admonition:: Parameters
+
+          other
+              A |VectorArray| containing the second factors.
+          product
+              If not `None` an |Operator| representing the inner product
+              bilinear form.
+              
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that
+              
+              result[i, j] = ( self[i], other[j] ).
+              
+
+
+   .. method:: pairwise_inner(self, other, product=None)
+
+      Returns the pairwise inner products between |VectorArray| elements.
+
+      If `product` is `None`, the Euclidean inner product between
+      the :meth:`dofs` of `self` and `other` are returned, i.e. ::
+
+          U.pairwise_inner(V)
+
+      is equivalent to::
+
+          np.sum(U.dofs(np.arange(U.dim)) * V.dofs(np.arange(V.dim)), axis=-1)
+
+      (Note, that :meth:`dofs` is only intended to be called for a
+      small number of DOF indices.)
+
+      If a `product` |Operator| is specified, this |Operator| is
+      used to compute the inner products using
+      :meth:`~pymor.operators.inerface.Operator.pairwise_apply2`, i.e.
+      `U.inner(V, product)` is equivalent to::
+
+          product.pairwise_apply2(U, V)
+
+      which in turn is, by default, implemented as::
+
+          U.pairwise_inner(product.apply(V))
+
+      In the case of complex numbers, this is antilinear in the
+      first argument, i.e. in 'self'.
+      Complex conjugation is done in the first argument because
+      most numerical software in the community handles it this way:
+      Numpy, DUNE, FEniCS, Eigen, Matlab and BLAS do complex conjugation
+      in the first argument, only PetSc and deal.ii do complex
+      conjugation in the second argument.
+
+
+      .. admonition:: Parameters
+
+          other
+              A |VectorArray| containing the second factors.
+          product
+              If not `None` an |Operator| representing the inner product
+              bilinear form.
+              
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that
+              
+              result[i] = ( self[i], other[i] ).
+              
+              
+
+
+   .. method:: gramian(self, product=None)
+
+      Shorthand for `self.inner(self, product)`.
+
+
+   .. method:: lincomb(self, coefficients)
+
+      Returns linear combinations of the vectors contained in the array.
+
+      .. admonition:: Parameters
+
+          coefficients
+              A |NumPy array| of dimension 1 or 2 containing the linear
+              coefficients. `coefficients.shape[-1]` has to agree with
+              `len(self)`.
+              
+      .. admonition:: Returns
+
+          A |VectorArray| `result` such that
+              
+              result[i] = ∑ self[j] * coefficients[i,j]
+              
+          in case `coefficients` is of dimension 2, otherwise
+          `len(result) == 1` and
+              
+              result[0] = ∑ self[j] * coefficients[j].
+              
+
+
+   .. method:: _norm(self)
+
+      Implementation of :meth:`norm` for the case that no `product` is given.
+
+
+   .. method:: _norm2(self)
+
+      Implementation of :meth:`norm2` for the case that no `product` is given.
+
+
+   .. method:: sup_norm(self)
+
+      The l-infinity-norms of the vectors contained in the array.
+
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that `result[i]` contains the norm
+          of `self[i]`.
+              
+
+
+   .. method:: dofs(self, dof_indices)
+
+      Extract DOFs of the vectors contained in the array.
+
+      .. admonition:: Parameters
+
+          dof_indices
+              List or 1D |NumPy array| of indices of the DOFs that are to be returned.
+              
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that `result[i, j]` is the `dof_indices[j]`-th
+          DOF of the `i`-th vector of the array.
+              
+
+
+   .. method:: amax(self)
+
+      The maximum absolute value of the DOFs contained in the array.
+
+      .. admonition:: Returns
+
+          max_ind
+              |NumPy array| containing for each vector a DOF index at which the maximum is
+              attained.
+          max_val
+              |NumPy array| containing for each vector the maximum absolute value of its
+              DOFs.
+              
+
+
+   .. method:: real(self)
+      :property:
+
+      Real part.
+
+
+   .. method:: imag(self)
+      :property:
+
+      Imaginary part.
+
+
+   .. method:: conj(self)
+
+      Complex conjugation.
+
+
+   .. method:: __str__(self)
+
+      Return str(self).
+
+
+
+.. class:: ListVectorSpace
+
+
+   Bases: :py:obj:`pymor.vectorarrays.interface.VectorSpace`
+
+   |VectorSpace| of |ListVectorArrays|.
+
+   .. attribute:: dim
+      
+
+      
+
+   .. method:: zero_vector(self)
+      :abstractmethod:
+
+
+   .. method:: ones_vector(self)
+
+
+   .. method:: full_vector(self, value)
+
+
+   .. method:: random_vector(self, distribution, random_state, **kwargs)
+
+
+   .. method:: make_vector(self, obj)
+      :abstractmethod:
+
+
+   .. method:: vector_from_numpy(self, data, ensure_copy=False)
+      :abstractmethod:
+
+
+   .. method:: space_from_vector_obj(cls, vec, id)
+      :classmethod:
+      :abstractmethod:
+
+
+   .. method:: space_from_dim(cls, dim, id)
+      :classmethod:
+      :abstractmethod:
+
+
+   .. method:: zeros(self, count=1, reserve=0)
+
+      Create a |VectorArray| of null vectors
+
+      .. admonition:: Parameters
+
+          count
+              The number of vectors.
+          reserve
+              Hint for the backend to which length the array will grow.
+              
+      .. admonition:: Returns
+
+          A |VectorArray| containing `count` vectors with each component zero.
+              
+
+
+   .. method:: ones(self, count=1, reserve=0)
+
+      Create a |VectorArray| of vectors with all DOFs set to one.
+
+      This is a shorthand for `self.full(1., count, reserve)`.
+
+      .. admonition:: Parameters
+
+          count
+              The number of vectors.
+          reserve
+              Hint for the backend to which length the array will grow.
+              
+      .. admonition:: Returns
+
+          A |VectorArray| containing `count` vectors with each DOF set to one.
+              
+
+
+   .. method:: full(self, value, count=1, reserve=0)
+
+      Create a |VectorArray| of vectors with all DOFs set to the same value.
+
+      .. admonition:: Parameters
+
+          value
+              The value each DOF should be set to.
+          count
+              The number of vectors.
+          reserve
+              Hint for the backend to which length the array will grow.
+              
+      .. admonition:: Returns
+
+          A |VectorArray| containing `count` vectors with each DOF set to `value`.
+              
+
+
+   .. method:: random(self, count=1, distribution='uniform', random_state=None, seed=None, reserve=0, **kwargs)
+
+      Create a |VectorArray| of vectors with random entries.
+
+      Supported random distributions::
+
+          'uniform': Uniform distribution in half-open interval
+                     [`low`, `high`).
+          'normal':  Normal (Gaussian) distribution with mean
+                     `loc` and standard deviation `scale`.
+
+      Note that not all random distributions are necessarily implemented
+      by all |VectorSpace| implementations.
+
+      .. admonition:: Parameters
+
+          count
+              The number of vectors.
+          distribution
+              Random distribution to use (`'uniform'`, `'normal'`).
+          low
+              Lower bound for `'uniform'` distribution (defaults to `0`).
+          high
+              Upper bound for `'uniform'` distribution (defaults to `1`).
+          loc
+              Mean for `'normal'` distribution (defaults to `0`).
+          scale
+              Standard deviation for `'normal'` distribution (defaults to `1`).
+          random_state
+              :class:`~numpy.random.RandomState` to use for sampling.
+              If `None`, a new random state is generated using `seed`
+              as random seed, or the :func:`default <pymor.tools.random.default_random_state>`
+              random state is used.
+          seed
+              If not `None`, a new random state with this seed is used.
+          reserve
+              Hint for the backend to which length the array will grow.
+              
+
+
+   .. method:: make_array(cls, obj, id=None)
+
+      Create a |VectorArray| from raw data.
+
+      This method is used in the implementation of |Operators|
+      and |Models| to create new |VectorArrays| from
+      raw data of the underlying solver backends. The ownership
+      of the data is transferred to the newly created array.
+
+      The exact signature of this method depends on the wrapped
+      solver backend.
+
+
+   .. method:: from_numpy(cls, data, id=None, ensure_copy=False)
+
+      Create a |VectorArray| from a |NumPy array|
+
+      Note that this method will not be supported by all vector
+      space implementations.
+
+      .. admonition:: Parameters
+
+          data
+              |NumPy| array of shape `(len, dim)` where `len` is the
+              number of vectors and `dim` their dimension.
+          ensure_copy
+              If `False`, modifying the returned |VectorArray| might alter the original
+              |NumPy array|. If `True` always a copy of the array data is made.
+              
+      .. admonition:: Returns
+
+          A |VectorArray| with `data` as data.
+              
+
+
+
+.. class:: ComplexifiedListVectorSpace
+
+
+   Bases: :py:obj:`ListVectorSpace`
+
+   |VectorSpace| of |ListVectorArrays|.
+
+   .. attribute:: complexified_vector_type
+      
+
+      
+
+   .. method:: real_zero_vector(self)
+      :abstractmethod:
+
+
+   .. method:: zero_vector(self)
+
+
+   .. method:: real_full_vector(self, value)
+
+
+   .. method:: full_vector(self, value)
+
+
+   .. method:: real_random_vector(self, distribution, random_state, **kwargs)
+
+
+   .. method:: random_vector(self, distribution, random_state, **kwargs)
+
+
+   .. method:: real_make_vector(self, obj)
+      :abstractmethod:
+
+
+   .. method:: make_vector(self, obj)
+
+
+   .. method:: real_vector_from_numpy(self, data, ensure_copy=False)
+      :abstractmethod:
+
+
+   .. method:: vector_from_numpy(self, data, ensure_copy=False)
+
+
+
+.. class:: NumpyListVectorSpace(dim, id=None)
+
+
+   Bases: :py:obj:`ListVectorSpace`
+
+   |VectorSpace| of |ListVectorArrays|.
+
+   .. method:: __eq__(self, other)
+
+      Return self==value.
+
+
+   .. method:: space_from_vector_obj(cls, vec, id)
+      :classmethod:
+
+
+   .. method:: space_from_dim(cls, dim, id)
+      :classmethod:
+
+
+   .. method:: zero_vector(self)
+
+
+   .. method:: ones_vector(self)
+
+
+   .. method:: full_vector(self, value)
+
+
+   .. method:: make_vector(self, obj)
+
+
+   .. method:: vector_from_numpy(self, data, ensure_copy=False)
+
+
+
+.. class:: ListVectorArrayView(base, ind)
+
+
+   Bases: :py:obj:`ListVectorArray`
+
+   |VectorArray| implemented as a Python list of vectors.
+
+   This |VectorArray| implementation is the first choice when
+   creating pyMOR wrappers for external solvers which are based
+   on single vector objects. In order to do so, a wrapping
+   subclass of :class:`Vector` has to be provided
+   on which the implementation of |ListVectorArray| will operate.
+   The associated |VectorSpace| is a subclass of
+   :class:`ListVectorSpace`.
+
+   For an example, see :class:`NumpyVector`, :class:`NumpyListVectorSpace`
+   or :class:`~pymor.bindings.fenics.FenicsVector`,
+   :class:`~pymor.bindings.fenics.FenicsVectorSpace`.
+
+   .. attribute:: is_view
+      :annotation: = True
+
+      
+
+   .. method:: space(self)
+      :property:
+
+
+   .. method:: __getitem__(self, ind)
+
+      Return a |VectorArray| view onto a subset of the vectors in the array.
+
+
+   .. method:: __delitem__(self, ind)
+
+      Remove vectors from the array.
+
+
+   .. method:: append(self, other, remove_from_other=False)
+
+      Append vectors to the array.
+
+      .. admonition:: Parameters
+
+          other
+              A |VectorArray| containing the vectors to be appended.
+          remove_from_other
+              If `True`, the appended vectors are removed from `other`.
+              For list-like implementations this can be used to prevent
+              unnecessary copies of the involved vectors.
+              
+
+
+   .. method:: scal(self, alpha)
+
+      BLAS SCAL operation (in-place scalar multiplication).
+
+      This method calculates ::
+
+          self = alpha*self
+
+      If `alpha` is a scalar, each vector is multiplied by this scalar. Otherwise, `alpha`
+      has to be a one-dimensional |NumPy array| of the same length as `self`
+      containing the factors for each vector.
+
+      .. admonition:: Parameters
+
+          alpha
+              The scalar coefficient or one-dimensional |NumPy array| of coefficients
+              with which the vectors in `self` are multiplied.
+              
+
+
+   .. method:: axpy(self, alpha, x)
+
+      BLAS AXPY operation.
+
+      This method forms the sum ::
+
+          self = alpha*x + self
+
+      If the length of `x` is 1, the same `x` vector is used for all vectors
+      in `self`. Otherwise, the lengths of `self`  and `x` have to agree.
+      If `alpha` is a scalar, each `x` vector is multiplied with the same factor `alpha`.
+      Otherwise, `alpha` has to be a one-dimensional |NumPy array| of the same length as
+      `self` containing the coefficients for each `x` vector.
+
+      .. admonition:: Parameters
+
+          alpha
+              The scalar coefficient or one-dimensional |NumPy array| of coefficients with which
+              the vectors in `x` are multiplied.
+          x
+              A |VectorArray| containing the x-summands.
+              
+
+
+
+.. class:: ListVectorArrayNumpyView(array)
+
+
+   .. method:: __len__(self)
+
+
+   .. method:: __getitem__(self, i)
+
+
+   .. method:: __repr__(self)
+
+      Return repr(self).
+
+
+
