@@ -1,13 +1,23 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
 from IPython import get_ipython
 ip = get_ipython()
 if ip is not None:
     ip.run_line_magic('load_ext', 'pymor.discretizers.builtin.gui.jupyter')
-%matplotlib inline
+get_ipython().run_line_magic('matplotlib', 'inline')
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='torch')
 import pymor.tools.random
 pymor.tools.random._default_random_state = None
+
+
+# In[2]:
+
 
 import sys
 sys.path.insert(0, 'source/minimal_cpp_demo/build')
@@ -17,6 +27,10 @@ mymodel = model.DiffusionOperator(10, 0, 1)
 myvector = model.Vector(10, 0)
 mymodel.apply(myvector, myvector)
 dir(model)
+
+
+# In[3]:
+
 
 from pymor.operators.interface import Operator
 from pymor.vectorarrays.list import CopyOnWriteVector, ListVectorSpace
@@ -72,6 +86,10 @@ class WrappedVector(CopyOnWriteVector):
     def amax(self):
         raise NotImplementedError
 
+
+# In[4]:
+
+
 class WrappedVectorSpace(ListVectorSpace):
 
     def __init__(self, dim):
@@ -86,6 +104,10 @@ class WrappedVectorSpace(ListVectorSpace):
 
     def __eq__(self, other):
         return type(other) is WrappedVectorSpace and self.dim == other.dim
+
+
+# In[5]:
+
 
 class WrappedDiffusionOperator(Operator):
     def __init__(self, op):
@@ -108,6 +130,10 @@ class WrappedDiffusionOperator(Operator):
             return v
 
         return self.range.make_array([apply_one_vector(u) for u in U._list])
+
+
+# In[6]:
+
 
 from pymor.algorithms.pod import pod
 from pymor.algorithms.timestepping import ExplicitEulerTimeStepper
@@ -145,7 +171,11 @@ def discretize(n, nt, blocks):
                             visualizer=visualizer, name='C++-Model')
     return fom
 
-%matplotlib inline
+
+# In[7]:
+
+
+get_ipython().run_line_magic('matplotlib', 'inline')
 # discretize
 fom = discretize(50, 10000, 4)
 parameter_space = fom.parameters.space(0.1, 1)
@@ -178,4 +208,9 @@ U_RB = (reductor.reconstruct(rom.solve(mu_max)))
 U = fom.solve(mu_max)
 fom.visualize((U_RB, U), title=f'mu = {mu}', legend=('reduced', 'detailed'))
 
+
+# In[8]:
+
+
 fom.visualize((U-U_RB), title=f'mu = {mu}', legend=('error'))
+

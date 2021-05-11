@@ -1,0 +1,648 @@
+:mod:`pymor.discretizers.builtin.cg`
+====================================
+
+.. py:module:: pymor.discretizers.builtin.cg
+
+.. autoapi-nested-parse::
+
+   This module provides some operators for continuous finite element discretizations.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.discretizers.builtin.cg.L2ProductFunctionalP1
+   pymor.discretizers.builtin.cg.BoundaryL2ProductFunctional
+   pymor.discretizers.builtin.cg.BoundaryDirichletFunctional
+   pymor.discretizers.builtin.cg.L2ProductFunctionalQ1
+   pymor.discretizers.builtin.cg.L2ProductP1
+   pymor.discretizers.builtin.cg.L2ProductQ1
+   pymor.discretizers.builtin.cg.DiffusionOperatorP1
+   pymor.discretizers.builtin.cg.DiffusionOperatorQ1
+   pymor.discretizers.builtin.cg.AdvectionOperatorP1
+   pymor.discretizers.builtin.cg.AdvectionOperatorQ1
+   pymor.discretizers.builtin.cg.RobinBoundaryOperator
+   pymor.discretizers.builtin.cg.InterpolationOperator
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.discretizers.builtin.cg.CGVectorSpace
+   pymor.discretizers.builtin.cg.discretize_stationary_cg
+   pymor.discretizers.builtin.cg.discretize_instationary_cg
+
+
+
+Attributes
+~~~~~~~~~~
+
+.. autoapisummary::
+
+   pymor.discretizers.builtin.cg.LagrangeShapeFunctions
+   pymor.discretizers.builtin.cg.LagrangeShapeFunctionsGrads
+
+
+.. data:: LagrangeShapeFunctions
+   
+
+   
+
+.. data:: LagrangeShapeFunctionsGrads
+   
+
+   
+
+.. function:: CGVectorSpace(grid, id='STATE')
+
+
+.. class:: L2ProductFunctionalP1(grid, function, dirichlet_clear_dofs=False, boundary_info=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Linear finite element functional representing the inner product with an L2-|Function|.
+
+   .. admonition:: Parameters
+
+       grid
+           |Grid| for which to assemble the functional.
+       function
+           The |Function| with which to take the inner product.
+       dirichlet_clear_dofs
+           If `True`, set dirichlet boundary DOFs to zero.
+       boundary_info
+           |BoundaryInfo| determining the Dirichlet boundaries in case
+           `dirichlet_clear_dofs` is set to `True`.
+       name
+           The name of the functional.
+           
+
+   .. attribute:: sparse
+      :annotation: = False
+
+      
+
+   .. attribute:: source
+      
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: BoundaryL2ProductFunctional(grid, function, boundary_type=None, dirichlet_clear_dofs=False, boundary_info=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Linear finite element functional representing the inner product with an
+   L2-|Function| on the boundary.
+
+   .. admonition:: Parameters
+
+       grid
+           |Grid| for which to assemble the functional.
+       function
+           The |Function| with which to take the inner product.
+       boundary_type
+           The type of domain boundary (e.g. 'neumann') on which to assemble the functional.
+           If `None` the functional is assembled over the whole boundary.
+       dirichlet_clear_dofs
+           If `True`, set dirichlet boundary DOFs to zero.
+       boundary_info
+           If `boundary_type` is specified or `dirichlet_clear_dofs` is `True`, the
+           |BoundaryInfo| determining which boundary entity belongs to which physical boundary.
+       name
+           The name of the functional.
+           
+
+   .. attribute:: sparse
+      :annotation: = False
+
+      
+
+   .. attribute:: source
+      
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: BoundaryDirichletFunctional(grid, dirichlet_data, boundary_info, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Linear finite element functional for enforcing Dirichlet boundary values.
+
+   .. admonition:: Parameters
+
+       grid
+           |Grid| for which to assemble the functional.
+       dirichlet_data
+           |Function| providing the Dirichlet boundary values.
+       boundary_info
+           |BoundaryInfo| determining the Dirichlet boundaries.
+       name
+           The name of the functional.
+           
+
+   .. attribute:: sparse
+      :annotation: = False
+
+      
+
+   .. attribute:: source
+      
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: L2ProductFunctionalQ1(grid, function, dirichlet_clear_dofs=False, boundary_info=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Bilinear finite element functional representing the inner product with an L2-|Function|.
+
+   .. admonition:: Parameters
+
+       grid
+           |Grid| for which to assemble the functional.
+       function
+           The |Function| with which to take the inner product.
+       dirichlet_clear_dofs
+           If `True`, set dirichlet boundary DOFs to zero.
+       boundary_info
+           |BoundaryInfo| determining the Dirichlet boundaries in case
+           `dirichlet_clear_dofs` is set to `True`.
+       name
+           The name of the functional.
+           
+
+   .. attribute:: sparse
+      :annotation: = False
+
+      
+
+   .. attribute:: source
+      
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: L2ProductP1(grid, boundary_info, dirichlet_clear_rows=True, dirichlet_clear_columns=False, dirichlet_clear_diag=False, coefficient_function=None, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   |Operator| representing the L2-product between linear finite element functions.
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| for which to assemble the product.
+       boundary_info
+           |BoundaryInfo| for the treatment of Dirichlet boundary conditions.
+       dirichlet_clear_rows
+           If `True`, set the rows of the system matrix corresponding to Dirichlet boundary
+           DOFs to zero.
+       dirichlet_clear_columns
+           If `True`, set columns of the system matrix corresponding to Dirichlet boundary
+           DOFs to zero.
+       dirichlet_clear_diag
+           If `True`, also set diagonal entries corresponding to Dirichlet boundary DOFs to
+           zero. Otherwise, if either `dirichlet_clear_rows` or `dirichlet_clear_columns` is
+           `True`, the diagonal entries are set to one.
+       coefficient_function
+           Coefficient |Function| for product with `shape_range == ()`.
+           If `None`, constant one is assumed.
+       solver_options
+           The |solver_options| for the operator.
+       name
+           The name of the product.
+           
+
+   .. attribute:: sparse
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: L2ProductQ1(grid, boundary_info, dirichlet_clear_rows=True, dirichlet_clear_columns=False, dirichlet_clear_diag=False, coefficient_function=None, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   |Operator| representing the L2-product between bilinear finite element functions.
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| for which to assemble the product.
+       boundary_info
+           |BoundaryInfo| for the treatment of Dirichlet boundary conditions.
+       dirichlet_clear_rows
+           If `True`, set the rows of the system matrix corresponding to Dirichlet boundary
+           DOFs to zero.
+       dirichlet_clear_columns
+           If `True`, set columns of the system matrix corresponding to Dirichlet boundary
+           DOFs to zero.
+       dirichlet_clear_diag
+           If `True`, also set diagonal entries corresponding to Dirichlet boundary DOFs to
+           zero. Otherwise, if either `dirichlet_clear_rows` or `dirichlet_clear_columns`
+           is `True`, the diagonal entries are set to one.
+       coefficient_function
+           Coefficient |Function| for product with `shape_range == ()`.
+           If `None`, constant one is assumed.
+       solver_options
+           The |solver_options| for the operator.
+       name
+           The name of the product.
+           
+
+   .. attribute:: sparse
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: DiffusionOperatorP1(grid, boundary_info, diffusion_function=None, diffusion_constant=None, dirichlet_clear_columns=False, dirichlet_clear_diag=False, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Diffusion |Operator| for linear finite elements.
+
+   The operator is of the form ::
+
+       (Lu)(x) = c ∇ ⋅ [ d(x) ∇ u(x) ]
+
+   The function `d` can be scalar- or matrix-valued.
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| for which to assemble the operator.
+       boundary_info
+           |BoundaryInfo| for the treatment of Dirichlet boundary conditions.
+       diffusion_function
+           The |Function| `d(x)` with `shape_range == ()` or
+           `shape_range = (grid.dim, grid.dim)`. If `None`, constant one is
+           assumed.
+       diffusion_constant
+           The constant `c`. If `None`, `c` is set to one.
+       dirichlet_clear_columns
+           If `True`, set columns of the system matrix corresponding to Dirichlet boundary
+           DOFs to zero to obtain a symmetric system matrix. Otherwise, only the rows will
+           be set to zero.
+       dirichlet_clear_diag
+           If `True`, also set diagonal entries corresponding to Dirichlet boundary DOFs to
+           zero. Otherwise they are set to one.
+       solver_options
+           The |solver_options| for the operator.
+       name
+           Name of the operator.
+           
+
+   .. attribute:: sparse
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: DiffusionOperatorQ1(grid, boundary_info, diffusion_function=None, diffusion_constant=None, dirichlet_clear_columns=False, dirichlet_clear_diag=False, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Diffusion |Operator| for bilinear finite elements.
+
+   The operator is of the form ::
+
+       (Lu)(x) = c ∇ ⋅ [ d(x) ∇ u(x) ]
+
+   The function `d` can be scalar- or matrix-valued.
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| for which to assemble the operator.
+       boundary_info
+           |BoundaryInfo| for the treatment of Dirichlet boundary conditions.
+       diffusion_function
+           The |Function| `d(x)` with `shape_range == ()` or
+           `shape_range = (grid.dim, grid.dim)`. If `None`, constant one is
+           assumed.
+       diffusion_constant
+           The constant `c`. If `None`, `c` is set to one.
+       dirichlet_clear_columns
+           If `True`, set columns of the system matrix corresponding to Dirichlet boundary
+           DOFs to zero to obtain a symmetric system matrix. Otherwise, only the rows will
+           be set to zero.
+       dirichlet_clear_diag
+           If `True`, also set diagonal entries corresponding to Dirichlet boundary DOFs to
+           zero. Otherwise they are set to one.
+       solver_options
+           The |solver_options| for the operator.
+       name
+           Name of the operator.
+           
+
+   .. attribute:: sparse
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: AdvectionOperatorP1(grid, boundary_info, advection_function=None, advection_constant=None, dirichlet_clear_columns=False, dirichlet_clear_diag=False, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Linear advection |Operator| for linear finite elements.
+
+   The operator is of the form ::
+
+       (Lu)(x) = c ∇ ⋅ [ v(x) u(x) ]
+
+   The function `v` has to be vector-valued.
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| for which to assemble the operator.
+       boundary_info
+           |BoundaryInfo| for the treatment of Dirichlet boundary conditions.
+       advection_function
+           The |Function| `v(x)` with `shape_range = (grid.dim, )`.
+           If `None`, constant one is assumed.
+       advection_constant
+           The constant `c`. If `None`, `c` is set to one.
+       dirichlet_clear_columns
+           If `True`, set columns of the system matrix corresponding to Dirichlet boundary
+           DOFs to zero to obtain a symmetric system matrix. Otherwise, only the rows will
+           be set to zero.
+       dirichlet_clear_diag
+           If `True`, also set diagonal entries corresponding to Dirichlet boundary DOFs to
+           zero. Otherwise they are set to one.
+       solver_options
+           The |solver_options| for the operator.
+       name
+           Name of the operator.
+           
+
+   .. attribute:: sparse
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: AdvectionOperatorQ1(grid, boundary_info, advection_function=None, advection_constant=None, dirichlet_clear_columns=False, dirichlet_clear_diag=False, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Linear advection |Operator| for bilinear finite elements.
+
+   The operator is of the form ::
+
+       (Lu)(x) = c ∇ ⋅ [ v(x) u(x) ]
+
+   The function `v` has to be vector-valued.
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| for which to assemble the operator.
+       boundary_info
+           |BoundaryInfo| for the treatment of Dirichlet boundary conditions.
+       advection_function
+           The |Function| `v(x)` with `shape_range = (grid.dim, )`.
+           If `None`, constant one is assumed.
+       advection_constant
+           The constant `c`. If `None`, `c` is set to one.
+       dirichlet_clear_columns
+           If `True`, set columns of the system matrix corresponding to Dirichlet boundary
+           DOFs to zero to obtain a symmetric system matrix. Otherwise, only the rows will
+           be set to zero.
+       dirichlet_clear_diag
+           If `True`, also set diagonal entries corresponding to Dirichlet boundary DOFs to
+           zero. Otherwise they are set to one.
+       solver_options
+           The |solver_options| for the operator.
+       name
+           Name of the operator.
+           
+
+   .. attribute:: sparse
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: RobinBoundaryOperator(grid, boundary_info, robin_data=None, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Robin boundary |Operator| for linear finite elements.
+
+   The operator represents the contribution of Robin boundary conditions to the
+   stiffness matrix, where the boundary condition is supposed to be given in the
+   form ::
+
+       -[ d(x) ∇u(x) ] ⋅ n(x) = c(x) (u(x) - g(x))
+
+   `d` and `n` are the diffusion function (see :class:`DiffusionOperatorP1`) and
+   the unit outer normal in `x`, while `c` is the (scalar) Robin parameter
+   function and `g` is the (also scalar) Robin boundary value function.
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| over which to assemble the operator.
+       boundary_info
+           |BoundaryInfo| for the treatment of Dirichlet boundary conditions.
+       robin_data
+           Tuple providing two |Functions| that represent the Robin parameter and boundary
+           value function. If `None`, the resulting operator is zero.
+       solver_options
+           The |solver_options| for the operator.
+       name
+           Name of the operator.
+           
+
+   .. attribute:: sparse
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: InterpolationOperator(grid, function)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Vector-like Lagrange interpolation |Operator| for continuous finite element spaces.
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| on which to interpolate.
+       function
+           The |Function| to interpolate.
+           
+
+   .. attribute:: source
+      
+
+      
+
+   .. attribute:: linear
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. function:: discretize_stationary_cg(analytical_problem, diameter=None, domain_discretizer=None, grid_type=None, grid=None, boundary_info=None, preassemble=True, mu_energy_product=None)
+
+   Discretizes a |StationaryProblem| using finite elements.
+
+   .. admonition:: Parameters
+
+       analytical_problem
+           The |StationaryProblem| to discretize.
+       diameter
+           If not `None`, `diameter` is passed as an argument to the `domain_discretizer`.
+       domain_discretizer
+           Discretizer to be used for discretizing the analytical domain. This has
+           to be a function `domain_discretizer(domain_description, diameter, ...)`.
+           If `None`, |discretize_domain_default| is used.
+       grid_type
+           If not `None`, this parameter is forwarded to `domain_discretizer` to specify
+           the type of the generated |Grid|.
+       grid
+           Instead of using a domain discretizer, the |Grid| can also be passed directly
+           using this parameter.
+       boundary_info
+           A |BoundaryInfo| specifying the boundary types of the grid boundary entities.
+           Must be provided if `grid` is specified.
+       preassemble
+           If `True`, preassemble all operators in the resulting |Model|.
+       mu_energy_product
+           If not `None`, |parameter values| for which to assemble the symmetric part of the
+           |Operator| of the resulting |Model| `fom` (ignoring the advection part). Thus,
+           assuming no advection and a symmetric diffusion tensor, `fom.products['energy']`
+           is equal to `fom.operator.assemble(mu)`, except for the fact that the former has
+           cleared Dirichlet rows and columns, while the latter only
+           has cleared Dirichlet rows).
+           
+   .. admonition:: Returns
+
+       m
+           The |Model| that has been generated.
+       data
+           Dictionary with the following entries:
+           
+               :grid:           The generated |Grid|.
+               :boundary_info:  The generated |BoundaryInfo|.
+               :unassembled_m:  In case `preassemble` is `True`, the generated |Model|
+                                before preassembling operators.
+           
+
+
+.. function:: discretize_instationary_cg(analytical_problem, diameter=None, domain_discretizer=None, grid_type=None, grid=None, boundary_info=None, num_values=None, time_stepper=None, nt=None, preassemble=True)
+
+   Discretizes an |InstationaryProblem| with a |StationaryProblem| as stationary part
+   using finite elements.
+
+   .. admonition:: Parameters
+
+       analytical_problem
+           The |InstationaryProblem| to discretize.
+       diameter
+           If not `None`, `diameter` is passed as an argument to the `domain_discretizer`.
+       domain_discretizer
+           Discretizer to be used for discretizing the analytical domain. This has
+           to be a function `domain_discretizer(domain_description, diameter, ...)`.
+           If `None`, |discretize_domain_default| is used.
+       grid_type
+           If not `None`, this parameter is forwarded to `domain_discretizer` to specify
+           the type of the generated |Grid|.
+       grid
+           Instead of using a domain discretizer, the |Grid| can also be passed directly
+           using this parameter.
+       boundary_info
+           A |BoundaryInfo| specifying the boundary types of the grid boundary entities.
+           Must be provided if `grid` is specified.
+       num_values
+           The number of returned vectors of the solution trajectory. If `None`, each
+           intermediate vector that is calculated is returned.
+       time_stepper
+           The :class:`time-stepper <pymor.algorithms.timestepping.TimeStepper>`
+           to be used by :class:`~pymor.models.basic.InstationaryModel.solve`.
+       nt
+           If `time_stepper` is not specified, the number of time steps for implicit
+           Euler time stepping.
+       preassemble
+           If `True`, preassemble all operators in the resulting |Model|.
+           
+   .. admonition:: Returns
+
+       m
+           The |Model| that has been generated.
+       data
+           Dictionary with the following entries:
+           
+               :grid:           The generated |Grid|.
+               :boundary_info:  The generated |BoundaryInfo|.
+               :unassembled_m:  In case `preassemble` is `True`, the generated |Model|
+                                before preassembling operators.
+           
+
+

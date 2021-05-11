@@ -1,13 +1,23 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
 from IPython import get_ipython
 ip = get_ipython()
 if ip is not None:
     ip.run_line_magic('load_ext', 'pymor.discretizers.builtin.gui.jupyter')
-%matplotlib inline
+get_ipython().run_line_magic('matplotlib', 'inline')
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='torch')
 import pymor.tools.random
 pymor.tools.random._default_random_state = None
+
+
+# In[2]:
+
 
 from pymor.basic import *
 import numpy as np
@@ -37,22 +47,46 @@ theta_J = ExpressionParameterFunctional('1 + 1/5 * diffusion[0] + 1/5 * diffusio
 
 problem = StationaryProblem(domain, f, diffusion, outputs=[('l2', f * theta_J)])
 
+
+# In[3]:
+
+
 mu_bar = problem.parameters.parse([np.pi/2,np.pi/2])
 
 fom, data = discretize_stationary_cg(problem, diameter=1/50, mu_energy_product=mu_bar)
 parameter_space = fom.parameters.space(0, np.pi)
 
+
+# In[4]:
+
+
 def fom_objective_functional(mu):
     return fom.output(mu)[0]
 
+
+# In[5]:
+
+
 initial_guess = [0.25, 0.5]
+
+
+# In[6]:
+
 
 from pymor.discretizers.builtin.cg import InterpolationOperator
 
 diff = InterpolationOperator(data['grid'], problem.diffusion).as_vector(fom.parameters.parse(initial_guess))
 fom.visualize(diff)
 
+
+# In[7]:
+
+
 print(data['grid'])
+
+
+# In[8]:
+
 
 import matplotlib as mpl
 mpl.rcParams['figure.figsize'] = (12.0, 8.0)
@@ -89,11 +123,19 @@ def plot_3d_surface(f, x, y, alpha=1):
 def addplot_xy_point_as_bar(ax, x, y, color='orange', z_range=None):
     ax.plot([y, y], [x, x], z_range if z_range else ax.get_zlim(), color)
 
+
+# In[9]:
+
+
 ranges = parameter_space.ranges['diffusion']
 XX = np.linspace(ranges[0] + 0.05, ranges[1], 10)
 YY = XX
 
 plot_3d_surface(fom_objective_functional, XX, YY)
+
+
+# In[10]:
+
 
 reference_minimization_data = {'num_evals': 0,
                                'evaluations' : [],
@@ -125,6 +167,10 @@ def report(result, data, reference_mu=None):
                 print('  model enrichments:  {}'.format(data['enrichments']))
     print('')
 
+
+# In[11]:
+
+
 from functools import partial
 from scipy.optimize import minimize
 
@@ -137,18 +183,34 @@ fom_result = minimize(partial(record_results, fom_objective_functional, referenc
 reference_minimization_data['time'] = perf_counter()-tic
 reference_mu = fom_result.x
 
+
+# In[12]:
+
+
 report(fom_result, reference_minimization_data)
+
+
+# In[13]:
+
 
 reference_plot = plot_3d_surface(fom_objective_functional, XX, YY, alpha=0.5)
 
 for mu in reference_minimization_data['evaluation_points']:
     addplot_xy_point_as_bar(reference_plot, mu[0], mu[1])
 
+
+# In[14]:
+
+
 from pymor.algorithms.greedy import rb_greedy
 from pymor.parameters.functionals import MinThetaParameterFunctional
 from pymor.reductors.coercive import CoerciveRBReductor
 
 coercivity_estimator = MinThetaParameterFunctional(fom.operator.coefficients, mu_bar)
+
+
+# In[15]:
+
 
 training_set = parameter_space.sample_uniformly(25)
 
@@ -164,11 +226,19 @@ rom = RB_greedy_data['rom']
 print('RB system is of size {}x{}'.format(num_RB_greedy_extensions, num_RB_greedy_extensions))
 print('maximum estimated model reduction error over training set: {}'.format(RB_greedy_errors[-1]))
 
+
+# In[16]:
+
+
 ax = plot_3d_surface(fom_objective_functional, XX, YY, alpha=0.5)
 
 for mu in RB_greedy_mus[:-1]:
     mu = mu.to_numpy()
     addplot_xy_point_as_bar(ax, mu[0], mu[1])
+
+
+# In[17]:
+
 
 def rom_objective_functional(mu):
     return rom.output(mu)[0]
@@ -188,7 +258,15 @@ rom_result = minimize(partial(record_results, rom_objective_functional, RB_minim
                       options={'ftol': 1e-15, 'gtol': 5e-5})
 RB_minimization_data['time'] = perf_counter()-tic
 
+
+# In[18]:
+
+
 report(rom_result, RB_minimization_data, reference_mu)
+
+
+# In[19]:
+
 
 reference_plot = plot_3d_surface(fom_objective_functional, XX, YY, alpha=0.5)
 reference_plot_mean_z_lim = 0.5*(reference_plot.get_zlim()[0] + reference_plot.get_zlim()[1])
@@ -200,6 +278,10 @@ for mu in reference_minimization_data['evaluation_points']:
 for mu in RB_minimization_data['evaluation_points']:
     addplot_xy_point_as_bar(reference_plot, mu[0], mu[1], color='orange',
                            z_range=(reference_plot_mean_z_lim, reference_plot.get_zlim()[1]))
+
+
+# In[20]:
+
 
 def fom_gradient_of_functional(mu):
     return fom.output_d_mu(fom.parameters.parse(mu), return_array=True, use_adjoint=True)
@@ -220,7 +302,15 @@ opt_fom_minimization_data['time'] = perf_counter()-tic
 # update the reference_mu because this is more accurate!
 reference_mu = opt_fom_result.x
 
+
+# In[21]:
+
+
 report(opt_fom_result, opt_fom_minimization_data)
+
+
+# In[22]:
+
 
 def rom_gradient_of_functional(mu):
     return rom.output_d_mu(rom.parameters.parse(mu), return_array=True, use_adjoint=True)
@@ -243,8 +333,16 @@ opt_rom_result = minimize(partial(record_results, rom_objective_functional, opt_
 opt_rom_minimization_data['time'] = perf_counter()-tic
 report(opt_rom_result, opt_rom_minimization_data, reference_mu)
 
+
+# In[23]:
+
+
 pdeopt_reductor = CoerciveRBReductor(
     fom, product=fom.energy_product, coercivity_estimator=coercivity_estimator)
+
+
+# In[24]:
+
 
 def record_results_and_enrich(function, data, opt_dict, mu):
     U = fom.solve(mu)
@@ -265,6 +363,10 @@ def compute_gradient_with_opt_rom(opt_dict, mu):
     opt_rom = opt_dict['opt_rom']
     return opt_rom.output_d_mu(opt_rom.parameters.parse(mu), return_array=True, use_adjoint=True)
 
+
+# In[25]:
+
+
 opt_along_path_minimization_data = {'num_evals': 0,
                                     'evaluations' : [],
                                     'evaluation_points': [],
@@ -281,11 +383,23 @@ opt_along_path_result = minimize(partial(record_results_and_enrich, rom_objectiv
                                  options={'ftol': 1e-15, 'gtol': 5e-5})
 opt_along_path_minimization_data['time'] = perf_counter()-tic
 
+
+# In[26]:
+
+
 report(opt_along_path_result, opt_along_path_minimization_data, reference_mu)
+
+
+# In[27]:
+
 
 pdeopt_reductor = CoerciveRBReductor(
     fom, product=fom.energy_product, coercivity_estimator=coercivity_estimator)
 opt_rom = pdeopt_reductor.reduce()
+
+
+# In[28]:
+
 
 def record_results_and_enrich_adaptively(function, data, opt_dict, mu):
     opt_rom = opt_dict['opt_rom']
@@ -313,6 +427,10 @@ def compute_gradient_with_opt_rom(opt_dict, mu):
     opt_rom = opt_dict['opt_rom']
     return opt_rom.output_d_mu(opt_rom.parameters.parse(mu), return_array=True, use_adjoint=True)
 
+
+# In[29]:
+
+
 opt_along_path_adaptively_minimization_data = {'num_evals': 0,
                                                'evaluations' : [],
                                                'evaluation_points': [],
@@ -329,7 +447,15 @@ opt_along_path_adaptively_result = minimize(partial(record_results_and_enrich_ad
                                             options={'ftol': 1e-15, 'gtol': 5e-5})
 opt_along_path_adaptively_minimization_data['time'] = perf_counter()-tic
 
+
+# In[30]:
+
+
 report(opt_along_path_adaptively_result, opt_along_path_adaptively_minimization_data, reference_mu)
+
+
+# In[31]:
+
 
 print('FOM with finite differences')
 report(fom_result, reference_minimization_data, reference_mu)
@@ -349,8 +475,13 @@ report(opt_along_path_result, opt_along_path_minimization_data, reference_mu)
 print('\nAdaptively enrich along the path')
 report(opt_along_path_adaptively_result, opt_along_path_adaptively_minimization_data, reference_mu)
 
+
+# In[32]:
+
+
 assert fom_result.nit == 7
 assert opt_along_path_result.nit == 7
 assert opt_along_path_minimization_data['num_evals'] == 9
 assert opt_along_path_minimization_data['enrichments'] == 9
 assert opt_along_path_adaptively_minimization_data['enrichments'] == 4
+
