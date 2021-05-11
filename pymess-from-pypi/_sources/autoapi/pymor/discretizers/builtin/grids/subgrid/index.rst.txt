@@ -1,0 +1,139 @@
+:mod:`pymor.discretizers.builtin.grids.subgrid`
+===============================================
+
+.. py:module:: pymor.discretizers.builtin.grids.subgrid
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.discretizers.builtin.grids.subgrid.SubGrid
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.discretizers.builtin.grids.subgrid.make_sub_grid_boundary_info
+
+
+
+.. class:: SubGrid(parent_grid, parent_entities)
+
+
+   Bases: :py:obj:`pymor.discretizers.builtin.grids.interfaces.Grid`
+
+   A subgrid of a |Grid|.
+
+   Given a |Grid| and a list of codim-0 entities we construct the minimal
+   subgrid of the grid, containing all the given entities.
+
+   .. admonition:: Parameters
+
+       parent_grid
+           |Grid| of which a subgrid is to be created.
+       parent_entities
+           |NumPy array| of global indices of the codim-0 entities which
+           are to be contained in the subgrid.
+           
+   .. attribute:: parent_grid
+
+      The |Grid| from which the subgrid was constructed. :class:`Subgrid`
+      only stores a :mod:`weakref` to the grid, so accessing this property
+      might return `None` if the original grid has been destroyed.
+      
+
+   .. attribute:: reference_element
+      
+
+      
+
+   .. method:: parent_indices(self, codim)
+
+      `retval[e]` is the index of the `e`-th codim-`codim` entity in the parent grid.
+
+
+   .. method:: indices_from_parent_indices(self, ind, codim)
+
+      Maps a |NumPy array| of indicies of codim-`codim` entites of the parent grid to indicies
+      of the subgrid.
+
+      .. admonition:: Raises
+
+          ValueError
+              Not all provided indices correspond to entities contained in the subgrid.
+              
+
+
+   .. method:: size(self, codim)
+
+      The number of entities of codimension `codim`.
+
+
+   .. method:: subentities(self, codim, subentity_codim)
+
+      `retval[e,s]` is the global index of the `s`-th codim-`subentity_codim` subentity of the
+      codim-`codim` entity with global index `e`.
+
+      The ordering of `subentities(0, subentity_codim)[e]` has to correspond, w.r.t. the embedding
+      of `e`, to the local ordering inside the reference element.
+
+      For `codim > 0`, we provide a default implementation by calculating the subentities of `e`
+      as follows:
+
+          1. Find the `codim-1` parent entity `e_0` of `e` with minimal global index
+          2. Lookup the local indices of the subentities of `e` inside `e_0` using the reference
+             element.
+          3. Map these local indices to global indices using
+             `subentities(codim - 1, subentity_codim)`.
+
+      This procedures assures that `subentities(codim, subentity_codim)[e]` has the right ordering
+      w.r.t. the embedding determined by `e_0`, which agrees with what is returned by
+      `embeddings(codim)`
+
+
+   .. method:: embeddings(self, codim)
+
+      Returns tuple `(A, B)` where `A[e]` and `B[e]` are the linear part and the translation
+      part of the map from the reference element of `e` to `e`.
+
+      For `codim > 0`, we provide a default implementation by taking the embedding of the codim-1
+      parent entity `e_0` of `e` with lowest global index and composing it with the
+      subentity_embedding of `e` into `e_0` determined by the reference element.
+
+
+   .. method:: __getstate__(self)
+
+
+
+.. function:: make_sub_grid_boundary_info(sub_grid, parent_grid, parent_grid_boundary_info, new_boundary_type=None)
+
+   Derives a |BoundaryInfo| for a :class:`~pymor.discretizers.builtin.grids.subgrid.SubGrid`.
+
+   .. admonition:: Parameters
+
+       sub_grid
+           The :class:`~pymor.discretizers.builtin.grids.subgrid.SubGrid` for which a
+           |BoundaryInfo| is created.
+       parent_grid
+           The parent |Grid|.
+       parent_grid_boundary_info
+           The |BoundaryInfo| of the parent |Grid| from which to derive the |BoundaryInfo|
+       new_boundary_type
+           The boundary type which is assigned to the new boundaries of `subgrid`. If
+           `None`, no boundary type is assigned.
+           
+   .. admonition:: Returns
+
+       |BoundaryInfo| associated with sub_grid.
+           
+
+
