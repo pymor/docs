@@ -1,0 +1,201 @@
+:mod:`pymor.algorithms.greedy`
+==============================
+
+.. py:module:: pymor.algorithms.greedy
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.algorithms.greedy.WeakGreedySurrogate
+   pymor.algorithms.greedy.RBSurrogate
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.algorithms.greedy.weak_greedy
+   pymor.algorithms.greedy.rb_greedy
+   pymor.algorithms.greedy._rb_surrogate_evaluate
+
+
+
+.. function:: weak_greedy(surrogate, training_set, atol=None, rtol=None, max_extensions=None, pool=None)
+
+   Weak greedy basis generation algorithm :cite:`BCDDPW11`.
+
+   This algorithm generates an approximation basis for a given set of vectors
+   associated with a training set of parameters by iteratively evaluating a
+   :class:`surrogate <WeakGreedySurrogate>` for the approximation error on
+   the training set and adding the worst approximated vector (according to
+   the surrogate) to the basis.
+
+   The constructed basis is extracted from the surrogate after termination
+   of the algorithm.
+
+   .. admonition:: Parameters
+
+       surrogate
+           An instance of :class:`WeakGreedySurrogate` representing the surrogate
+           for the approximation error.
+       training_set
+           The set of parameter samples on which to perform the greedy search.
+       atol
+           If not `None`, stop the algorithm if the maximum (estimated) error
+           on the training set drops below this value.
+       rtol
+           If not `None`, stop the algorithm if the maximum (estimated)
+           relative error on the training set drops below this value.
+       max_extensions
+           If not `None`, stop the algorithm after `max_extensions` extension
+           steps.
+       pool
+           If not `None`, a |WorkerPool| to use for parallelization. Parallelization
+           needs to be supported by `surrogate`.
+           
+   .. admonition:: Returns
+
+       Dict with the following fields
+           
+           :max_errs:               Sequence of maximum estimated errors during the greedy run.
+           :max_err_mus:            The parameters corresponding to `max_errs`.
+           :extensions:             Number of performed basis extensions.
+           :time:                   Total runtime of the algorithm.
+           
+
+
+.. class:: WeakGreedySurrogate
+
+   Bases: :py:obj:`pymor.core.base.BasicObject`
+
+   Surrogate for the approximation error in :func:`weak_greedy`.
+
+   .. method:: evaluate(self, mus, return_all_values=False)
+      :abstractmethod:
+
+      Evaluate the surrogate for given parameters.
+
+      .. admonition:: Parameters
+
+          mus
+              List of parameters for which to estimate the approximation
+              error. When parallelization is used, `mus` can be a |RemoteObject|.
+          return_all_values
+              See below.
+              
+      .. admonition:: Returns
+
+          If `return_all_values` is `True`, an |array| of the estimated errors.
+          If `return_all_values` is `False`, the maximum estimated error as first
+          return value and the corresponding parameter as second return value.
+              
+
+
+   .. method:: extend(self, mu)
+      :abstractmethod:
+
+
+
+.. function:: rb_greedy(fom, reductor, training_set, use_error_estimator=True, error_norm=None, atol=None, rtol=None, max_extensions=None, extension_params=None, pool=None)
+
+   Weak Greedy basis generation using the RB approximation error as surrogate.
+
+   This algorithm generates a reduced basis using the :func:`weak greedy <weak_greedy>`
+   algorithm :cite:`BCDDPW11`, where the approximation error is estimated from computing
+   solutions of the reduced order model for the current reduced basis and then estimating
+   the model reduction error.
+
+   .. admonition:: Parameters
+
+       fom
+           The |Model| to reduce.
+       reductor
+           Reductor for reducing the given |Model|. This has to be
+           an object with a `reduce` method, such that `reductor.reduce()`
+           yields the reduced model, and an `exted_basis` method,
+           such that `reductor.extend_basis(U, copy_U=False, **extension_params)`
+           extends the current reduced basis by the vectors contained in `U`.
+           For an example see :class:`~pymor.reductors.coercive.CoerciveRBReductor`.
+       training_set
+           The training set of |Parameters| on which to perform the greedy search.
+       use_error_estimator
+           If `False`, exactly compute the model reduction error by also computing
+           the solution of `fom` for all |parameter values| of the training set.
+           This is mainly useful when no estimator for the model reduction error
+           is available.
+       error_norm
+           If `use_error_estimator` is `False`, use this function to calculate the
+           norm of the error. If `None`, the Euclidean norm is used.
+       atol
+           See :func:`weak_greedy`.
+       rtol
+           See :func:`weak_greedy`.
+       max_extensions
+           See :func:`weak_greedy`.
+       extension_params
+           `dict` of parameters passed to the `reductor.extend_basis` method.
+           If `None`, `'gram_schmidt'` basis extension will be used as a default
+           for stationary problems (`fom.solve` returns `VectorArrays` of length 1)
+           and `'pod'` basis extension (adding a single POD mode) for instationary
+           problems.
+       pool
+           See :func:`weak_greedy`.
+           
+   .. admonition:: Returns
+
+       Dict with the following fields
+           
+           :rom:                    The reduced |Model| obtained for the
+                                    computed basis.
+           :max_errs:               Sequence of maximum errors during the greedy run.
+           :max_err_mus:            The parameters corresponding to `max_errs`.
+           :extensions:             Number of performed basis extensions.
+           :time:                   Total runtime of the algorithm.
+           
+
+
+.. class:: RBSurrogate(fom, reductor, use_error_estimator, error_norm, extension_params, pool)
+
+
+   Bases: :py:obj:`WeakGreedySurrogate`
+
+   Surrogate for the :func:`weak_greedy` error used in :func:`rb_greedy`.
+
+   Not intended to be used directly.
+
+   .. method:: evaluate(self, mus, return_all_values=False)
+
+      Evaluate the surrogate for given parameters.
+
+      .. admonition:: Parameters
+
+          mus
+              List of parameters for which to estimate the approximation
+              error. When parallelization is used, `mus` can be a |RemoteObject|.
+          return_all_values
+              See below.
+              
+      .. admonition:: Returns
+
+          If `return_all_values` is `True`, an |array| of the estimated errors.
+          If `return_all_values` is `False`, the maximum estimated error as first
+          return value and the corresponding parameter as second return value.
+              
+
+
+   .. method:: extend(self, mu)
+
+
+
+.. function:: _rb_surrogate_evaluate(rom=None, fom=None, reductor=None, mus=None, error_norm=None, return_all_values=False)
+
+
