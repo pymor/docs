@@ -1,0 +1,370 @@
+:mod:`pymor.parameters.base`
+============================
+
+.. py:module:: pymor.parameters.base
+
+.. autoapi-nested-parse::
+
+   This module contains the implementation of pyMOR's parameter handling facilities.
+
+   Use the |ParametricObject| base class to define immutable (mathematical) objects that
+   depend on some |Parameters|. Each |Parameter| in pyMOR has a name and a fixed dimension
+   (number of scalar components of the parameter vector). In particular, scalar parameters
+   are treated as parameter vectors of dimension 1. Mappings of |Parameters| to
+   |parameter values| are stored in pyMOR using dedicated :class:`Mu` objects.
+   To sample |parameter values| within a given range, |ParameterSpace| objects can be used.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.parameters.base.Parameters
+   pymor.parameters.base.Mu
+   pymor.parameters.base.ParametricObject
+   pymor.parameters.base.ParameterSpace
+
+
+
+
+.. class:: Parameters(*args, **kwargs)
+
+
+   Bases: :py:obj:`pymor.tools.frozendict.SortedFrozenDict`
+
+   Immutable dict mapping parameter names to parameter dimensions.
+
+   Each key of a |Parameters| dict is a string specifying the
+   name of a parameter. The corresponding value is a non-negative `int`
+   specifying the dimension (number of scalar components) of the parameter.
+
+   .. method:: _post_init(self)
+
+
+   .. method:: of(cls, *args)
+      :classmethod:
+
+      Computes the total set of |Parameters| a collection of objects depends on.
+
+      If two objects depend on a parameter with the same name, both parameters must have
+      the same dimension.
+
+      .. admonition:: Parameters
+
+          args
+              Each positional argument must either be `None`, a |ParametricObject| or
+              lists, tuples, dicts or |NumPy arrays| of such objects. The latter will be
+              traversed recursively.
+              
+
+
+   .. method:: dim(self)
+      :property:
+
+      The sum of the dimensions of all parameters.
+
+
+   .. method:: parse(self, mu)
+
+      Takes a user input `mu` and interprets it as set of |parameter values|
+      according to the given |Parameters|.
+
+      Depending on the |Parameters|, `mu` can be given as a dict, list,
+      tuple, |NumPy array| or scalar. In the latter cases, multiple parameters
+      will be concatenated by alphabetical ordering. E.g.::
+
+          Parameters(b=2, a=1).parse([1,2,3])
+
+      will assign to parameter `a` the value `[1]` and to parameter `b` the
+      values `[2, 3]`.
+
+      .. admonition:: Parameters
+
+          mu
+              The user input which shall be interpreted as |parameter values|.
+              
+      .. admonition:: Returns
+
+          The resulting object of |parameter values|.
+              
+      .. admonition:: Raises
+
+          ValueError
+              Is raised if `mu` cannot be interpreted as |parameter values| for the
+              given |Parameters|.
+              
+
+
+   .. method:: space(self, *ranges)
+
+      Create a |ParameterSpace| with given ranges.
+
+      This is a shorthand for ::
+
+          ParameterSpace(self, *range)
+
+      See |ParameterSpace| for allowed range arguments.
+
+
+   .. method:: assert_compatible(self, mu)
+
+      Assert that |parameter values| are compatible with the given |Parameters|.
+
+      Each of the parameter must be contained in  `mu` and the dimensions have to match,
+      i.e. ::
+
+          mu[parameter].size == self[parameter]
+
+      Otherwise, an `AssertionError` will be raised.
+
+
+   .. method:: is_compatible(self, mu)
+
+      Check if |parameter values| are compatible with the given |Parameters|.
+
+      Each of the parameter must be contained in  `mu` and the dimensions have to match,
+      i.e. ::
+
+          mu[parameter].size == self[parameter]
+
+
+   .. method:: why_incompatible(self, mu)
+
+
+   .. method:: __or__(self, other)
+
+
+   .. method:: __sub__(self, other)
+
+
+   .. method:: __le__(self, mu)
+
+      Check if |parameter values| are compatible with the given |Parameters|.
+
+      Each of the parameter must be contained in  `mu` and the dimensions have to match,
+      i.e. ::
+
+          mu[parameter].size == self[parameter]
+
+
+   .. method:: __str__(self)
+
+      Return str(self).
+
+
+   .. method:: __repr__(self)
+
+      Return repr(self).
+
+
+   .. method:: __hash__(self)
+
+      Return hash(self).
+
+
+
+.. class:: Mu(*args, **kwargs)
+
+
+   Bases: :py:obj:`pymor.tools.frozendict.SortedFrozenDict`
+
+   Immutable mapping of |Parameter| names to parameter values.
+
+   .. admonition:: Parameters
+
+       Anything that dict accepts for the construction of a dictionary.
+       Values are automatically converted to immutable one-dimensional |NumPy arrays|,
+       unless the Python interpreter runs with the `-O` flag.
+           
+   .. attribute:: parameters
+
+      The |Parameters| to which the mapping assigns values.
+      
+
+   .. method:: with_(self, **kwargs)
+
+
+   .. method:: allclose(self, mu)
+
+      Compare two dicts of |parameter values| using
+      :meth:`~pymor.tools.floatcmp.float_cmp_all`.
+
+      .. admonition:: Parameters
+
+          mu
+              The |parameter values| with which to compare.
+              
+      .. admonition:: Returns
+
+          `True` if both |parameter value| dicts contain values for the same |Parameters| and all
+          components of the parameter values are almost equal, else `False`.
+              
+
+
+   .. method:: to_numpy(self)
+
+      All parameter values as a NumPy array, ordered alphabetically.
+
+
+   .. method:: copy(self)
+
+      D.copy() -> a shallow copy of D
+
+
+   .. method:: __eq__(self, mu)
+
+      Return self==value.
+
+
+   .. method:: __str__(self)
+
+      Return str(self).
+
+
+   .. method:: __repr__(self)
+
+      Return repr(self).
+
+
+
+.. class:: ParametricObject
+
+
+   Bases: :py:obj:`pymor.core.base.ImmutableObject`
+
+   Base class for immutable mathematical entities depending on some |Parameters|.
+
+   Each |ParametricObject| lists the |Parameters| it depends on in the :attr:`parameters`
+   attribute. Usually, these |Parameters| are automatically derived as the union of all
+   |Parameters| of the object's `__init__` arguments.
+
+   Additional |Parameters| introduced by the object itself can be specified by setting the
+   :attr:`parameters_own` attribute in `__init__`. In case the object fixes some |Parameters|
+   it's child objects depend on to concrete values, those |Parameters| can be removed from
+   the :attr:`parameters` attribute by setting :attr:`parameters_internal`.
+
+   Alternatively, :attr:`parameters` can be initialized manually in `__init__`.
+
+   .. attribute:: parameters
+
+      The |Parameters| the object depends on.
+
+   .. attribute:: parameters_own
+
+      The |Parameters| the object depends on which are not inherited from a child
+      object the object depends on. Each item of :attr:`parameters_own` is also an
+      item of :attr:`parameters`.
+
+   .. attribute:: parameters_inherited
+
+      The |Parameters| the object depends on because some child object depends on them.
+      Each item of :attr:`parameters_own` is also an item of :attr:`parameters`.
+
+   .. attribute:: parameters_internal
+
+      The |Parameters| some of the object's child objects may depend on, but which are
+      fixed to a concrete value by this object. All items of :attr:`parameters_internal`
+      are removed from :attr:`parameters` and :attr:`parameters_inherited`. When
+      initializing :attr:`parameters_own` and :attr:`parameters_internal`, it has to be
+      ensured that both dicts are disjoint.
+
+   .. attribute:: parametric
+
+      `True` if the object really depends on a parameter, i.e. :attr:`parameters`
+      is not empty.
+      
+
+   .. attribute:: _parameters
+      
+
+      
+
+   .. attribute:: _parameters_own
+      
+
+      
+
+   .. attribute:: _parameters_internal
+      
+
+      
+
+   .. method:: __check_parameter_consistency(self)
+
+
+
+.. class:: ParameterSpace(parameters, *ranges)
+
+
+   Bases: :py:obj:`ParametricObject`
+
+   A set of |Parameters| with allowed ranges for their values.
+
+   |ParameterSpaces| are mostly used to create sample set of
+   |parameter values| for given |Parameters| within a specified
+   range.
+
+   .. admonition:: Parameters
+
+       parameters
+           The |Parameters| which are part of the space.
+       ranges
+           Allowed ranges for the |parameter values|. Either:
+           
+           - two numbers specifying the lower and upper bound
+             for all parameter value components,
+           - a list/tuple of two numbers specifying these bounds,
+           - or a dict of those tuples, specifying upper and lower
+             bounds individually for each parameter of the space.
+           
+
+   .. method:: sample_uniformly(self, counts)
+
+      Uniformly sample |parameter values| from the space.
+
+      .. admonition:: Parameters
+
+          counts
+              Number of samples to take per parameter and component
+              of the parameter. Either a dict of counts per |Parameter|
+              or a single count that is taken for all |Parameters|
+              
+      .. admonition:: Returns
+
+          List of |parameter value| dicts.
+              
+
+
+   .. method:: sample_randomly(self, count=None, random_state=None, seed=None)
+
+      Randomly sample |parameter values| from the space.
+
+      .. admonition:: Parameters
+
+          count
+              If `None`, a single dict `mu` of |parameter values| is returned.
+              Otherwise, the number of random samples to generate and return as
+              a list of |parameter values| dicts.
+          random_state
+              :class:`~numpy.random.RandomState` to use for sampling.
+              If `None`, a new random state is generated using `seed`
+              as random seed, or the :func:`default <pymor.tools.random.default_random_state>`
+              random state is used.
+          seed
+              If not `None`, a new random state with this seed is used.
+              
+      .. admonition:: Returns
+
+          The sampled |parameter values|.
+              
+
+
+   .. method:: contains(self, mu)
+
+
+

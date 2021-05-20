@@ -1,0 +1,99 @@
+:mod:`pymor.algorithms.eigs`
+============================
+
+.. py:module:: pymor.algorithms.eigs
+
+
+Module Contents
+---------------
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.algorithms.eigs.eigs
+   pymor.algorithms.eigs._arnoldi
+   pymor.algorithms.eigs._extend_arnoldi
+   pymor.algorithms.eigs._qr_iteration
+
+
+
+.. function:: eigs(A, E=None, k=3, which='LM', b=None, l=None, maxiter=1000, tol=1e-13, imag_tol=1e-12, complex_pair_tol=1e-12, seed=0)
+
+   Approximate a few eigenvalues of a linear |Operator|.
+
+   Computes `k` eigenvalues `w` with corresponding eigenvectors `v` which solve
+   the eigenvalue problem
+
+   .. math::
+       A v_i = w_i v_i
+
+   or the generalized eigenvalue problem
+
+   .. math::
+       A v_i = w_i E v_i
+
+   if `E` is not `None`.
+
+   The implementation is based on Algorithm 4.2 in :cite:`RL95`.
+
+   .. admonition:: Parameters
+
+       A
+           The real linear |Operator| for which the eigenvalues are to be computed.
+       E
+           The real linear |Operator| which defines the generalized eigenvalue problem.
+       k
+           The number of eigenvalues and eigenvectors which are to be computed.
+       which
+           A string specifying which `k` eigenvalues and eigenvectors to compute:
+           
+           - `'LM'`: select eigenvalues with largest magnitude
+           - `'SM'`: select eigenvalues with smallest magnitude
+           - `'LR'`: select eigenvalues with largest real part
+           - `'SR'`: select eigenvalues with smallest real part
+           - `'LI'`: select eigenvalues with largest imaginary part
+           - `'SI'`: select eigenvalues with smallest imaginary part
+       b
+           Initial vector for Arnoldi iteration. Default is a random vector.
+       l
+           The size of the Arnoldi factorization. Default is `min(n - 1, max(2*k + 1, 20))`.
+       maxiter
+           The maximum number of iterations.
+       tol
+           The relative error tolerance for the Ritz estimates.
+       imag_tol
+           Relative imaginary parts below this tolerance are set to 0.
+       complex_pair_tol
+           Tolerance for detecting pairs of complex conjugate eigenvalues.
+       seed
+           Random seed which is used for computing the initial vector for the Arnoldi
+           iteration.
+           
+   .. admonition:: Returns
+
+       w
+           A 1D |NumPy array| which contains the computed eigenvalues.
+       v
+           A |VectorArray| which contains the computed eigenvectors.
+           
+
+
+.. function:: _arnoldi(A, E, l, b)
+
+   Compute an Arnoldi factorization.
+
+
+.. function:: _extend_arnoldi(A, E, V, H, f, p)
+
+   Extend an existing Arnoldi factorization.
+
+
+.. function:: _qr_iteration(H, shifts)
+
+   Perform the QR iteration.
+
+
