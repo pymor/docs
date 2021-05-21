@@ -11,7 +11,7 @@ from pathlib import Path
 from pprint import pformat
 
 ROOT = Path(os.path.abspath(os.path.dirname(__file__)))
-BLOCKLIST = [".git", "latest", ".binder", ".github"]
+BLOCKLIST = [".git-rewrite", ".git", "latest", ".binder", ".github"]
 
 @contextlib.contextmanager
 def remember_cwd(dirname):
@@ -61,6 +61,7 @@ def _prune_branches(branches):
 def _get_to_prune_branches():
     branches, tags = _get_pymor_branches()
     print(f'Active branches: {" ".join(branches)}\nTags: {" ".join(tags)}')
+    tags.extend([t.replace(".", "-") for t in tags])
     subs = [d.name for d in os.scandir(ROOT) if d.is_dir()]
     def _ok(br):
         return br not in branches and br not in tags and br not in BLOCKLIST
