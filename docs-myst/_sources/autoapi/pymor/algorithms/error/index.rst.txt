@@ -1,0 +1,166 @@
+:mod:`pymor.algorithms.error`
+=============================
+
+.. py:module:: pymor.algorithms.error
+
+
+Module Contents
+---------------
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.algorithms.error.reduction_error_analysis
+   pymor.algorithms.error._compute_errors
+
+
+
+.. function:: reduction_error_analysis(rom, fom, reductor, test_mus, basis_sizes=0, error_estimator=True, condition=False, error_norms=(), error_norm_names=None, error_estimator_norm_index=0, custom=(), plot=False, plot_custom_logarithmic=True, pool=dummy_pool)
+
+   Analyze the model reduction error.
+
+   The maximum model reduction error is estimated by solving the reduced
+   |Model| for given random |Parameters|.
+
+   .. admonition:: Parameters
+
+       rom
+           The reduced |Model|.
+       fom
+           The high-dimensional |Model|.
+       reductor
+           The reductor which has created `rom`.
+       test_mus
+           List of |Parameters| to compute the errors for.
+       basis_sizes
+           Either a list of reduced basis dimensions to consider, or
+           the number of dimensions (which are then selected equidistantly,
+           always including the maximum reduced space dimension).
+           The dimensions are input for the `dim`-Parameter of
+           `reductor.reduce()`.
+       error_estimator
+           If `True` evaluate the error estimator of `rom`
+           on the test |Parameters|.
+       condition
+           If `True`, compute the condition of the reduced system matrix
+           for the given test |Parameters| (can only be specified if
+           `rom` is an instance of |StationaryModel|
+           and `rom.operator` is linear).
+       error_norms
+           List of norms in which to compute the model reduction error.
+       error_norm_names
+           Names of the norms given by `error_norms`. If `None`, the
+           `name` attributes of the given norms are used.
+       error_estimator_norm_index
+           When `error_estimator` is `True` and `error_norms` are specified,
+           this is the index of the norm in `error_norms` w.r.t. which
+           to compute the effectivity of the error estimator.
+       custom
+           List of custom functions which are evaluated for each test
+           |parameter values| and basis size. The functions must have
+           the signature ::
+           
+               def custom_value(rom, fom, reductor, mu, dim):
+                   pass
+           
+       plot
+           If `True`, generate a plot of the computed quantities w.r.t.
+           the basis size.
+       plot_custom_logarithmic
+           If `True`, use a logarithmic y-axis to plot the computed custom
+           values.
+       pool
+           If not `None`, the |WorkerPool| to use for parallelization.
+           
+   .. admonition:: Returns
+
+       Dict with the following fields
+           
+           :mus:                       The test |Parameters| which have been considered.
+           
+           :basis_sizes:               The reduced basis dimensions which have been considered.
+           
+           :norms:                     |Array| of the norms of the high-dimensional solutions
+                                       w.r.t. all given test |Parameters|, reduced basis
+                                       dimensions and norms in `error_norms`.
+                                       (Only present when `error_norms` has been specified.)
+           
+           :max_norms:                 Maxima of `norms` over the given test |Parameters|.
+           
+           :max_norm_mus:              |Parameters| corresponding to `max_norms`.
+           
+           :errors:                    |Array| of the norms of the model reduction errors
+                                       w.r.t. all given test |Parameters|, reduced basis
+                                       dimensions and norms in `error_norms`.
+                                       (Only present when `error_norms` has been specified.)
+           
+           :max_errors:                Maxima of `errors` over the given test |Parameters|.
+           
+           :max_error_mus:             |Parameters| corresponding to `max_errors`.
+           
+           :rel_errors:                `errors` divided by `norms`.
+                                       (Only present when `error_norms` has been specified.)
+           
+           :max_rel_errors:            Maxima of `rel_errors` over the given test |Parameters|.
+           
+           :max_rel_error_mus:         |Parameters| corresponding to `max_rel_errors`.
+           
+           :error_norm_names:          Names of the given `error_norms`.
+                                       (Only present when `error_norms` has been specified.)
+           
+           :error_estimates:           |Array| of the model reduction error estimates
+                                       w.r.t. all given test |Parameters| and reduced basis
+                                       dimensions.
+                                       (Only present when `error_estimator` is `True`.)
+           
+           :max_error_estimate:        Maxima of `error_estimates` over the given test |Parameters|.
+           
+           :max_error_estimate_mus:    |Parameters| corresponding to `max_error_estimates`.
+           
+           :effectivities:             `errors` divided by `error_estimates`.
+                                       (Only present when `error_estimator` is `True` and `error_norms`
+                                       has been specified.)
+           
+           :min_effectivities:         Minima of `effectivities` over the given test |Parameters|.
+           
+           :min_effectivity_mus:       |Parameters| corresponding to `min_effectivities`.
+           
+           :max_effectivities:         Maxima of `effectivities` over the given test |Parameters|.
+           
+           :max_effectivity_mus:       |Parameters| corresponding to `max_effectivities`.
+           
+           :errors:                    |Array| of the reduced system matrix conditions
+                                       w.r.t. all given test |Parameters| and reduced basis
+                                       dimensions.
+                                       (Only present when `conditions` is `True`.)
+           
+           :max_conditions:            Maxima of `conditions` over the given test |Parameters|.
+           
+           :max_condition_mus:         |Parameters| corresponding to `max_conditions`.
+           
+           :custom_values:             |Array| of custom function evaluations
+                                       w.r.t. all given test |Parameters|, reduced basis
+                                       dimensions and functions in `custom`.
+                                       (Only present when `custom` has been specified.)
+           
+           :max_custom_values:         Maxima of `custom_values` over the given test |Parameters|.
+           
+           :max_custom_values_mus:     |Parameters| corresponding to `max_custom_values`.
+           
+           :time:                      Time (in seconds) needed for the error analysis.
+           
+           :summary:                   String containing a summary of all computed quantities for
+                                       the largest (last) considered basis size.
+           
+           :figure:                    The figure containing the generated plots.
+                                       (Only present when `plot` is `True`.)
+           
+
+
+.. function:: _compute_errors(mu, fom, reductor, error_estimator, error_norms, condition, custom, basis_sizes)
+
+
