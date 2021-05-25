@@ -1,0 +1,86 @@
+:mod:`pymor.models.neural_network`
+==================================
+
+.. py:module:: pymor.models.neural_network
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.models.neural_network.NeuralNetworkModel
+
+
+
+
+.. class:: NeuralNetworkModel(neural_network, parameters={}, output_functional=None, products=None, error_estimator=None, visualizer=None, name=None)
+
+
+   Bases: :py:obj:`pymor.models.interface.Model`
+
+   Class for models of stationary problems that use artificial neural networks.
+
+   This class implements a |Model| that uses a neural network for solving.
+
+   .. admonition:: Parameters
+
+       neural_network
+           The neural network that approximates the mapping from parameter space
+           to solution space. Should be an instance of
+           :class:`~pymor.models.neural_network.FullyConnectedNN` with input size that
+           matches the (total) number of parameters and output size equal to the
+           dimension of the reduced space.
+       parameters
+           |Parameters| of the reduced order model (the same as used in the full-order
+           model).
+       output_functional
+           |Operator| mapping a given solution to the model output. In many applications,
+           this will be a |Functional|, i.e. an |Operator| mapping to scalars.
+           This is not required, however.
+       products
+           A dict of inner product |Operators| defined on the discrete space the
+           problem is posed on. For each product with key `'x'` a corresponding
+           attribute `x_product`, as well as a norm method `x_norm` is added to
+           the model.
+       error_estimator
+           An error estimator for the problem. This can be any object with
+           an `estimate_error(U, mu, m)` method. If `error_estimator` is
+           not `None`, an `estimate_error(U, mu)` method is added to the
+           model which will call `error_estimator.estimate_error(U, mu, self)`.
+       visualizer
+           A visualizer for the problem. This can be any object with
+           a `visualize(U, m, ...)` method. If `visualizer`
+           is not `None`, a `visualize(U, *args, **kwargs)` method is added
+           to the model which forwards its arguments to the
+           visualizer's `visualize` method.
+       name
+           Name of the model.
+           
+
+   .. method:: _compute_solution(self, mu=None, **kwargs)
+
+      Compute the model's solution for |parameter values| `mu`.
+
+      This method is called by the default implementation of :meth:`compute`
+      in :class:`pymor.models.interface.Model`.
+
+      .. admonition:: Parameters
+
+          mu
+              |Parameter values| for which to compute the solution.
+          kwargs
+              Additional keyword arguments to customize how the solution is
+              computed or to select additional data to be returned.
+              
+      .. admonition:: Returns
+
+          |VectorArray| with the computed solution or a dict which at least
+          must contain the key `'solution'`.
+              
+
+
+

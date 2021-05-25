@@ -1,0 +1,130 @@
+:mod:`pymor.reductors.coercive`
+===============================
+
+.. py:module:: pymor.reductors.coercive
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.reductors.coercive.CoerciveRBReductor
+   pymor.reductors.coercive.CoerciveRBEstimator
+   pymor.reductors.coercive.SimpleCoerciveRBReductor
+   pymor.reductors.coercive.SimpleCoerciveRBEstimator
+
+
+
+
+.. class:: CoerciveRBReductor(fom, RB=None, product=None, coercivity_estimator=None, check_orthonormality=None, check_tol=None)
+
+
+   Bases: :py:obj:`pymor.reductors.basic.StationaryRBReductor`
+
+   Reduced Basis reductor for |StationaryModels| with coercive linear operator.
+
+   The only addition to :class:`~pymor.reductors.basic.StationaryRBReductor` is an error
+   estimator which evaluates the dual norm of the residual with respect to a given inner
+   product. For the reduction of the residual we use
+   :class:`~pymor.reductors.residual.ResidualReductor` for improved numerical stability
+   :cite:`BEOR14`.
+
+   .. admonition:: Parameters
+
+       fom
+           The |Model| which is to be reduced.
+       RB
+           |VectorArray| containing the reduced basis on which to project.
+       product
+           Inner product for the orthonormalization of `RB`, the projection of the
+           |Operators| given by `vector_ranged_operators` and for the computation of
+           Riesz representatives of the residual. If `None`, the Euclidean product is used.
+       coercivity_estimator
+           `None` or a |Parameterfunctional| returning a lower bound for the coercivity
+           constant of the given problem. Note that the computed error estimate is only
+           guaranteed to be an upper bound for the error when an appropriate coercivity
+           estimate is specified.
+           
+
+   .. method:: assemble_error_estimator(self)
+
+
+   .. method:: assemble_error_estimator_for_subbasis(self, dims)
+
+
+
+.. class:: CoerciveRBEstimator(residual, residual_range_dims, coercivity_estimator)
+
+
+   Bases: :py:obj:`pymor.core.base.ImmutableObject`
+
+   Instantiated by :class:`CoerciveRBReductor`.
+
+   Not to be used directly.
+
+   .. method:: estimate_error(self, U, mu, m)
+
+
+   .. method:: restricted_to_subbasis(self, dim, m)
+
+
+
+.. class:: SimpleCoerciveRBReductor(fom, RB=None, product=None, coercivity_estimator=None, check_orthonormality=None, check_tol=None)
+
+
+   Bases: :py:obj:`pymor.reductors.basic.StationaryRBReductor`
+
+   Reductor for linear |StationaryModels| with affinely decomposed operator and rhs.
+
+   .. note::
+      The reductor :class:`CoerciveRBReductor` can be used for arbitrary coercive
+      |StationaryModels| and offers an improved error estimator
+      with better numerical stability.
+
+   The only addition is to :class:`~pymor.reductors.basic.StationaryRBReductor` is an error
+   estimator, which evaluates the norm of the residual with respect to a given inner product.
+
+   .. admonition:: Parameters
+
+       fom
+           The |Model| which is to be reduced.
+       RB
+           |VectorArray| containing the reduced basis on which to project.
+       product
+           Inner product for the orthonormalization of `RB`, the projection of the
+           |Operators| given by `vector_ranged_operators` and for the computation of
+           Riesz representatives of the residual. If `None`, the Euclidean product is used.
+       coercivity_estimator
+           `None` or a |Parameterfunctional| returning a lower bound for the coercivity
+           constant of the given problem. Note that the computed error estimate is only
+           guaranteed to be an upper bound for the error when an appropriate coercivity
+           estimate is specified.
+           
+
+   .. method:: assemble_error_estimator(self)
+
+
+   .. method:: assemble_error_estimator_for_subbasis(self, dims)
+
+
+
+.. class:: SimpleCoerciveRBEstimator(estimator_matrix, coercivity_estimator)
+
+
+   Bases: :py:obj:`pymor.core.base.ImmutableObject`
+
+   Instantiated by :class:`SimpleCoerciveRBReductor`.
+
+   Not to be used directly.
+
+   .. method:: estimate_error(self, U, mu, m)
+
+
+   .. method:: restricted_to_subbasis(self, dim, m)
+
+
+
