@@ -12,6 +12,8 @@ from pprint import pformat
 
 ROOT = Path(os.path.abspath(os.path.dirname(__file__)))
 BLOCKLIST = [".git-rewrite", ".git", "latest", ".binder", ".github"]
+KEEP_BRANCHES = re.compile("20\d\d(-|\.)\d(-|\.).")
+LOCAL_ONLY_BRANCHES = re.compile("^github-push-.*")
 
 @contextlib.contextmanager
 def remember_cwd(dirname):
@@ -41,9 +43,11 @@ def _update_refs():
 
 
 def _del_remote_branches(branches):
-    for branch in branches:
-        print(f'deleting origin/{branch}')
-        subprocess.check_call(['git', 'push', 'origin', '--delete', branch])
+    for branch in [b for b in branches if not LOCAL_ONLY_BRANCHES.match(b)]:
+        try:
+            subprocess.check_call(['git', 'push', 'origin', '--delete', branch])
+        except:
+            print(f"Failed to delete {branch} in origin")
 
 
 def _prune_branches(branches):
@@ -64,6 +68,8 @@ def _get_to_prune_branches():
     tags.extend([t.replace(".", "-") for t in tags])
     subs = [d.name for d in os.scandir(ROOT) if d.is_dir()]
     def _ok(br):
+        if KEEP_BRANCHES.match(br):
+            return False
         return br not in branches and br not in tags and br not in BLOCKLIST
     return [s for s in subs if _ok(s)]
 
