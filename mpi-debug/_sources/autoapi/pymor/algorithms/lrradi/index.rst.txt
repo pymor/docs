@@ -1,0 +1,148 @@
+:mod:`pymor.algorithms.lrradi`
+==============================
+
+.. py:module:: pymor.algorithms.lrradi
+
+
+Module Contents
+---------------
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.algorithms.lrradi.ricc_lrcf_solver_options
+   pymor.algorithms.lrradi.solve_ricc_lrcf
+   pymor.algorithms.lrradi.hamiltonian_shifts_init
+   pymor.algorithms.lrradi.hamiltonian_shifts
+
+
+
+.. function:: ricc_lrcf_solver_options(lrradi_tol=1e-10, lrradi_maxiter=500, lrradi_shifts='hamiltonian_shifts', hamiltonian_shifts_init_maxiter=20, hamiltonian_shifts_init_seed=None, hamiltonian_shifts_subspace_columns=6)
+
+   Returns available Riccati equation solvers with default solver options.
+
+   .. admonition:: Parameters
+
+       lrradi_tol
+           See :func:`solve_ricc_lrcf`.
+       lrradi_maxiter
+           See :func:`solve_ricc_lrcf`.
+       lrradi_shifts
+           See :func:`solve_ricc_lrcf`.
+       hamiltonian_shifts_init_maxiter
+           See :func:`hamiltonian_shifts_init`.
+       hamiltonian_shifts_init_seed
+           See :func:`hamiltonian_shifts_init`.
+       hamiltonian_shifts_subspace_columns
+           See :func:`hamiltonian_shifts`.
+           
+   .. admonition:: Returns
+
+       A dict of available solvers with default solver options.
+           
+
+
+.. function:: solve_ricc_lrcf(A, E, B, C, R=None, trans=False, options=None)
+
+   Compute an approximate low-rank solution of a Riccati equation.
+
+   See :func:`pymor.algorithms.riccati.solve_ricc_lrcf` for a
+   general description.
+
+   This function is an implementation of Algorithm 2 in :cite:`BBKS18`.
+
+   .. admonition:: Parameters
+
+       A
+           The |Operator| A.
+       E
+           The |Operator| E or `None`.
+       B
+           The operator B as a |VectorArray| from `A.source`.
+       C
+           The operator C as a |VectorArray| from `A.source`.
+       R
+           The operator R as a 2D |NumPy array| or `None`.
+       trans
+           Whether the first |Operator| in the Riccati equation is
+           transposed.
+       options
+           The solver options to use. (see
+           :func:`ricc_lrcf_solver_options`)
+           
+   .. admonition:: Returns
+
+       Z
+           Low-rank Cholesky factor of the Riccati equation solution,
+           |VectorArray| from `A.source`.
+           
+
+
+.. function:: hamiltonian_shifts_init(A, E, B, C, shift_options)
+
+   Compute initial shift parameters for low-rank RADI iteration.
+
+   Compute Galerkin projection of Hamiltonian matrix on space spanned by :math:`C` and return the
+   eigenvalue of the projected Hamiltonian with the most impact on convergence as the next shift
+   parameter.
+
+   See :cite:`BBKS18`, pp. 318-321.
+
+   .. admonition:: Parameters
+
+       A
+           The |Operator| A from the corresponding Riccati equation.
+       E
+           The |Operator| E from the corresponding Riccati equation.
+       B
+           The |VectorArray| B from the corresponding Riccati equation.
+       C
+           The |VectorArray| C from the corresponding Riccati equation.
+       shift_options
+           The shift options to use (see :func:`ricc_lrcf_solver_options`).
+           
+   .. admonition:: Returns
+
+       shifts
+           A |NumPy array| containing a set of stable shift parameters.
+           
+
+
+.. function:: hamiltonian_shifts(A, E, B, R, K, Z, shift_options)
+
+   Compute further shift parameters for low-rank RADI iteration.
+
+   Compute Galerkin projection of Hamiltonian matrix on space spanned by last few columns of
+   :math:`Z` and return the eigenvalue of the projected Hamiltonian with the most impact on
+   convergence as the next shift parameter.
+
+   See :cite:`BBKS18`, pp. 318-321.
+
+   .. admonition:: Parameters
+
+       A
+           The |Operator| A from the corresponding Riccati equation.
+       E
+           The |Operator| E from the corresponding Riccati equation.
+       B
+           The |VectorArray| B from the corresponding Riccati equation.
+       R
+           A |VectorArray| representing the currently computed residual factor.
+       K
+           A |VectorArray| representing the currently computed iterate.
+       Z
+           A |VectorArray| representing the currently computed solution factor.
+       shift_options
+           The shift options to use (see :func:`ricc_lrcf_solver_options`).
+           
+   .. admonition:: Returns
+
+       shifts
+           A |NumPy array| containing a set of stable shift parameters.
+           
+
+
