@@ -1,0 +1,156 @@
+:mod:`pymor.operators.ei`
+=========================
+
+.. py:module:: pymor.operators.ei
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.operators.ei.EmpiricalInterpolatedOperator
+   pymor.operators.ei.ProjectedEmpiciralInterpolatedOperator
+
+
+
+
+.. class:: EmpiricalInterpolatedOperator(operator, interpolation_dofs, collateral_basis, triangular, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.interface.Operator`
+
+   Interpolate an |Operator| using Empirical Operator Interpolation.
+
+   Let `L` be an |Operator|, `0 <= c_1, ..., c_M < L.range.dim` indices
+   of interpolation DOFs and let `b_1, ..., b_M in R^(L.range.dim)` be collateral
+   basis vectors. If moreover `ψ_j(U)` denotes the j-th component of `U`, the
+   empirical interpolation `L_EI` of `L` w.r.t. the given data is given by ::
+
+     |                M
+     |   L_EI(U, μ) = ∑ b_i⋅λ_i     such that
+     |               i=1
+     |
+     |   ψ_(c_i)(L_EI(U, μ)) = ψ_(c_i)(L(U, μ))   for i=0,...,M
+
+   Since the original operator only has to be evaluated at the given interpolation
+   DOFs, |EmpiricalInterpolatedOperator| calls
+   :meth:`~pymor.operators.interface.Operator.restricted`
+   to obtain a restricted version of the operator which is used
+   to quickly obtain the required evaluations. If the `restricted` method, is not
+   implemented, the full operator will be evaluated (which will lead to
+   the same result, but without any speedup).
+
+   The interpolation DOFs and the collateral basis can be generated using
+   the algorithms provided in the :mod:`pymor.algorithms.ei` module.
+
+
+   .. admonition:: Parameters
+
+       operator
+           The |Operator| to interpolate.
+       interpolation_dofs
+           List or 1D |NumPy array| of the interpolation DOFs `c_1, ..., c_M`.
+       collateral_basis
+           |VectorArray| containing the collateral basis `b_1, ..., b_M`.
+       triangular
+           If `True`, assume that ψ_(c_i)(b_j) = 0  for i < j, which means
+           that the interpolation matrix is triangular.
+       solver_options
+           The |solver_options| for the operator.
+       name
+           Name of the operator.
+           
+
+   .. method:: operator(self)
+      :property:
+
+
+   .. method:: apply(self, U, mu=None)
+
+      Apply the operator to a |VectorArray|.
+
+      .. admonition:: Parameters
+
+          U
+              |VectorArray| of vectors to which the operator is applied.
+          mu
+              The |parameter values| for which to evaluate the operator.
+              
+      .. admonition:: Returns
+
+          |VectorArray| of the operator evaluations.
+              
+
+
+   .. method:: jacobian(self, U, mu=None)
+
+      Return the operator's Jacobian as a new |Operator|.
+
+      .. admonition:: Parameters
+
+          U
+              Length 1 |VectorArray| containing the vector for which to compute
+              the Jacobian.
+          mu
+              The |parameter values| for which to compute the Jacobian.
+              
+      .. admonition:: Returns
+
+          Linear |Operator| representing the Jacobian.
+              
+
+
+   .. method:: __getstate__(self)
+
+
+
+.. class:: ProjectedEmpiciralInterpolatedOperator(restricted_operator, interpolation_matrix, source_basis_dofs, projected_collateral_basis, triangular, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.interface.Operator`
+
+   A projected |EmpiricalInterpolatedOperator|.
+
+   .. method:: apply(self, U, mu=None)
+
+      Apply the operator to a |VectorArray|.
+
+      .. admonition:: Parameters
+
+          U
+              |VectorArray| of vectors to which the operator is applied.
+          mu
+              The |parameter values| for which to evaluate the operator.
+              
+      .. admonition:: Returns
+
+          |VectorArray| of the operator evaluations.
+              
+
+
+   .. method:: jacobian(self, U, mu=None)
+
+      Return the operator's Jacobian as a new |Operator|.
+
+      .. admonition:: Parameters
+
+          U
+              Length 1 |VectorArray| containing the vector for which to compute
+              the Jacobian.
+          mu
+              The |parameter values| for which to compute the Jacobian.
+              
+      .. admonition:: Returns
+
+          Linear |Operator| representing the Jacobian.
+              
+
+
+   .. method:: with_cb_dim(self, dim)
+
+
+
