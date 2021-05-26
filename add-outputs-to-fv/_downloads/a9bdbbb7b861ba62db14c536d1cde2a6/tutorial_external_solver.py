@@ -53,7 +53,7 @@ class WrappedVector(CopyOnWriteVector):
     def to_numpy(self, ensure_copy=False):
         # Note how this uses the buffer protocol setup to allow efficient
         # data access as a Numpy Vector
-        result = np.frombuffer(self._impl, dtype=np.float)
+        result = np.frombuffer(self._impl, dtype=np.float64)
         if ensure_copy:
             result = result.copy()
         return result

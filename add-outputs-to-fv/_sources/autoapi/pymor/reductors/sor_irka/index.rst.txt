@@ -1,0 +1,105 @@
+:mod:`pymor.reductors.sor_irka`
+===============================
+
+.. py:module:: pymor.reductors.sor_irka
+
+.. autoapi-nested-parse::
+
+   IRKA-type reductor for |SecondOrderModels|.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.reductors.sor_irka.SORIRKAReductor
+
+
+
+
+.. class:: SORIRKAReductor(fom, mu=None)
+
+
+   Bases: :py:obj:`pymor.reductors.h2.GenericIRKAReductor`
+
+   SOR-IRKA reductor.
+
+   .. admonition:: Parameters
+
+       fom
+           The full-order |SecondOrderModel| to reduce.
+       mu
+           |Parameter values|.
+           
+
+   .. method:: reduce(self, rom0_params, tol=0.0001, maxit=100, num_prev=1, force_sigma_in_rhp=False, projection='orth', conv_crit='sigma', compute_errors=False, irka_options=None)
+
+      Reduce using SOR-IRKA.
+
+      It uses IRKA as the intermediate reductor, to reduce from 2r to
+      r poles. See Section 5.3.2 in :cite:`W12`.
+
+      .. admonition:: Parameters
+
+          rom0_params
+              Can be:
+              
+              - order of the reduced model (a positive integer),
+              - dict with `'sigma'`, `'b'`, `'c'` as keys mapping to
+                initial interpolation points (a 1D |NumPy array|), right
+                tangential directions (|VectorArray| from
+                `fom.D.source`), and left tangential directions
+                (|VectorArray| from `fom.D.range`), all of the same
+                length (the order of the reduced model),
+              - initial reduced-order model (|LTIModel|).
+              
+              If the order of reduced model is given, initial
+              interpolation data is generated randomly.
+          tol
+              Tolerance for the convergence criterion.
+          maxit
+              Maximum number of iterations.
+          num_prev
+              Number of previous iterations to compare the current
+              iteration to. Larger number can avoid occasional cyclic
+              behavior of IRKA.
+          force_sigma_in_rhp
+              If `False`, new interpolation are reflections of the current
+              reduced order model's poles. Otherwise, only the poles in
+              the left half-plane are reflected.
+          projection
+              Projection method:
+              
+              - `'orth'`: projection matrices are orthogonalized with
+                respect to the Euclidean inner product
+              - `'biorth'`: projection matrices are biorthogolized with
+                respect to the E product
+          conv_crit
+              Convergence criterion:
+              
+              - `'sigma'`: relative change in interpolation points
+              - `'h2'`: relative :math:`\mathcal{H}_2` distance of
+                reduced-order models
+          compute_errors
+              Should the relative :math:`\mathcal{H}_2`-errors of
+              intermediate reduced order models be computed.
+              
+              .. warning::
+                  Computing :math:`\mathcal{H}_2`-errors is expensive. Use
+                  this option only if necessary.
+          irka_options
+              Dict of options for IRKAReductor.reduce.
+              
+      .. admonition:: Returns
+
+          rom
+              Reduced-order |SecondOrderModel|.
+              
+
+
+

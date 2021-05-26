@@ -84,7 +84,7 @@ trivial_basis = U.copy()
 # In[12]:
 
 
-V = fom.solve(parameter_space.sample_randomly(1)[0])
+V = fom.solve(parameter_space.sample_randomly())
 
 
 # In[13]:
