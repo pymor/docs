@@ -12,9 +12,7 @@ Classes
 
 .. autoapisummary::
 
-   pymor.algorithms.hapod.Tree
-   pymor.algorithms.hapod.IncHAPODTree
-   pymor.algorithms.hapod.DistHAPODTree
+   pymor.algorithms.hapod.Node
    pymor.algorithms.hapod.LifoExecutor
    pymor.algorithms.hapod.FakeExecutor
 
@@ -26,6 +24,8 @@ Functions
 .. autoapisummary::
   :nosignatures:
 
+   pymor.algorithms.hapod.inc_hapod_tree
+   pymor.algorithms.hapod.dist_hapod_tree
    pymor.algorithms.hapod.default_pod_method
    pymor.algorithms.hapod.hapod
    pymor.algorithms.hapod.inc_hapod
@@ -36,55 +36,37 @@ Functions
 
 
 
-.. class:: Tree
-
-   Bases: :py:obj:`pymor.core.base.BasicObject`
-
-   A rooted tree.
-
-   .. attribute:: root
-      :annotation: = 0
-
-      
-
-   .. method:: children(self, node)
-      :abstractmethod:
+.. class:: Node(tag=None, parent=None, after=None)
 
 
-   .. method:: after(self, node)
+   .. method:: add_child(self, tag=None, after=None, **kwargs)
 
 
    .. method:: depth(self)
       :property:
 
 
-   .. method:: is_leaf(self, node)
+   .. method:: is_leaf(self)
+      :property:
+
+
+   .. method:: is_root(self)
+      :property:
+
+
+   .. method:: traverse(self, return_level=False)
+
+
+   .. method:: __str__(self)
+
+      Return str(self).
 
 
 
-.. class:: IncHAPODTree(steps)
+.. function:: inc_hapod_tree(steps)
 
 
-   Bases: :py:obj:`Tree`
-
-   A rooted tree.
-
-   .. method:: children(self, node)
-
-
-   .. method:: after(self, node)
-
-
-
-.. class:: DistHAPODTree(slices)
-
-
-   Bases: :py:obj:`Tree`
-
-   A rooted tree.
-
-   .. method:: children(self, node)
-
+.. function:: dist_hapod_tree(num_slices, arity=None)
 
 
 .. function:: default_pod_method(U, eps, is_root_node, product)
@@ -168,7 +150,7 @@ Functions
            
 
 
-.. function:: dist_hapod(num_slices, snapshots, eps, omega, product=None, executor=None, eval_snapshots_in_executor=False)
+.. function:: dist_hapod(num_slices, snapshots, eps, omega, arity=None, product=None, executor=None, eval_snapshots_in_executor=False)
 
    Distributed Hierarchical Approximate POD.
 
@@ -186,6 +168,10 @@ Functions
        omega
            Tuning parameter (0 < omega < 1) to balance performance with
            approximation quality.
+       arity
+           If not `None`, the arity of the HAPOD tree. Otherwise, a
+           tree of depth 2 is used (one POD per slice and one additional
+           POD of the resulting data).
        product
            Inner product |Operator| w.r.t. which to compute the POD.
        executor
@@ -236,7 +222,7 @@ Functions
            
 
 
-.. function:: dist_vectorarray_hapod(num_slices, U, eps, omega, product=None, executor=None)
+.. function:: dist_vectorarray_hapod(num_slices, U, eps, omega, arity=None, product=None, executor=None)
 
    Distributed Hierarchical Approximate POD.
 
@@ -253,6 +239,10 @@ Functions
        omega
            Tuning parameter (0 < omega < 1) to balance performance with
            approximation quality.
+       arity
+           If not `None`, the arity of the HAPOD tree. Otherwise, a
+           tree of depth 2 is used (one POD per slice and one additional
+           POD of the resulting data).
        product
            Inner product |Operator| w.r.t. which to compute the POD.
        executor
