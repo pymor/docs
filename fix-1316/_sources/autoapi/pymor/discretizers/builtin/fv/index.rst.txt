@@ -1,0 +1,777 @@
+:mod:`pymor.discretizers.builtin.fv`
+====================================
+
+.. py:module:: pymor.discretizers.builtin.fv
+
+.. autoapi-nested-parse::
+
+   This module provides some operators for finite volume discretizations.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.discretizers.builtin.fv.NumericalConvectiveFlux
+   pymor.discretizers.builtin.fv.LaxFriedrichsFlux
+   pymor.discretizers.builtin.fv.SimplifiedEngquistOsherFlux
+   pymor.discretizers.builtin.fv.EngquistOsherFlux
+   pymor.discretizers.builtin.fv.NonlinearAdvectionOperator
+   pymor.discretizers.builtin.fv.LinearAdvectionLaxFriedrichsOperator
+   pymor.discretizers.builtin.fv.L2Product
+   pymor.discretizers.builtin.fv.ReactionOperator
+   pymor.discretizers.builtin.fv.NonlinearReactionOperator
+   pymor.discretizers.builtin.fv.L2Functional
+   pymor.discretizers.builtin.fv.BoundaryL2Functional
+   pymor.discretizers.builtin.fv.DiffusionOperator
+   pymor.discretizers.builtin.fv.InterpolationOperator
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.discretizers.builtin.fv.FVVectorSpace
+   pymor.discretizers.builtin.fv.jacobian_options
+   pymor.discretizers.builtin.fv.nonlinear_advection_lax_friedrichs_operator
+   pymor.discretizers.builtin.fv.nonlinear_advection_simplified_engquist_osher_operator
+   pymor.discretizers.builtin.fv.nonlinear_advection_engquist_osher_operator
+   pymor.discretizers.builtin.fv.L2ProductFunctional
+   pymor.discretizers.builtin.fv.discretize_stationary_fv
+   pymor.discretizers.builtin.fv.discretize_instationary_fv
+
+
+
+.. function:: FVVectorSpace(grid, id='STATE')
+
+
+.. class:: NumericalConvectiveFlux
+
+
+   Bases: :py:obj:`pymor.parameters.base.ParametricObject`
+
+   Interface for numerical convective fluxes for finite volume schemes.
+
+   Numerical fluxes defined by this interfaces are functions of
+   the form `F(U_inner, U_outer, unit_outer_normal, edge_volume, mu)`.
+
+   The flux evaluation is vectorized and happens in two stages:
+     1. `evaluate_stage1` receives a |NumPy array| `U` of all values which
+        appear as `U_inner` or `U_outer` for all edges the flux shall be
+        evaluated at and returns a `tuple` of |NumPy arrays|
+        each of the same length as `U`.
+     2. `evaluate_stage2` receives the reordered `stage1_data` for each
+        edge as well as the unit outer normal and the volume of the edges.
+
+        `stage1_data` is given as follows: If `R_l` is `l`-th entry of the
+        `tuple` returned by `evaluate_stage1`, the `l`-th entry `D_l` of
+        of the `stage1_data` tuple has the shape `(num_edges, 2) + R_l.shape[1:]`.
+        If for edge `k` the values `U_inner` and `U_outer` are the `i`-th
+        and `j`-th value in the `U` array provided to `evaluate_stage1`,
+        we have ::
+
+            D_l[k, 0] == R_l[i],    D_l[k, 1] == R_l[j].
+
+        `evaluate_stage2` returns a |NumPy array| of the flux evaluations
+        for each edge.
+
+   .. method:: evaluate_stage1(self, U, mu=None)
+      :abstractmethod:
+
+
+   .. method:: evaluate_stage2(self, stage1_data, unit_outer_normals, volumes, mu=None)
+      :abstractmethod:
+
+
+
+.. class:: LaxFriedrichsFlux(flux, lxf_lambda=1.0)
+
+
+   Bases: :py:obj:`NumericalConvectiveFlux`
+
+   Lax-Friedrichs numerical flux.
+
+   If `f` is the analytical flux, the Lax-Friedrichs flux `F` is given
+   by::
+
+     F(U_in, U_out, normal, vol) = vol * [normal⋅(f(U_in) + f(U_out))/2 + (U_in - U_out)/(2*λ)]
+
+   .. admonition:: Parameters
+
+       flux
+           |Function| defining the analytical flux `f`.
+       lxf_lambda
+           The stabilization parameter `λ`.
+           
+
+   .. method:: evaluate_stage1(self, U, mu=None)
+
+
+   .. method:: evaluate_stage2(self, stage1_data, unit_outer_normals, volumes, mu=None)
+
+
+
+.. class:: SimplifiedEngquistOsherFlux(flux, flux_derivative)
+
+
+   Bases: :py:obj:`NumericalConvectiveFlux`
+
+   Engquist-Osher numerical flux. Simplified Implementation for special case.
+
+   For the definition of the Engquist-Osher flux see :class:`EngquistOsherFlux`.
+   This class provides a faster and more accurate implementation for the special
+   case that `f(0) == 0` and the derivative of `f` only changes sign at `0`.
+
+   .. admonition:: Parameters
+
+       flux
+           |Function| defining the analytical flux `f`.
+       flux_derivative
+           |Function| defining the analytical flux derivative `f'`.
+           
+
+   .. method:: evaluate_stage1(self, U, mu=None)
+
+
+   .. method:: evaluate_stage2(self, stage1_data, unit_outer_normals, volumes, mu=None)
+
+
+
+.. class:: EngquistOsherFlux(flux, flux_derivative, gausspoints=5, intervals=1)
+
+
+   Bases: :py:obj:`NumericalConvectiveFlux`
+
+   Engquist-Osher numerical flux.
+
+   If `f` is the analytical flux, and `f'` its derivative, the Engquist-Osher flux is
+   given by::
+
+     F(U_in, U_out, normal, vol) = vol * [c^+(U_in, normal)  +  c^-(U_out, normal)]
+
+                                        U_in
+     c^+(U_in, normal)  = f(0)⋅normal +  ∫   max(f'(s)⋅normal, 0) ds
+                                        s=0
+
+                                       U_out
+     c^-(U_out, normal) =                ∫   min(f'(s)⋅normal, 0) ds
+                                        s=0
+
+
+   .. admonition:: Parameters
+
+       flux
+           |Function| defining the analytical flux `f`.
+       flux_derivative
+           |Function| defining the analytical flux derivative `f'`.
+       gausspoints
+           Number of Gauss quadrature points to be used for integration.
+       intervals
+           Number of subintervals to be used for integration.
+           
+
+   .. method:: evaluate_stage1(self, U, mu=None)
+
+
+   .. method:: evaluate_stage2(self, stage1_data, unit_outer_normals, volumes, mu=None)
+
+
+
+.. function:: jacobian_options(delta=1e-07)
+
+
+.. class:: NonlinearAdvectionOperator(grid, boundary_info, numerical_flux, dirichlet_data=None, solver_options=None, space_id='STATE', name=None)
+
+
+   Bases: :py:obj:`pymor.operators.interface.Operator`
+
+   Nonlinear finite volume advection |Operator|.
+
+   The operator is of the form ::
+
+       L(u, mu)(x) = ∇ ⋅ f(u(x), mu)
+
+   .. admonition:: Parameters
+
+       grid
+           |Grid| for which to evaluate the operator.
+       boundary_info
+           |BoundaryInfo| determining the Dirichlet and Neumann boundaries.
+       numerical_flux
+           The :class:`NumericalConvectiveFlux <NumericalConvectiveFlux>` to use.
+       dirichlet_data
+           |Function| providing the Dirichlet boundary values. If `None`, constant-zero
+           boundary is assumed.
+       solver_options
+           The |solver_options| for the operator.
+       name
+           The name of the operator.
+           
+
+   .. attribute:: linear
+      :annotation: = False
+
+      
+
+   .. method:: with_numerical_flux(self, **kwargs)
+
+
+   .. method:: restricted(self, dofs)
+
+      Restrict the operator range to a given set of degrees of freedom.
+
+      This method returns a restricted version `restricted_op` of the
+      operator along with an array `source_dofs` such that for any
+      |VectorArray| `U` in `self.source` the following is true::
+
+          self.apply(U, mu).dofs(dofs)
+              == restricted_op.apply(NumpyVectorArray(U.dofs(source_dofs)), mu))
+
+      Such an operator is mainly useful for
+      :class:`empirical interpolation <pymor.operators.ei.EmpiricalInterpolatedOperator>`
+      where the evaluation of the original operator only needs to be known
+      for few selected degrees of freedom. If the operator has a small
+      stencil, only few `source_dofs` will be needed to evaluate the
+      restricted operator which can make its evaluation very fast
+      compared to evaluating the original operator.
+
+      .. admonition:: Parameters
+
+          dofs
+              One-dimensional |NumPy array| of degrees of freedom in the operator
+              :attr:`~Operator.range` to which to restrict.
+              
+      .. admonition:: Returns
+
+          restricted_op
+              The restricted operator as defined above. The operator will have
+              |NumpyVectorSpace| `(len(source_dofs))` as :attr:`~Operator.source`
+              and |NumpyVectorSpace| `(len(dofs))` as :attr:`~Operator.range`.
+          source_dofs
+              One-dimensional |NumPy array| of source degrees of freedom as
+              defined above.
+              
+
+
+   .. method:: _fetch_grid_data(self)
+
+
+   .. method:: apply(self, U, mu=None)
+
+      Apply the operator to a |VectorArray|.
+
+      .. admonition:: Parameters
+
+          U
+              |VectorArray| of vectors to which the operator is applied.
+          mu
+              The |parameter values| for which to evaluate the operator.
+              
+      .. admonition:: Returns
+
+          |VectorArray| of the operator evaluations.
+              
+
+
+   .. method:: jacobian(self, U, mu=None)
+
+      Return the operator's Jacobian as a new |Operator|.
+
+      .. admonition:: Parameters
+
+          U
+              Length 1 |VectorArray| containing the vector for which to compute
+              the Jacobian.
+          mu
+              The |parameter values| for which to compute the Jacobian.
+              
+      .. admonition:: Returns
+
+          Linear |Operator| representing the Jacobian.
+              
+
+
+
+.. function:: nonlinear_advection_lax_friedrichs_operator(grid, boundary_info, flux, lxf_lambda=1.0, dirichlet_data=None, solver_options=None, name=None)
+
+   Instantiate a :class:`NonlinearAdvectionOperator` using :class:`LaxFriedrichsFlux`.
+
+
+.. function:: nonlinear_advection_simplified_engquist_osher_operator(grid, boundary_info, flux, flux_derivative, dirichlet_data=None, solver_options=None, name=None)
+
+   Instantiate a :class:`NonlinearAdvectionOperator` using
+   :class:`SimplifiedEngquistOsherFlux`.
+
+
+.. function:: nonlinear_advection_engquist_osher_operator(grid, boundary_info, flux, flux_derivative, gausspoints=5, intervals=1, dirichlet_data=None, solver_options=None, name=None)
+
+   Instantiate a :class:`NonlinearAdvectionOperator` using :class:`EngquistOsherFlux`.
+
+
+.. class:: LinearAdvectionLaxFriedrichsOperator(grid, boundary_info, velocity_field, lxf_lambda=1.0, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Linear advection finite Volume |Operator| using Lax-Friedrichs flux.
+
+   The operator is of the form ::
+
+       L(u, mu)(x) = ∇ ⋅ (v(x, mu)⋅u(x))
+
+   See :class:`LaxFriedrichsFlux` for the definition of the Lax-Friedrichs flux.
+
+   .. admonition:: Parameters
+
+       grid
+           |Grid| over which to assemble the operator.
+       boundary_info
+           |BoundaryInfo| determining the Dirichlet and Neumann boundaries.
+       velocity_field
+           |Function| defining the velocity field `v`.
+       lxf_lambda
+           The stabilization parameter `λ`.
+       solver_options
+           The |solver_options| for the operator.
+       name
+           The name of the operator.
+           
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: L2Product(grid, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   |Operator| representing the L2-product between finite volume functions.
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| for which to assemble the product.
+       solver_options
+           The |solver_options| for the operator.
+       name
+           The name of the product.
+           
+
+   .. attribute:: sparse
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: ReactionOperator(grid, reaction_coefficient, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Finite Volume reaction |Operator|.
+
+   The operator is of the form ::
+
+       L(u, mu)(x) = c(x, mu)⋅u(x)
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| for which to assemble the operator.
+       reaction_coefficient
+           The function 'c'
+       solver_options
+           The |solver_options| for the operator.
+       name
+           The name of the operator.
+           
+
+   .. attribute:: sparse
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: NonlinearReactionOperator(grid, reaction_function, reaction_function_derivative=None, space_id='STATE', name=None)
+
+
+   Bases: :py:obj:`pymor.operators.interface.Operator`
+
+   Interface for |Parameter| dependent discrete operators.
+
+   An operator in pyMOR is simply a mapping which for any given
+   |parameter values| maps vectors from its `source` |VectorSpace|
+   to vectors in its `range` |VectorSpace|.
+
+   Note that there is no special distinction between functionals
+   and operators in pyMOR. A functional is simply an operator with
+   |NumpyVectorSpace| `(1)` as its `range` |VectorSpace|.
+
+   .. attribute:: solver_options
+
+      If not `None`, a dict which can contain the following keys:
+      
+      :'inverse':           solver options used for
+                            :meth:`~Operator.apply_inverse`
+      :'inverse_adjoint':   solver options used for
+                            :meth:`~Operator.apply_inverse_adjoint`
+      :'jacobian':          solver options for the operators returned
+                            by :meth:`~Operator.jacobian`
+                            (has no effect for linear operators)
+      
+      If `solver_options` is `None` or a dict entry is missing
+      or `None`, default options are used.
+      The interpretation of the given solver options is up to
+      the operator at hand. In general, values in `solver_options`
+      should either be strings (indicating a solver type) or
+      dicts of options, usually with an entry `'type'` which
+      specifies the solver type to use and further items which
+      configure this solver.
+
+   .. attribute:: linear
+
+      `True` if the operator is linear.
+
+   .. attribute:: source
+
+      The source |VectorSpace|.
+
+   .. attribute:: range
+
+      The range |VectorSpace|.
+
+   .. attribute:: H
+
+      The adjoint operator, i.e. ::
+      
+          self.H.apply(V, mu) == self.apply_adjoint(V, mu)
+      
+      for all V, mu.
+      
+
+   .. method:: apply(self, U, ind=None, mu=None)
+
+      Apply the operator to a |VectorArray|.
+
+      .. admonition:: Parameters
+
+          U
+              |VectorArray| of vectors to which the operator is applied.
+          mu
+              The |parameter values| for which to evaluate the operator.
+              
+      .. admonition:: Returns
+
+          |VectorArray| of the operator evaluations.
+              
+
+
+   .. method:: jacobian(self, U, mu=None)
+
+      Return the operator's Jacobian as a new |Operator|.
+
+      .. admonition:: Parameters
+
+          U
+              Length 1 |VectorArray| containing the vector for which to compute
+              the Jacobian.
+          mu
+              The |parameter values| for which to compute the Jacobian.
+              
+      .. admonition:: Returns
+
+          Linear |Operator| representing the Jacobian.
+              
+
+
+
+.. class:: L2Functional(grid, function=None, boundary_info=None, dirichlet_data=None, diffusion_function=None, diffusion_constant=None, neumann_data=None, order=1, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Finite volume functional representing the inner product with an L2-|Function|.
+
+   Additionally, boundary conditions can be enforced by providing `dirichlet_data`
+   and `neumann_data` functions.
+
+   .. admonition:: Parameters
+
+       grid
+           |Grid| for which to assemble the functional.
+       function
+           The |Function| with which to take the inner product or `None`.
+       boundary_info
+           |BoundaryInfo| determining the Dirichlet and Neumann boundaries or `None`.
+           If `None`, no boundary treatment is performed.
+       dirichlet_data
+           |Function| providing the Dirichlet boundary values. If `None`,
+           constant-zero boundary is assumed.
+       diffusion_function
+           See :class:`DiffusionOperator`. Has to be specified in case `dirichlet_data`
+           is given.
+       diffusion_constant
+           See :class:`DiffusionOperator`. Has to be specified in case `dirichlet_data`
+           is given.
+       neumann_data
+           |Function| providing the Neumann boundary values. If `None`,
+           constant-zero is assumed.
+       order
+           Order of the Gauss quadrature to use for numerical integration.
+       name
+           The name of the functional.
+           
+
+   .. attribute:: source
+      
+
+      
+
+   .. attribute:: sparse
+      :annotation: = False
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. function:: L2ProductFunctional(*args, **kwargs)
+
+
+.. class:: BoundaryL2Functional(grid, function, boundary_type=None, boundary_info=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Finite volume functional representing the inner product with an L2-|Function| on the boundary.
+
+   .. admonition:: Parameters
+
+       grid
+           |Grid| for which to assemble the functional.
+       function
+           The |Function| with which to take the inner product.
+       boundary_type
+           The type of domain boundary (e.g. 'neumann') on which to assemble the functional.
+           If `None` the functional is assembled over the whole boundary.
+       boundary_info
+           If `boundary_type` is specified, the
+           |BoundaryInfo| determining which boundary entity belongs to which physical boundary.
+       name
+           The name of the functional.
+           
+
+   .. attribute:: sparse
+      :annotation: = False
+
+      
+
+   .. attribute:: source
+      
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: DiffusionOperator(grid, boundary_info, diffusion_function=None, diffusion_constant=None, solver_options=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Finite Volume Diffusion |Operator|.
+
+   The operator is of the form ::
+
+       (Lu)(x) = c ∇ ⋅ [ d(x) ∇ u(x) ]
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| over which to assemble the operator.
+       boundary_info
+           |BoundaryInfo| for the treatment of Dirichlet boundary conditions.
+       diffusion_function
+           The scalar-valued |Function| `d(x)`. If `None`, constant one is assumed.
+       diffusion_constant
+           The constant `c`. If `None`, `c` is set to one.
+       solver_options
+           The |solver_options| for the operator.
+       name
+           Name of the operator.
+           
+
+   .. attribute:: sparse
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: InterpolationOperator(grid, function, order=0)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Vector-like L^2-projection interpolation |Operator| for finite volume spaces.
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| on which to interpolate.
+       function
+           The |Function| to interpolate.
+       order
+           The quadrature order to compute the element-wise averages
+           
+
+   .. attribute:: source
+      
+
+      
+
+   .. attribute:: linear
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. function:: discretize_stationary_fv(analytical_problem, diameter=None, domain_discretizer=None, grid_type=None, num_flux='lax_friedrichs', lxf_lambda=1.0, eo_gausspoints=5, eo_intervals=1, grid=None, boundary_info=None, preassemble=True)
+
+   Discretizes a |StationaryProblem| using the finite volume method.
+
+   .. admonition:: Parameters
+
+       analytical_problem
+           The |StationaryProblem| to discretize.
+       diameter
+           If not `None`, `diameter` is passed as an argument to the `domain_discretizer`.
+       domain_discretizer
+           Discretizer to be used for discretizing the analytical domain. This has
+           to be a function `domain_discretizer(domain_description, diameter, ...)`.
+           If `None`, |discretize_domain_default| is used.
+       grid_type
+           If not `None`, this parameter is forwarded to `domain_discretizer` to specify
+           the type of the generated |Grid|.
+       num_flux
+           The numerical flux to use in the finite volume formulation. Allowed
+           values are `'lax_friedrichs'`, `'engquist_osher'`, `'simplified_engquist_osher'`
+           (see :mod:`pymor.discretizers.builtin.fv`).
+       lxf_lambda
+           The stabilization parameter for the Lax-Friedrichs numerical flux
+           (ignored, if different flux is chosen).
+       eo_gausspoints
+           Number of Gauss points for the Engquist-Osher numerical flux
+           (ignored, if different flux is chosen).
+       eo_intervals
+           Number of sub-intervals to use for integration when using Engquist-Osher
+           numerical flux (ignored, if different flux is chosen).
+       grid
+           Instead of using a domain discretizer, the |Grid| can also be passed directly
+           using this parameter.
+       boundary_info
+           A |BoundaryInfo| specifying the boundary types of the grid boundary entities.
+           Must be provided if `grid` is specified.
+       preassemble
+           If `True`, preassemble all operators in the resulting |Model|.
+           
+   .. admonition:: Returns
+
+       m
+           The |Model| that has been generated.
+       data
+           Dictionary with the following entries:
+           
+               :grid:           The generated |Grid|.
+               :boundary_info:  The generated |BoundaryInfo|.
+               :unassembled_m:  In case `preassemble` is `True`, the generated |Model|
+                                before preassembling operators.
+           
+
+
+.. function:: discretize_instationary_fv(analytical_problem, diameter=None, domain_discretizer=None, grid_type=None, num_flux='lax_friedrichs', lxf_lambda=1.0, eo_gausspoints=5, eo_intervals=1, grid=None, boundary_info=None, num_values=None, time_stepper=None, nt=None, preassemble=True)
+
+   Discretizes an |InstationaryProblem| with a |StationaryProblem| as stationary part
+   using the finite volume method.
+
+   .. admonition:: Parameters
+
+       analytical_problem
+           The |InstationaryProblem| to discretize.
+       diameter
+           If not `None`, `diameter` is passed to the `domain_discretizer`.
+       domain_discretizer
+           Discretizer to be used for discretizing the analytical domain. This has
+           to be a function `domain_discretizer(domain_description, diameter, ...)`.
+           If further arguments should be passed to the discretizer, use
+           :func:`functools.partial`. If `None`, |discretize_domain_default| is used.
+       grid_type
+           If not `None`, this parameter is forwarded to `domain_discretizer` to specify
+           the type of the generated |Grid|.
+       num_flux
+           The numerical flux to use in the finite volume formulation. Allowed
+           values are `'lax_friedrichs'`, `'engquist_osher'`, `'simplified_engquist_osher'`
+           (see :mod:`pymor.discretizers.builtin.fv`).
+       lxf_lambda
+           The stabilization parameter for the Lax-Friedrichs numerical flux
+           (ignored, if different flux is chosen).
+       eo_gausspoints
+           Number of Gauss points for the Engquist-Osher numerical flux
+           (ignored, if different flux is chosen).
+       eo_intervals
+           Number of sub-intervals to use for integration when using Engquist-Osher
+           numerical flux (ignored, if different flux is chosen).
+       grid
+           Instead of using a domain discretizer, the |Grid| can also be passed directly
+           using this parameter.
+       boundary_info
+           A |BoundaryInfo| specifying the boundary types of the grid boundary entities.
+           Must be provided if `grid` is specified.
+       num_values
+           The number of returned vectors of the solution trajectory. If `None`, each
+           intermediate vector that is calculated is returned.
+       time_stepper
+           The :class:`time-stepper <pymor.algorithms.timestepping.TimeStepper>`
+           to be used by :class:`~pymor.models.basic.InstationaryModel.solve`.
+       nt
+           If `time_stepper` is not specified, the number of time steps for implicit
+           Euler time stepping.
+       preassemble
+           If `True`, preassemble all operators in the resulting |Model|.
+           
+   .. admonition:: Returns
+
+       m
+           The |Model| that has been generated.
+       data
+           Dictionary with the following entries:
+           
+               :grid:           The generated |Grid|.
+               :boundary_info:  The generated |BoundaryInfo|.
+               :unassembled_m:  In case `preassemble` is `True`, the generated |Model|
+                                before preassembling operators.
+           
+
+
