@@ -26,8 +26,10 @@ Classes
    pymor.discretizers.builtin.fv.L2Product
    pymor.discretizers.builtin.fv.ReactionOperator
    pymor.discretizers.builtin.fv.NonlinearReactionOperator
-   pymor.discretizers.builtin.fv.L2ProductFunctional
+   pymor.discretizers.builtin.fv.L2Functional
+   pymor.discretizers.builtin.fv.BoundaryL2Functional
    pymor.discretizers.builtin.fv.DiffusionOperator
+   pymor.discretizers.builtin.fv.InterpolationOperator
 
 
 
@@ -42,6 +44,7 @@ Functions
    pymor.discretizers.builtin.fv.nonlinear_advection_lax_friedrichs_operator
    pymor.discretizers.builtin.fv.nonlinear_advection_simplified_engquist_osher_operator
    pymor.discretizers.builtin.fv.nonlinear_advection_engquist_osher_operator
+   pymor.discretizers.builtin.fv.L2ProductFunctional
    pymor.discretizers.builtin.fv.discretize_stationary_fv
    pymor.discretizers.builtin.fv.discretize_instationary_fv
 
@@ -497,7 +500,7 @@ Functions
 
 
 
-.. class:: L2ProductFunctional(grid, function=None, boundary_info=None, dirichlet_data=None, diffusion_function=None, diffusion_constant=None, neumann_data=None, order=1, name=None)
+.. class:: L2Functional(grid, function=None, boundary_info=None, dirichlet_data=None, diffusion_function=None, diffusion_constant=None, neumann_data=None, order=1, name=None)
 
 
    Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
@@ -548,6 +551,46 @@ Functions
 
 
 
+.. function:: L2ProductFunctional(*args, **kwargs)
+
+
+.. class:: BoundaryL2Functional(grid, function, boundary_type=None, boundary_info=None, name=None)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Finite volume functional representing the inner product with an L2-|Function| on the boundary.
+
+   .. admonition:: Parameters
+
+       grid
+           |Grid| for which to assemble the functional.
+       function
+           The |Function| with which to take the inner product.
+       boundary_type
+           The type of domain boundary (e.g. 'neumann') on which to assemble the functional.
+           If `None` the functional is assembled over the whole boundary.
+       boundary_info
+           If `boundary_type` is specified, the
+           |BoundaryInfo| determining which boundary entity belongs to which physical boundary.
+       name
+           The name of the functional.
+           
+
+   .. attribute:: sparse
+      :annotation: = False
+
+      
+
+   .. attribute:: source
+      
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
 .. class:: DiffusionOperator(grid, boundary_info, diffusion_function=None, diffusion_constant=None, solver_options=None, name=None)
 
 
@@ -576,6 +619,37 @@ Functions
            
 
    .. attribute:: sparse
+      :annotation: = True
+
+      
+
+   .. method:: _assemble(self, mu=None)
+
+
+
+.. class:: InterpolationOperator(grid, function, order=0)
+
+
+   Bases: :py:obj:`pymor.operators.numpy.NumpyMatrixBasedOperator`
+
+   Vector-like L^2-projection interpolation |Operator| for finite volume spaces.
+
+   .. admonition:: Parameters
+
+       grid
+           The |Grid| on which to interpolate.
+       function
+           The |Function| to interpolate.
+       order
+           The quadrature order to compute the element-wise averages
+           
+
+   .. attribute:: source
+      
+
+      
+
+   .. attribute:: linear
       :annotation: = True
 
       
