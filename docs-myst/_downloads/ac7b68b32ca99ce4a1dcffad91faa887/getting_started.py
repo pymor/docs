@@ -296,7 +296,7 @@ print(np.max(np.abs(gram_matrix - np.eye(32))))
 # Looks good! We can now solve the reduced model for the same {{ parameter_values }}
 # as above.  The result is a vector of coefficients w.r.t. the reduced basis, which is
 # currently stored in `RB`. To form the linear combination, we can use the
-# {}`reconstruct` method of the reductor:
+# `reconstruct` method of the reductor:
 
 # In[15]:
 

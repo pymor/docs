@@ -94,9 +94,9 @@ diffusion = ConstantFunction(1, 2)
 # For the definition of the source term {math}`f` we use an
 # {{ ExpressionFunction }} which is given an arbitrary Python expression
 # used to evaluate the function. In this expression, the coordinates at
-# which the function shall be evaluated are given as the variable {}`x`.
+# which the function shall be evaluated are given as the variable `x`.
 # Many NumPy functions can be used directly. The entire NumPy module is
-# available under the name {}`np`.
+# available under the name `np`.
 # 
 # Thus, to define {math}`f` we could write
 # 
@@ -105,8 +105,8 @@ diffusion = ConstantFunction(1, 2)
 # ```
 # 
 # However, pyMOR {{ Functions }} are required to be vectorized with respect
-# to the coordinate {}`x`. In the case of {{ ExpressionFunction }} this
-# means that {}`x` can be an arbitrary dimensional NumPy array of
+# to the coordinate `x`. In the case of {{ ExpressionFunction }} this
+# means that `x` can be an arbitrary dimensional NumPy array of
 # coordinates where the last array index specifies the spacial dimension.
 # Therefore, the correct definition of {math}`f` is:
 
@@ -120,9 +120,9 @@ rhs = ExpressionFunction('(sqrt( (x[...,0]-0.5)**2 + (x[...,1]-0.5)**2) <= 0.3) 
 # of the computational domain. As the shape of the return value cannot be
 # easily inferred from the given string expression, it has to be provided
 # as a third argument to {{ ConstantFunction }}. For scalar functions we
-# provide the empty tuple {}`()`, for functions returning
-# three-dimensional vectors we would specify {}`(3,)`, and for functions
-# returning {math}`2\times 2` matrices we would specify {}`(2,2)`.
+# provide the empty tuple `()`, for functions returning
+# three-dimensional vectors we would specify `(3,)`, and for functions
+# returning {math}`2\times 2` matrices we would specify `(2,2)`.
 # 
 # Finally, the computational domain and all data functions are collected
 # in a {{ StationaryProblem }}:
@@ -141,7 +141,7 @@ problem = StationaryProblem(
 # (see {mod}`pymor.discretizers.builtin`) which assemble corresponding
 # discrete full-order models. For finite elements, we use
 # {func}`~pymor.discretizers.builtin.cg.discretize_stationary_cg`,
-# which receives the maximum mesh element diameter via the {}`diameter`
+# which receives the maximum mesh element diameter via the `diameter`
 # argument:
 
 # In[7]:
@@ -169,7 +169,7 @@ m.visualize(U)
 
 # In case a specific grid type shall be used ({{ RectGrid }} or
 # {{ TriaGrid }}), the corresponding class has to be passed to the
-# discretizer as the {}`grid_type` argument. By using {{ RectGrid }} we get
+# discretizer as the `grid_type` argument. By using {{ RectGrid }} we get
 # bilinear finite elements:
 
 # In[10]:
@@ -284,9 +284,9 @@ diffusion = ExpressionFunction(
 )
 
 
-# Here, we have used the {}`values` parameter of {{ ExpressionFunction }} to
-# make {}`K` available as an additional constant in the defining
-# expression. In particular, we can easily change {}`K` programatically
+# Here, we have used the `values` parameter of {{ ExpressionFunction }} to
+# make `K` available as an additional constant in the defining
+# expression. In particular, we can easily change `K` programatically
 # without having to resort to string manipulations. The solution looks
 # like this:
 
@@ -310,15 +310,15 @@ m.visualize(m.solve())
 # scale images in various image file formats. The resulting
 # two-dimensional NumPy array of pixel values defines a piecewise constant
 # data function on a rectangular domain, where the range of the function
-# (from black to white) is specified via the {}`range` parameter. For
+# (from black to white) is specified via the `range` parameter. For
 # instance, when using a {{ BitmapFunction }} for {math}`\sigma` with the
-# following graphic stored in {}`RB.png`:
+# following graphic stored in `RB.png`:
 # 
 # ```{image} RB.png
 # 
 # ```
 # 
-# and a range of {}`[0.001 1]` we obtain:
+# and a range of `[0.001 1]` we obtain:
 
 # In[18]:
 
@@ -351,7 +351,7 @@ m.visualize(m.solve())
 # In pyMOR, {{ parameter_values }} are specified as a dictionary of one-dimensional
 # {{ NumPy_arrays }}. Each value in the dictionary must have a correct size specified by the
 # {{ Parameters }} of the {{ ParametricObject }}. In this example we have a single scalar
-# valued parameter which we call {}`'neum'`. Thus, the {{ Parameters }} of the function
+# valued parameter which we call `'neum'`. Thus, the {{ Parameters }} of the function
 # will be
 # 
 # ```
@@ -368,7 +368,7 @@ neumann_data = ExpressionFunction('-cos(pi*x[...,0])**2*neum[0]', 2, (), paramet
 
 # Similar to the range of the function, pyMOR cannot infer from the given
 # string expression the parameters used in the expression, so these
-# {{ Parameters }} have to be provided as the {}`parameters` argument.
+# {{ Parameters }} have to be provided as the `parameters` argument.
 # The individual parameters are then available as variables in
 # the expression.
 # 
@@ -467,7 +467,7 @@ m.visualize(m.solve([1, -1]))
 # 
 # For the generation of online-efficient reduced-order models, it is often
 # crucial that data functions are parameter separable. We call a
-# parametric function {}`f(x, \mu)` parameter separable if it admits a
+# parametric function `f(x, \mu)` parameter separable if it admits a
 # decomposition
 # 
 # ```{math}
@@ -485,7 +485,7 @@ m.visualize(m.solve([1, -1]))
 # 
 # As an example let us go back to the case where the diffusivity is
 # represented by indicator functions of point sets forming the letters
-# {}`RB`. We now want to parameterize the diffusivity in the individual
+# `RB`. We now want to parameterize the diffusivity in the individual
 # letters. This admits a decomposition of the form
 # 
 # ```{math}
@@ -542,8 +542,8 @@ diffusion = LincombFunction(
 diffusion.parameters
 
 
-# Again, pyMOR automatically derives that the evaluation of {}`diffusion`
-# depends on the two {{ Parameters }} {}`'B'` and {}`'R'`. Now, we can
+# Again, pyMOR automatically derives that the evaluation of `diffusion`
+# depends on the two {{ Parameters }} `'B'` and `'R'`. Now, we can
 # proceed as usual:
 
 # In[30]:
@@ -558,7 +558,7 @@ m, data = discretize_stationary_cg(problem, diameter=1/100)
 m.visualize((m.solve([1., 0.001]), m.solve([0.001, 1])))
 
 
-# Looking at the {{ Model }} {}`m`, we can see that the decomposition of
+# Looking at the {{ Model }} `m`, we can see that the decomposition of
 # {math}`\sigma` has been preserved by the discretizer:
 
 # In[31]:
