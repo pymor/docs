@@ -532,7 +532,7 @@ for mu in RB_minimization_data['evaluation_points']:
 # equation, i.e.
 # 
 # ```{math}
-# r_\mu^{\text{pr}}(u)[v] := l_\mu(v) - a_\mu(u, v) &&\text{for all }v \in V
+# r_\mu^{\text{pr}}(u)[v] := l_\mu(v) - a_\mu(u, v) \qquad \qquad \text{for all }v \in V
 # ```
 # 
 # A major issue of this approach is that the computation of the
