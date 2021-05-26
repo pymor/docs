@@ -1,0 +1,159 @@
+:mod:`pymor.models.mpi`
+=======================
+
+.. py:module:: pymor.models.mpi
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.models.mpi.MPIModel
+   pymor.models.mpi.MPIVisualizer
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.models.mpi._MPIVisualizer_visualize
+   pymor.models.mpi.mpi_wrap_model
+   pymor.models.mpi._mpi_wrap_model_manage_operators
+   pymor.models.mpi._map_children
+
+
+
+Attributes
+~~~~~~~~~~
+
+.. autoapisummary::
+
+   pymor.models.mpi._OperatorToWrap
+
+
+.. class:: MPIModel(obj_id, *args, **kwargs)
+
+
+   Wrapper class mixin for MPI distributed |Models|.
+
+   Given a single-rank implementation of a |Model|, this
+   wrapper class uses the event loop from :mod:`pymor.tools.mpi`
+   to allow an MPI distributed usage of the |Model|.
+   The underlying implementation needs to be MPI aware.
+   In particular, the model's
+   :meth:`~pymor.models.interface.Model.solve`
+   method has to perform an MPI parallel solve of the model.
+
+   Note that this class is not intended to be instantiated directly.
+   Instead, you should use :func:`mpi_wrap_model`.
+
+   .. method:: _compute_solution(self, mu=None, **kwargs)
+
+
+   .. method:: visualize(self, U, **kwargs)
+
+
+   .. method:: __del__(self)
+
+
+
+.. class:: MPIVisualizer(m_obj_id)
+
+
+   Bases: :py:obj:`pymor.core.base.ImmutableObject`
+
+   Base class for immutable objects in pyMOR.
+
+   Instances of `ImmutableObject` are immutable in the sense that
+   after execution of `__init__`, any modification of a non-private
+   attribute will raise an exception.
+
+   .. _ImmutableObjectWarning:
+   .. warning::
+          For instances of `ImmutableObject`,
+          the result of member function calls should be completely
+          determined by the function's arguments together with the
+          object's `__init__` arguments and the current state of pyMOR's
+          global |defaults|.
+
+   While, in principle, you are allowed to modify private members after
+   instance initialization, this should never affect the outcome of
+   future method calls. In particular, if you update any internal state
+   after initialization, you have to ensure that this state is not affected
+   by possible changes of the global :mod:`~pymor.core.defaults`.
+
+   .. method:: visualize(self, U, **kwargs)
+
+
+
+.. function:: _MPIVisualizer_visualize(m, U, **kwargs)
+
+
+.. function:: mpi_wrap_model(local_models, mpi_spaces=('STATE', ), use_with=True, with_apply2=False, pickle_local_spaces=True, space_type=MPIVectorSpace, base_type=None)
+
+   Wrap MPI distributed local |Models| to a global |Model| on rank 0.
+
+   Given MPI distributed local |Models| referred to by the
+   :class:`~pymor.tools.mpi.ObjectId` `local_models`, return a new |Model|
+   which manages these distributed models from rank 0. This
+   is done by first wrapping all |Operators| of the |Model| using
+   :func:`~pymor.operators.mpi.mpi_wrap_operator`.
+
+   Alternatively, `local_models` can be a callable (with no arguments)
+   which is then called on each rank to instantiate the local |Models|.
+
+   When `use_with` is `False`, an :class:`MPIModel` is instantiated
+   with the wrapped operators. A call to
+   :meth:`~pymor.models.interface.Model.solve`
+   will then use an MPI parallel call to the
+   :meth:`~pymor.models.interface.Model.solve`
+   methods of the wrapped local |Models| to obtain the solution.
+   This is usually what you want when the actual solve is performed by
+   an implementation in the external solver.
+
+   When `use_with` is `True`, :meth:`~pymor.core.base.ImmutableObject.with_`
+   is called on the local |Model| on rank 0, to obtain a new
+   |Model| with the wrapped MPI |Operators|. This is mainly useful
+   when the local models are generic |Models| as in
+   :mod:`pymor.models.basic` and
+   :meth:`~pymor.models.interface.Model.solve`
+   is implemented directly in pyMOR via operations on the contained
+   |Operators|.
+
+   .. admonition:: Parameters
+
+       local_models
+           :class:`~pymor.tools.mpi.ObjectId` of the local |Models|
+           on each rank or a callable generating the |Models|.
+       mpi_spaces
+           List of types or ids of |VectorSpaces| which are MPI distributed
+           and need to be wrapped.
+       use_with
+           See above.
+       with_apply2
+           See :class:`~pymor.operators.mpi.MPIOperator`.
+       pickle_local_spaces
+           See :class:`~pymor.operators.mpi.MPIOperator`.
+       space_type
+           See :class:`~pymor.operators.mpi.MPIOperator`.
+           
+
+
+.. data:: _OperatorToWrap
+   
+
+   
+
+.. function:: _mpi_wrap_model_manage_operators(obj_id, mpi_spaces, use_with, base_type)
+
+
+.. function:: _map_children(f, obj)
+
+
