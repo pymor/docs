@@ -90,12 +90,10 @@ fom = LTIModel.from_matrices(A, B, C, E=E)
 # For example, starting from a realization
 # 
 # ```{math}
-# 
 # \begin{align}
 #     E \dot{x}(t) & = A x(t) + B u(t), \\
 #     y(t) & = C x(t) + D u(t),
 # \end{align}
-# 
 # ```
 # 
 # another realization can be obtained by replacing {math}`x(t)` with
@@ -127,10 +125,8 @@ fom = LTIModel.from_matrices(A, B, C, E=E)
 # then
 # 
 # ```{math}
-# 
 # E_c(x_0) = x_0 \tilde{P}^{-1} x_0, \quad
 # E_o(x_0) = x_0 \tilde{Q} x_0.
-# 
 # ```
 # 
 # Therefore, states corresponding to small Hankel singular values are more
@@ -144,14 +140,12 @@ fom = LTIModel.from_matrices(A, B, C, E=E)
 # giving a reduced-order model
 # 
 # ```{math}
-# 
 # \begin{align}
 #     \hat{E} \dot{\hat{x}}(t)
 #     & = \hat{A} \hat{x}(t) + \hat{B} u(t), \\
 #     \hat{y}(t)
 #     & = \hat{C} \hat{x}(t) + D u(t),
 # \end{align}
-# 
 # ```
 # 
 # with
@@ -165,20 +159,16 @@ fom = LTIModel.from_matrices(A, B, C, E=E)
 # Furthermore, it satisfies the {math}`\mathcal{H}_\infty` error bound
 # 
 # ```{math}
-# 
 # \lVert H - \hat{H} \rVert_{\mathcal{H}_\infty}
 # \leqslant 2 \sum_{i = r + 1}^n \sigma_i.
-# 
 # ```
 # 
 # Note that any reduced-order model (not only from balanced truncation) satisfies
 # the lower bound
 # 
 # ```{math}
-# 
 # \lVert H - \hat{H} \rVert_{\mathcal{H}_\infty}
 # \geqslant \sigma_{r + 1}.
-# 
 # ```
 # 
 # ## Balanced truncation in pyMOR
@@ -249,7 +239,6 @@ _ = rom.bode_plot(w, ax=axs, linestyle='--')
 # which is again an LTI system.
 # 
 # ```{math}
-# 
 # \begin{align}
 #     \begin{bmatrix}
 #         E & 0 \\
@@ -284,7 +273,6 @@ _ = rom.bode_plot(w, ax=axs, linestyle='--')
 #         \hat{x}(t)
 #     \end{bmatrix}.
 # \end{align}
-# 
 # ```
 
 # In[10]:

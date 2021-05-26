@@ -32,9 +32,7 @@ pymor.tools.random._default_random_state = None
 # In this tutorial we will focus on elliptic equations of the form
 # 
 # ```{math}
-# 
 # -\nabla \cdot \big(\sigma(x, \mu) \nabla u(x, \mu) \big) = f(x, \mu),\quad x \in \Omega,
-# 
 # ```
 # 
 # on the domain {math}`\Omega:= (0, 1)^2 \subset \mathbb{R}^2` with data
@@ -48,14 +46,12 @@ pymor.tools.random._default_random_state = None
 # {math}`\sigma(x, \mu)` is constant:
 # 
 # ```{math}
-# 
 # f(x, \mu) :=
 # \begin{cases}
 #    1, & |x - (0.5, 0.5)| < 0.3, \\
 #    0, & \text{otherwise},
 # \end{cases} \quad\text{and}\quad
 # \sigma(x, \mu) :\equiv 1.
-# 
 # ```
 # 
 # We start by importing commonly used pyMOR classes and methods from the
@@ -135,9 +131,9 @@ rhs = ExpressionFunction('(sqrt( (x[...,0]-0.5)**2 + (x[...,1]-0.5)**2) <= 0.3) 
 
 
 problem = StationaryProblem(
-    domain=domain,
-    diffusion=diffusion,
-    rhs=rhs,
+   domain=domain,
+   diffusion=diffusion,
+   rhs=rhs,
 )
 
 
@@ -205,25 +201,21 @@ m.visualize(m.solve())
 # by
 # 
 # ```{math}
-# 
 # f(x, \mu) :\equiv 0 \quad\text{and}\quad
 # \sigma(x, \mu) :=
 # \begin{cases}
 #    0.001, & |x - (0.5, 0.5)| < 0.3, \\
 #    1, & \text{otherwise},
 # \end{cases}
-# 
 # ```
 # 
 # and that we have the following mixed boundary conditions
 # 
 # ```{math}
-# 
 # \begin{align}
 #  -\sigma(x, \mu) \nabla u(x, \mu) \cdot n &= g_N(x), && x \in (0,1) \times \{0\} =: \Omega_N \\
 #  u(x, \mu) &= 0, && x \in \partial\Omega \setminus \Omega_N,
 # \end{align}
-# 
 # ```
 # 
 # with {math}`g_N(x) \equiv -1`.
@@ -260,9 +252,9 @@ neumann_data = ConstantFunction(-1., 2)
 diffusion = ExpressionFunction('1. - (sqrt( (x[...,0]-0.5)**2 + (x[...,1]-0.5)**2) <= 0.3) * 0.999' , 2, ())
 
 problem = StationaryProblem(
-    domain=domain,
-    diffusion=diffusion,
-    neumann_data=neumann_data
+   domain=domain,
+   diffusion=diffusion,
+   neumann_data=neumann_data
 )
 
 
@@ -286,9 +278,9 @@ m.visualize(m.solve())
 
 
 diffusion = ExpressionFunction(
-    '1. - (sqrt( (np.mod(x[...,0],1./K)-0.5/K)**2 + (np.mod(x[...,1],1./K)-0.5/K)**2) <= 0.3/K) * 0.999',
-    2, (),
-    values={'K': 10}
+   '1. - (sqrt( (np.mod(x[...,0],1./K)-0.5/K)**2 + (np.mod(x[...,1],1./K)-0.5/K)**2) <= 0.3/K) * 0.999',
+   2, (),
+   values={'K': 10}
 )
 
 
@@ -302,9 +294,9 @@ diffusion = ExpressionFunction(
 
 
 problem = StationaryProblem(
-    domain=domain,
-    diffusion=diffusion,
-    neumann_data=neumann_data
+   domain=domain,
+   diffusion=diffusion,
+   neumann_data=neumann_data
 )
 
 
@@ -333,9 +325,9 @@ m.visualize(m.solve())
 
 diffusion = BitmapFunction('RB.png', range=[0.001, 1])
 problem = StationaryProblem(
-    domain=domain,
-    diffusion=diffusion,
-    neumann_data=neumann_data
+   domain=domain,
+   diffusion=diffusion,
+   neumann_data=neumann_data
 )
 
 m, data = discretize_stationary_cg(problem, diameter=1/100)
@@ -351,9 +343,7 @@ m.visualize(m.solve())
 # Now, let us consider the Neumann data function:
 # 
 # ```{math}
-# 
 # g_N((x_0, x_1), \mu_{neum}) := -\cos(\pi \cdot x_0)^2 \cdot\mu_{neum}
-# 
 # ```
 # 
 # with a single {{ Parameter }} {math}`\mu_{neum} \in \mathbb{R}`.
@@ -389,14 +379,14 @@ neumann_data = ExpressionFunction('-cos(pi*x[...,0])**2*neum[0]', 2, (), paramet
 
 
 diffusion = ExpressionFunction(
-    '1. - (sqrt( (np.mod(x[...,0],1./K)-0.5/K)**2 + (np.mod(x[...,1],1./K)-0.5/K)**2) <= 0.3/K) * 0.999',
-    2, (),
-    values={'K': 10}
+   '1. - (sqrt( (np.mod(x[...,0],1./K)-0.5/K)**2 + (np.mod(x[...,1],1./K)-0.5/K)**2) <= 0.3/K) * 0.999',
+   2, (),
+   values={'K': 10}
 )
 problem = StationaryProblem(
-    domain=domain,
-    diffusion=diffusion,
-    neumann_data=neumann_data
+   domain=domain,
+   diffusion=diffusion,
+   neumann_data=neumann_data
 )
 
 m, data = discretize_stationary_cg(problem, diameter=1/100)
@@ -431,10 +421,10 @@ m.visualize(m.solve(-100))
 
 
 diffusion = ExpressionFunction(
-    '1. - (sqrt( (np.mod(x[...,0],1./K)-0.5/K)**2 + (np.mod(x[...,1],1./K)-0.5/K)**2) <= 0.3/K) * (1 - diffu[0])',
-    2, (),
-    values={'K': 10},
-    parameters= {'diffu': 1}
+   '1. - (sqrt( (np.mod(x[...,0],1./K)-0.5/K)**2 + (np.mod(x[...,1],1./K)-0.5/K)**2) <= 0.3/K) * (1 - diffu[0])',
+   2, (),
+   values={'K': 10},
+   parameters= {'diffu': 1}
 )
 
 
@@ -444,9 +434,9 @@ diffusion = ExpressionFunction(
 
 
 problem = StationaryProblem(
-    domain=domain,
-    diffusion=diffusion,
-    neumann_data=neumann_data
+   domain=domain,
+   diffusion=diffusion,
+   neumann_data=neumann_data
 )
 
 m, data = discretize_stationary_cg(problem, diameter=1/100)
@@ -481,9 +471,7 @@ m.visualize(m.solve([1, -1]))
 # decomposition
 # 
 # ```{math}
-# 
 # f(x, \mu) = \sum_{q=1}^Q f_q(x) \cdot \theta_q(\mu)
-# 
 # ```
 # 
 # where the {math}`f_q` are non-parametric and the *parameter
@@ -501,9 +489,7 @@ m.visualize(m.solve([1, -1]))
 # letters. This admits a decomposition of the form
 # 
 # ```{math}
-# 
 # \sigma(x,y) = 1 + f_R \cdot (\mu_R - 1) + f_B \cdot (\mu_L - 1)
-# 
 # ```
 # 
 # Again, we define {math}`f_R` and {math}`f_L` as {{ BitmapFunctions }} for
@@ -527,9 +513,7 @@ f_B = BitmapFunction('B.png', range=[1, 0])
 # Next we need to define the {{ ParameterFunctionals }}
 # 
 # ```{math}
-# 
 # \theta_R(\mu) = \mu_R - 1 \quad\text{and}\quad \theta_B(\mu) = \mu_B - 1.
-# 
 # ```
 # 
 # Similar to an {{ ExpressionFunction }}, we can use
@@ -552,8 +536,8 @@ theta_B = ExpressionParameterFunctional('B[0] - 1', {'B': 1})
 
 
 diffusion = LincombFunction(
-    [ConstantFunction(1., 2), f_R, f_B],
-    [1., theta_R, theta_B]
+   [ConstantFunction(1., 2), f_R, f_B],
+   [1., theta_R, theta_B]
 )
 diffusion.parameters
 
@@ -566,9 +550,9 @@ diffusion.parameters
 
 
 problem = StationaryProblem(
-    domain=domain,
-    diffusion=diffusion,
-    neumann_data=ConstantFunction(-1, 2)
+   domain=domain,
+   diffusion=diffusion,
+   neumann_data=ConstantFunction(-1, 2)
 )
 m, data = discretize_stationary_cg(problem, diameter=1/100)
 m.visualize((m.solve([1., 0.001]), m.solve([0.001, 1])))

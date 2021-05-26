@@ -224,9 +224,9 @@ print(fom.parameters)
 
 
 reductor = CoerciveRBReductor(
-    fom,
-    product=fom.h1_0_semi_product,
-    coercivity_estimator=ExpressionParameterFunctional('min(diffusion)', fom.parameters)
+   fom,
+   product=fom.h1_0_semi_product,
+   coercivity_estimator=ExpressionParameterFunctional('min(diffusion)', fom.parameters)
 )
 
 
@@ -316,8 +316,8 @@ print(U_red.dim)
 ERR = U - U_red
 print(ERR.norm(fom.h1_0_semi_product))
 fom.visualize((U, U_red, ERR),
-              legend=('Detailed', 'Reduced', 'Error'),
-              separate_colorbars=True)
+             legend=('Detailed', 'Reduced', 'Error'),
+             separate_colorbars=True)
 
 
 # We can nicely observe that, as expected, the error is maximized along the

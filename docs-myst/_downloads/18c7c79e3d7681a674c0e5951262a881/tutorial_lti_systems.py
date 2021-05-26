@@ -27,12 +27,10 @@ pymor.tools.random._default_random_state = None
 # systems of the form
 # 
 # ```{math}
-# 
 # \begin{align}
 #     E \dot{x}(t) & = A x(t) + B u(t), \\
 #     y(t) & = C x(t) + D u(t).
 # \end{align}
-# 
 # ```
 # 
 # where
@@ -58,7 +56,6 @@ pymor.tools.random._default_random_state = None
 # two inputs {math}`u_1, u_2` and three outputs {math}`y_1, y_2, y_2`:
 # 
 # ```{math}
-# 
 # \begin{align}
 #     \partial_t T(\xi, t) & = \partial_{\xi \xi} T(\xi, t) + u_1(t),
 #     & 0 < \xi < 1,\ t > 0, \\
@@ -73,7 +70,6 @@ pymor.tools.random._default_random_state = None
 #     y_3(t) & = T(1, t),
 #     & t > 0.
 # \end{align}
-# 
 # ```
 # 
 # There are many ways of building an {{ LTIModel }}.
@@ -172,21 +168,17 @@ print(fom)
 # to the system equations to obtain
 # 
 # ```{math}
-# 
 # \begin{align}
 #     s E X(s) & = A X(s) + B U(s), \\
 #     Y(s) & = C X(s) + D U(s).
 # \end{align}
-# 
 # ```
 # 
 # using that {math}`s X(s)` is the Laplace transform of {math}`\dot{x}(t)`.
 # Eliminating {math}`X(s)` leads to
 # 
 # ```{math}
-# 
 # Y(s) = \left( C (s E - A)^{-1} B + D \right) U(s),
-# 
 # ```
 # 
 # i.e., {math}`H(s) = C (s E - A)^{-1} B + D`.
@@ -231,7 +223,6 @@ print(fom.eval_dtf(1j))
 # then
 # 
 # ```{math}
-# 
 # \lim_{t \to \infty}
 # \left(
 #   y_i(t)
@@ -239,7 +230,6 @@ print(fom.eval_dtf(1j))
 #   \sin(\omega t + \varphi + \arg(H_{ij}(\xi + \boldsymbol{\imath} \omega)))
 # \right)
 # = 0.
-# 
 # ```
 # 
 # In words, if the input is a pure exponential,
@@ -322,7 +312,6 @@ _ = ax.set_title('Poles')
 # system with invertible {math}`E` are respectively
 # 
 # ```{math}
-# 
 # \begin{align*}
 #     P & =
 #     \int_0^\infty
@@ -337,7 +326,6 @@ _ = ax.set_title('Poles')
 #     e^{t E^{-1} A}
 #     \operatorname{d}\!t.
 # \end{align*}
-# 
 # ```
 # 
 # From this,
@@ -346,7 +334,6 @@ _ = ax.set_title('Poles')
 # it can be shown that {math}`P` and {math}`Q` are solutions to Lyapunov equation
 # 
 # ```{math}
-# 
 # \begin{align*}
 #     A P E^{\operatorname{T}}
 #     + E P A^{\operatorname{T}}
@@ -357,7 +344,6 @@ _ = ax.set_title('Poles')
 #     + C^{\operatorname{T}} C
 #     & = 0.
 # \end{align*}
-# 
 # ```
 # 
 # The Gramians can be used to quantify how much does the input influence the state
@@ -420,7 +406,6 @@ _ = ax.set_title('Hankel singular values')
 # {math}`D` is zero)
 # 
 # ```{math}
-# 
 # \lVert H \rVert_{\mathcal{H}_2}
 # =
 # \left(
@@ -429,41 +414,34 @@ _ = ax.set_title('Hankel singular values')
 #   \lVert H(\boldsymbol{\imath} \omega) \rVert_{\operatorname{F}}^2
 #   \operatorname{d}\!\omega
 # \right)^{\frac{1}{2}}.
-# 
 # ```
 # 
 # It can be shown that
 # 
 # ```{math}
-# 
 # \lVert y \rVert_{\mathcal{L}_\infty}
 # \leqslant
 # \lVert H \rVert_{\mathcal{H}_2}
 # \lVert u \rVert_{\mathcal{L}_2}.
-# 
 # ```
 # 
 # Additionally, for systems with a single input or a single output
 # (i.e., {math}`u(t) \in \mathbb{R}` or {math}`y(t) \in \mathbb{R}`),
 # 
 # ```{math}
-# 
 # \lVert H \rVert_{\mathcal{H}_2}
 # =
 # \sup_{u \neq 0}
 # \frac{\lVert y \rVert_{\mathcal{L}_\infty}}{\lVert u \rVert_{\mathcal{L}_2}}.
-# 
 # ```
 # 
 # The computation of the {math}`\mathcal{H}_2` norm is based on the system
 # Gramians
 # 
 # ```{math}
-# 
 # \lVert H \rVert_{\mathcal{H}_2}^2
 # = \operatorname{tr}\!\left(C P C^{\operatorname{T}}\right)
 # = \operatorname{tr}\!\left(B^{\operatorname{T}} Q B\right).
-# 
 # ```
 # 
 # The {meth}`~pymor.models.iosys.LTIModel.h2_norm` method of an {{ LTIModel }} can be
@@ -482,33 +460,27 @@ fom.h2_norm()
 # {math}`E^{-1} A` has eigenvalues in the open left half plane)
 # 
 # ```{math}
-# 
 # \lVert H \rVert_{\mathcal{H}_\infty}
 # = \sup_{\omega \in \mathbb{R}}
 # \lVert H(\boldsymbol{\imath} \omega) \rVert_2.
-# 
 # ```
 # 
 # It is always true that
 # 
 # ```{math}
-# 
 # \lVert H \rVert_{\mathcal{H}_\infty}
 # =
 # \sup_{u \neq 0}
 # \frac{\lVert y \rVert_{\mathcal{L}_2}}{\lVert u \rVert_{\mathcal{L}_2}},
-# 
 # ```
 # 
 # and, in particular,
 # 
 # ```{math}
-# 
 # \lVert y \rVert_{\mathcal{L}_2}
 # \leqslant
 # \lVert H \rVert_{\mathcal{H}_\infty}
 # \lVert u \rVert_{\mathcal{L}_2}.
-# 
 # ```
 # 
 # The {meth}`~pymor.models.iosys.LTIModel.hinf_norm` method uses a dense solver
@@ -528,10 +500,8 @@ fom.hinf_norm()
 # {math}`E^{-1} A` has eigenvalues in the open left half plane)
 # 
 # ```{math}
-# 
 # \lVert H \rVert_{\operatorname{H}}
 # = \sigma_1,
-# 
 # ```
 # 
 # i.e., the largest Hankel singular value.
@@ -543,11 +513,9 @@ fom.hinf_norm()
 # mapping past inputs {math}`u_-` to future outputs {math}`y_+`
 # 
 # ```{math}
-# 
 # y_+(t)
 # = \mathcal{H}(u_-)(t)
 # = \int_{-\infty}^0 h(t - \tau) u_-(\tau) \operatorname{d}\!\tau,
-# 
 # ```
 # 
 # where {math}`h` is the impulse response
@@ -556,12 +524,10 @@ fom.hinf_norm()
 # Thus,
 # 
 # ```{math}
-# 
 # \lVert H \rVert_{\operatorname{H}}
 # =
 # \sup_{u_- \neq 0}
 # \frac{\lVert y_+ \rVert_{\mathcal{L}_2}}{\lVert u_- \rVert_{\mathcal{L}_2}},
-# 
 # ```
 # 
 # The computation of the Hankel norm in

@@ -32,19 +32,15 @@ pymor.tools.random._default_random_state = None
 # a solution of the minimization problem
 # 
 # ```{math}
-# 
 # \min_{\mu \in \mathcal{P}} J(u_{\mu}, \mu),  \tag{P.a}
-# 
 # ```
 # 
 # where {math}`u_{\mu} \in V := H^1_0(\Omega)` is the solution of
 # 
 # ```{math}
-# 
 # \begin{equation} \label{eq:primal}
 # a_{\mu}(u_{\mu}, v) = f_{\mu}(v) \qquad \forall \, v \in V \tag{P.b}.
 # \end{equation}
-# 
 # ```
 # 
 # The equation {math}`\eqref{eq:primal}` is called the primal
@@ -59,9 +55,7 @@ pymor.tools.random._default_random_state = None
 # leading to the equivalent problem: Find a solution of
 # 
 # ```{math}
-# 
 # \min_{\mu \in \mathcal{P}} \mathcal{J}(\mu).  \tag{$\hat{P}$}
-# 
 # ```
 # 
 # There exist plenty of different methods to solve ({math}`\hat{P}`) by
@@ -81,15 +75,12 @@ pymor.tools.random._default_random_state = None
 # {math}`\mathcal{P} := [0,\pi]^2` and the elliptic equation
 # 
 # ```{math}
-# 
 # - \nabla \cdot \big( \lambda(\mu) \nabla u_\mu \big) = l
-# 
 # ```
 # 
 # with data functions
 # 
 # ```{math}
-# 
 # \begin{align}
 # l(x, y) &= \tfrac{1}{2} \pi^2 \cos(\tfrac{1}{2} \pi x) \cos(\tfrac{1}{2} \pi y),\\
 # \lambda(\mu) &= \theta_0(\mu) \lambda_0 + \theta_1(\mu) \lambda_1,\\
@@ -99,7 +90,6 @@ pymor.tools.random._default_random_state = None
 # \lambda_1 &= \chi_\omega,\\
 # \omega &:= [-\tfrac{2}{3}, -\tfrac{1}{3}]^2 \cup ([-\tfrac{2}{3}, -\tfrac{1}{3}] \times [\tfrac{1}{3}, \tfrac{2}{3}]).
 # \end{align}
-# 
 # ```
 # 
 # The diffusion is thus given as the linear combination of scaled
@@ -167,9 +157,7 @@ problem = StationaryProblem(domain, f, diffusion, outputs=[('l2', f * theta_J)])
 # energy norm
 # 
 # ```{math}
-# 
 # \|\,.\|_{\bar{\mu}} : = a_{\,\bar{\mu}}(.,.),
-# 
 # ```
 # 
 # we also define {math}`\bar{\mu}`, which we pass via the argument
@@ -525,12 +513,10 @@ for mu in RB_minimization_data['evaluation_points']:
 # {math}`i= 1, \dots, P`
 # 
 # ```{math}
-# 
 # \begin{align} \label{gradient:sens} \tag{1}
 # d_{\mu_i} \mathcal{J}(\mu) = \partial_{\mu_i} J(u_{\mu}, \mu) + \partial_u J(u_{\mu}, \mu)[d_{\mu_i} u_{\mu}]
 #    =   \partial_{\mu_i} J(u_{\mu}, \mu) + J(d_{\mu_i} u_{\mu}, \mu)
 # \end{align}
-# 
 # ```
 # 
 # Thus, we need to compute the derivative of the
@@ -538,19 +524,15 @@ for mu in RB_minimization_data['evaluation_points']:
 # solve another equation: Find {math}`d_{\mu_i} u_{\mu} \in V`, such that
 # 
 # ```{math}
-# 
 #  \label{sens} \tag{2}
 # a_\mu(d_{\mu_i} u_{\mu}, v) = \partial_{\mu_i} r_\mu^{\text{pr}}(u_{\mu})[v] \qquad \qquad \forall v \in V
-# 
 # ```
 # 
 # where {math}`r_\mu^{\text{pr}}` denotes the residual of the primal
 # equation, i.e.
 # 
 # ```{math}
-# 
 # r_\mu^{\text{pr}}(u)[v] := l_\mu(v) - a_\mu(u, v) &&\text{for all }v \in V
-# 
 # ```
 # 
 # A major issue of this approach is that the computation of the
@@ -563,9 +545,7 @@ for mu in RB_minimization_data['evaluation_points']:
 # functional
 # 
 # ```{math}
-# 
 # \mathcal{L}(u, \mu, p) = J(u, \mu) + r_\mu^{\text{pr}}(u, p)
-# 
 # ```
 # 
 # where {math}`p \in V` is the adjoint variable. Deriving optimality
@@ -573,11 +553,9 @@ for mu in RB_minimization_data['evaluation_points']:
 # Find {math}`p_{\mu} \in V`, such that
 # 
 # ```{math}
-# 
 #  \label{dual} \tag{3}
 # a_\mu(v, p_\mu) = \partial_u J(u_\mu, \mu)[v]
 # = J(v, \mu)
-# 
 # ```
 # 
 # Note that in our case, we then have
@@ -588,13 +566,11 @@ for mu in RB_minimization_data['evaluation_points']:
 # functional by
 # 
 # ```{math}
-# 
 # \begin{align}
 # d_{\mu_i} \mathcal{J}(\mu) &= \partial_{\mu_i} J(u_{\mu}, \mu) + \partial_u J(u_{\mu}, \mu)[d_{\mu_i} u_{\mu}] \\
 #    &=   \partial_{\mu_i} J(u_{\mu}, \mu) + a_\mu(d_{\mu_i} u_{\mu}, p_\mu) \\
 #    &=   \partial_{\mu_i} J(u_{\mu}, \mu) + \partial_{\mu_i} r_\mu^{\text{pr}}(d_{\mu_i} u_{\mu})[p_\mu]
 # \end{align}
-# 
 # ```
 # 
 # We conclude that we only need to solve for {math}`u_{\mu}` and

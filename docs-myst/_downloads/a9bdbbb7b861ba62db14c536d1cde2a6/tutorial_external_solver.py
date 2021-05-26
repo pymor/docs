@@ -340,8 +340,8 @@ class WrappedDiffusionOperator(Operator):
 # As a demonstration, we will use our toy Laplace solver to compute an approximation for
 # the transient diffusion equation
 # 
-# ```{math}  \frac{\partial u}{\partial t} = {\alpha_\mu} \frac{\partial^2 u}{\partial x^2},
-# 
+# ```{math}
+# \frac{\partial u}{\partial t} = {\alpha_\mu} \frac{\partial^2 u}{\partial x^2},
 # ```
 # 
 # with explicit timestepping provided by pyMOR, with a parameterized, block-wise defined,  diffusion

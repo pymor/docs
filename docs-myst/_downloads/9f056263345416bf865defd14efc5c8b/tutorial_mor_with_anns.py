@@ -86,9 +86,7 @@ pymor.tools.random._default_random_state = None
 # parametrized diffusion, right hand side and Dirichlet boundary condition:
 # 
 # ```{math}
-# 
 # -\nabla \cdot \big(\sigma(x, \mu) \nabla u(x, \mu) \big) = f(x, \mu),\quad x=(x_1,x_2) \in \Omega,
-# 
 # ```
 # 
 # on the domain {math}`\Omega:= (0, 1)^2 \subset \mathbb{R}^2` with data
@@ -98,9 +96,7 @@ pymor.tools.random._default_random_state = None
 # Dirichlet boundary conditions
 # 
 # ```{math}
-# 
 # u((x_1, x_2), \mu) = 2x_1\mu + 0.5,\quad x=(x_1, x_2) \in \partial\Omega.
-# 
 # ```
 # 
 # We discretize the problem using pyMOR's builtin discretization toolkit as

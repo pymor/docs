@@ -147,9 +147,7 @@ type(fom)
 # form
 # 
 # ```{math}
-# 
 # L(u(\mu); \mu) = F(\mu)
-# 
 # ```
 # 
 # Here, {math}`L` is a linear or non-linear parametric {{ Operator }} and {math}`F` is a
@@ -243,18 +241,14 @@ U2 = fom.operator.apply_inverse(fom.rhs.as_range_array(mu), mu=mu)
 # basis vectors will be called {math}`u_N(\mu)`. We want that
 # 
 # ```{math}
-# 
 # U_N := \mathbb{V}_N \cdot u_N(\mu) \approx u(\mu).
-# 
 # ```
 # 
 # Substituting {math}`\mathbb{V}_N \cdot u_N(\mu)` for {math}`u(\mu)` into the equation system
 # defining the FOM, we arrive at:
 # 
 # ```{math}
-# 
 # L(\mathbb{V}_N\cdot u_N(\mu); \mu) = F(\mu).
-# 
 # ```
 # 
 # However, this is an over-determined system: we have decreased the degrees of
@@ -266,9 +260,7 @@ U2 = fom.operator.apply_inverse(fom.rhs.as_range_array(mu), mu=mu)
 # the defect by which {math}`u_N` fails to satisfy the equations:
 # 
 # ```{math}
-# 
 # u_N(\mu) := \operatorname{arg\,min}_{u \in \mathbb{R}^N} \|F(\mu) - L(\mathbb{V}_N \cdot u; \mu)\|.
-# 
 # ```
 # 
 # While this is a feasible (and sometimes necessary) approach that can be realized with
@@ -276,9 +268,7 @@ U2 = fom.operator.apply_inverse(fom.rhs.as_range_array(mu), mu=mu)
 # orthogonal to our reduced space, i.e.
 # 
 # ```{math}
-# 
 # (\mathbb{V}_{N,i},\, F(\mu) - L(\mathbb{V}_N \cdot u_N; \mu)) = 0 \qquad i=1,\ldots,N,
-# 
 # ```
 # 
 # where the {math}`\mathbb{V}_{N,i}` denote the columns of {math}`\mathbb{V}_N`
@@ -290,19 +280,15 @@ U2 = fom.operator.apply_inverse(fom.rhs.as_range_array(mu), mu=mu)
 # that {math}`(\cdot, \cdot)` is the Euclidean inner product. Then we arrive at
 # 
 # ```{math}
-# 
 # [\mathbb{V}_N^T \cdot \mathbb{A}(\mu) \cdot \mathbb{V}_N] \cdot u_N =
 # \mathbb{V}_N^T \cdot F(\mu),
-# 
 # ```
 # 
 # which is a {math}`N\times N` linear equation system. In the common case that
 # {math}`\mathbb{A}(\mu)` is positive definite, the reduced system matrix
 # 
 # ```{math}
-# 
 # \mathbb{A}_N(\mu) := \mathbb{V}_N^T \cdot \mathbb{A}(\mu) \cdot \mathbb{V}_N
-# 
 # ```
 # 
 # is positive definite as well, and {math}`u_N(\mu)` is uniquely determined. We call
@@ -312,9 +298,7 @@ U2 = fom.operator.apply_inverse(fom.rhs.as_range_array(mu), mu=mu)
 # equation system comes from the weak formulation of a PDE of the form
 # 
 # ```{math}
-# 
 # a(v, U(\mu); \mu) = f(v; \mu) \qquad \forall v \in V_h,
-# 
 # ```
 # 
 # the matrix of the bilinear form {math}`a(\cdot, \cdot; \mu)` w.r.t. a finite element basis
@@ -322,18 +306,14 @@ U2 = fom.operator.apply_inverse(fom.rhs.as_range_array(mu), mu=mu)
 # functional {math}`f` w.r.t. the dual finite element basis, then
 # 
 # ```{math}
-# 
 # \mathbb{A}_N(\mu) \cdot u_N = \mathbb{V}_N^T \cdot F(\mu)
-# 
 # ```
 # 
 # is exactly the equation system obtained from Galerkin projection of the weak PDE formulation onto
 # the reduced space, i.e. solving
 # 
 # ```{math}
-# 
 # a(v, u_N(\mu); \mu) = f(v; \mu) \qquad \forall v \in V_N
-# 
 # ```
 # 
 # for {math}`U_N(\mu) \in V_N`. As for finite element methods,
