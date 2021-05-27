@@ -475,7 +475,6 @@ plt.show()
 # have snapshots available, just picking the first of these obviously
 # won't be optimal.
 # 
-# .. _stronggreedy:
 # 
 # Strong greedy algorithm
 # -----------------------
@@ -749,8 +748,6 @@ fom.visualize(pod_basis)
 # the solutions in the bulk of the subdomains, whereas the higher modes are responsible for
 # approximating the solutions at the subdomain interfaces.
 # 
-# 
-# .. _weakgreedy:
 # 
 # Weak greedy algorithm
 # ---------------------
