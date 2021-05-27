@@ -47,7 +47,7 @@ pymor.tools.random._default_random_state = None
 # We focus on a non-parametric example,
 # but parametric LTI systems can be handled similarly
 # by constructing {math}`A, B, C, D, E` as parametric {{ Operators }} and
-# passing {{ parameter_values }} via the {math}`mu` argument to the methods of the
+# passing {{ parameter_values }} via the `mu` argument to the methods of the
 # {{ LTIModel }}.
 # 
 # ## Building a model
@@ -357,7 +357,7 @@ _ = ax.set_title('Poles')
 # Although solutions to Lyapunov equations are generally dense matrices,
 # they can be often be very well approximated by a low-rank matrix.
 # With {meth}`~pymor.models.iosys.LTIModel.gramian`,
-# it is possible to compute the dense solution of only the low-rank Cholesky
+# it is possible to compute the dense solution or only the low-rank Cholesky
 # factor.
 # For example, the following computes the low-rank Cholesky factor of the
 # controllability Gramian as a {{ VectorArray }}:
