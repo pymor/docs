@@ -1,0 +1,120 @@
+:mod:`pymor.core.pickle`
+========================
+
+.. py:module:: pymor.core.pickle
+
+.. autoapi-nested-parse::
+
+   This module contains methods for object serialization.
+
+   Instead of importing serialization functions from Python's
+   :mod:`pickle` module directly, you should use the `dump`, `dumps`,
+   `load`, `loads` functions defined here. In particular, these
+   methods will use :func:`dumps_function` to serialize
+   function objects which cannot be pickled by Python's standard
+   methods. Note, however, pickling such methods should be avoided
+   since the implementation of :func:`dumps_function` uses non-portable
+   implementation details of CPython to achieve its goals.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.core.pickle.Module
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.core.pickle.dump
+   pymor.core.pickle._generate_opcode
+   pymor.core.pickle._global_names
+   pymor.core.pickle.dumps_function
+   pymor.core.pickle.loads_function
+   pymor.core.pickle._function_pickling_handler
+   pymor.core.pickle._function_unpickling_handler
+
+
+
+Attributes
+~~~~~~~~~~
+
+.. autoapisummary::
+
+   pymor.core.pickle.PicklingError
+   pymor.core.pickle.UnpicklingError
+   pymor.core.pickle.PROTOCOL
+
+
+.. data:: PicklingError
+   
+
+   
+
+.. data:: UnpicklingError
+   
+
+   
+
+.. data:: PROTOCOL
+   
+
+   
+
+.. function:: dump(obj, file, protocol=None)
+
+
+.. function:: _generate_opcode(code_object)
+
+
+.. function:: _global_names(code_object)
+
+   Return all names in code_object.co_names which are used in a LOAD_GLOBAL statement.
+
+
+.. class:: Module(mod)
+
+
+   .. method:: __getstate__(self)
+
+
+   .. method:: __setstate__(self, s)
+
+
+
+.. function:: dumps_function(function)
+
+   Tries hard to pickle a function object:
+
+       1. The function's code object is serialized using the :mod:`marshal` module.
+       2. For all global names used in the function's code object the corresponding
+          object in the function's global namespace is pickled. In case this object
+          is a module, the modules __package__ name is pickled.
+       3. All default arguments are pickled.
+       4. All objects in the function's closure are pickled.
+
+   Note that also this is heavily implementation specific and will probably only
+   work with CPython. If possible, avoid using this method.
+
+
+.. function:: loads_function(s)
+
+   Restores a function serialized with :func:`dumps_function`.
+
+
+.. function:: _function_pickling_handler(f)
+
+
+.. function:: _function_unpickling_handler(persid)
+
+

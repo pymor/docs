@@ -1,0 +1,300 @@
+:mod:`pymor.core.base`
+======================
+
+.. py:module:: pymor.core.base
+
+.. autoapi-nested-parse::
+
+   This module provides base classes from which most classes in pyMOR inherit.
+
+   The purpose of these classes is to provide some common functionality for
+   all objects in pyMOR. The most notable features provided by :class:`BasicObject`
+   are the following:
+
+       1. :class:`BasicObject` sets class :class:`UberMeta` as metaclass
+          which itself inherits from :class:`abc.ABCMeta`. Thus it is possible
+          to define interface classes with abstract methods using the
+          :func:`abstractmethod` decorator. There are also decorators for
+          abstract class methods, static methods, and properties.
+       2. Using metaclass magic, each *class* deriving from :class:`BasicObject`
+          comes with its own :mod:`~pymor.core.logger` instance accessible through its `logger`
+          attribute. The logger prefix is automatically set to the class name.
+       3. Logging can be disabled and re-enabled for each *instance* using the
+          :meth:`BasicObject.disable_logging` and :meth:`BasicObject.enable_logging`
+          methods.
+       4. :meth:`BasicObject.uid` provides a unique id for each instance. While
+          `id(obj)` is only guaranteed to be unique among all living Python objects,
+          :meth:`BasicObject.uid` will be (almost) unique among all pyMOR objects
+          that have ever existed, including previous runs of the application. This
+          is achieved by building the id from a uuid4 which is newly created for
+          each pyMOR run and a counter which is increased for any object that requests
+          an uid.
+       5. If not set by the user to another value, :attr:`BasicObject.name` is
+          set to the name of the object's class.
+
+
+   :class:`ImmutableObject` derives from :class:`BasicObject` and adds the following
+   functionality:
+
+       1. Using more metaclass magic, each instance which derives from
+          :class:`ImmutableObject` is locked after its `__init__` method has returned.
+          Each attempt to change one of its attributes raises an exception. Private
+          attributes (of the form `_name`) are exempted from this rule.
+       2. :meth:`ImmutableObject.with_` can be used to create a copy of an instance with
+          some changed attributes. E.g. ::
+
+              obj.with_(a=x, b=y)
+
+          creates a copy with the `a` and `b` attributes of `obj` set to `x` and `y`.
+          `with_` is implemented by creating a new instance, passing the arguments of
+          `with_` to `__init__`. The missing `__init__` arguments are taken from instance
+          attributes of the same name.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.core.base.UID
+   pymor.core.base.UberMeta
+   pymor.core.base.BasicObject
+   pymor.core.base.classinstancemethod
+   pymor.core.base.ImmutableMeta
+   pymor.core.base.ImmutableObject
+
+
+
+
+Attributes
+~~~~~~~~~~
+
+.. autoapisummary::
+
+   pymor.core.base.DONT_COPY_DOCSTRINGS
+   pymor.core.base.NoneType
+   pymor.core.base.abstractmethod
+   pymor.core.base.abstractproperty
+   pymor.core.base.abstractclassmethod
+   pymor.core.base.abstractstaticmethod
+
+
+.. data:: DONT_COPY_DOCSTRINGS
+   
+
+   
+
+.. data:: NoneType
+   
+
+   
+
+.. class:: UID
+
+
+   Provides unique, quickly computed ids by combining a session UUID4 with a counter.
+
+   .. attribute:: __slots__
+      :annotation: = ['uid']
+
+      
+
+   .. attribute:: prefix
+      
+
+      
+
+   .. attribute:: counter
+      :annotation: = [0]
+
+      
+
+   .. method:: __getstate__(self)
+
+
+   .. method:: __setstate__(self, v)
+
+
+
+.. class:: UberMeta(cls, name, bases, namespace)
+
+
+   Bases: :py:obj:`abc.ABCMeta`
+
+   Metaclass for defining Abstract Base Classes (ABCs).
+
+   Use this metaclass to create an ABC.  An ABC can be subclassed
+   directly, and then acts as a mix-in class.  You can also register
+   unrelated concrete classes (even built-in classes) and unrelated
+   ABCs as 'virtual subclasses' -- these and their descendants will
+   be considered subclasses of the registering ABC by the built-in
+   issubclass() function, but the registering ABC won't show up in
+   their MRO (Method Resolution Order) nor will method
+   implementations defined by the registering ABC be callable (not
+   even via super()).
+
+
+.. class:: BasicObject
+
+   Base class for most classes in pyMOR.
+
+   .. attribute:: logger
+
+      A per-class instance of :class:`logging.Logger` with the class
+      name as prefix.
+
+   .. attribute:: logging_disabled
+
+      `True` if logging has been disabled.
+
+   .. attribute:: name
+
+      The name of the instance. If not set by the user, the name is
+      set to the class name.
+
+   .. attribute:: uid
+
+      A unique id for each instance. The uid is obtained by using
+      :class:`UID` and is unique for all pyMOR objects ever created.
+      
+
+   .. attribute:: _uid
+      
+
+      
+
+   .. method:: disable_logging(self, doit=True)
+
+      Disable logging output for this instance.
+
+
+   .. method:: enable_logging(self, doit=True)
+
+      Enable logging output for this instance.
+
+
+   .. method:: _format_repr(self, max_width, verbosity, override={})
+
+
+   .. method:: __repr__(self)
+
+      Return repr(self).
+
+
+
+.. data:: abstractmethod
+   
+
+   
+
+.. data:: abstractproperty
+   
+
+   
+
+.. data:: abstractclassmethod
+   
+
+   
+
+.. data:: abstractstaticmethod
+   
+
+   
+
+.. class:: classinstancemethod(cls_meth)
+
+
+   .. method:: __get__(self, instance, cls)
+
+
+   .. method:: instancemethod(self, inst_meth)
+
+
+
+.. class:: ImmutableMeta(cls, name, bases, namespace)
+
+
+   Bases: :py:obj:`UberMeta`
+
+   Metaclass for :class:`ImmutableObject`.
+
+   .. attribute:: __call__
+      
+
+      
+
+   .. method:: _call(self, *args, **kwargs)
+
+
+
+.. class:: ImmutableObject
+
+
+   Bases: :py:obj:`BasicObject`
+
+   Base class for immutable objects in pyMOR.
+
+   Instances of `ImmutableObject` are immutable in the sense that
+   after execution of `__init__`, any modification of a non-private
+   attribute will raise an exception.
+
+   .. _ImmutableObjectWarning:
+   .. warning::
+          For instances of `ImmutableObject`,
+          the result of member function calls should be completely
+          determined by the function's arguments together with the
+          object's `__init__` arguments and the current state of pyMOR's
+          global |defaults|.
+
+   While, in principle, you are allowed to modify private members after
+   instance initialization, this should never affect the outcome of
+   future method calls. In particular, if you update any internal state
+   after initialization, you have to ensure that this state is not affected
+   by possible changes of the global :mod:`~pymor.core.defaults`.
+
+   .. attribute:: _locked
+      :annotation: = False
+
+      
+
+   .. method:: __setattr__(self, key, value)
+
+      Depending on _locked state I delegate the setattr call to object or
+      raise an Exception.
+
+
+   .. method:: with_(self, new_type=None, **kwargs)
+
+      Returns a copy with changed attributes.
+
+      A a new class instance is created with the given keyword arguments as
+      arguments for `__init__`.  Missing arguments are obtained form instance
+      attributes with the
+      same name.
+
+      .. admonition:: Parameters
+
+          new_type
+              If not None, return an instance of this class (instead of `type(self)`).
+          `**kwargs`
+              Names of attributes to change with their new values. Each attribute name
+              has to be an argument to `__init__`.
+              
+      .. admonition:: Returns
+
+          Copy of `self` with changed attributes.
+              
+
+
+   .. method:: __copy__(self)
+
+
+   .. method:: __deepcopy__(self, memo)
+
+
+
