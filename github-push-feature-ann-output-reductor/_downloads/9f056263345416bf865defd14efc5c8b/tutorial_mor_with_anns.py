@@ -160,12 +160,12 @@ fom, _ = discretize_stationary_cg(problem, diameter=1/50)
 # In[17]:
 
 
-from pymor.reductors.neural_network import NeuralNetworkOutputReductor
+from pymor.reductors.neural_network import NeuralNetworkStatefreeOutputReductor
 
-output_reductor = NeuralNetworkOutputReductor(fom,
-                                              training_set,
-                                              validation_set,
-                                              validation_loss=1e-5)
+output_reductor = NeuralNetworkStatefreeOutputReductor(fom,
+                                                       training_set,
+                                                       validation_set,
+                                                       validation_loss=1e-5)
 
 
 # In[18]:
