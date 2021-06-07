@@ -30,6 +30,8 @@ Functions
   :nosignatures:
 
    pymor.models.iosys.sparse_min_size
+   pymor.models.iosys._lti_to_poles_b_c
+   pymor.models.iosys._poles_b_c_to_lti
 
 
 
@@ -158,6 +160,56 @@ Functions
 
           out
               List of matplotlib artists added.
+              
+
+
+   .. method:: h2_norm(self, return_norm_only=True, **quad_kwargs)
+
+      Compute the H2-norm using quadrature.
+
+      This method uses `scipy.integrate.quad` and makes no assumptions on the form of the transfer
+      function.
+
+      By default, the absolute error tolerance in `scipy.integrate.quad` is set to zero (see its
+      optional argument `epsabs`).
+      It can be changed by using the `epsabs` keyword argument.
+
+      .. admonition:: Parameters
+
+          return_norm_only
+              Whether to only return the approximate H2-norm.
+          quad_kwargs
+              Keyword arguments passed to `scipy.integrate.quad`.
+              
+      .. admonition:: Returns
+
+          norm
+              Computed H2-norm.
+          norm_relerr
+              Relative error estimate (returned if `return_norm_only` is `False`).
+          info
+              Quadrature info (returned if `return_norm_only` is `False` and `full_output` is `True`).
+              See `scipy.integrate.quad` documentation for more details.
+              
+
+
+   .. method:: h2_inner(self, lti)
+
+      Compute H2 inner product with an |LTIModel|.
+
+      Uses the inner product formula based on the pole-residue form
+      (see, e.g., Lemma 1 in :cite:`ABG10`).
+
+      .. admonition:: Parameters
+
+          lti
+              |LTIModel| consisting of |Operators| that can be converted to |NumPy arrays|.
+              The D operator is ignored.
+              
+      .. admonition:: Returns
+
+          inner
+              H2 inner product.
               
 
 
@@ -787,36 +839,6 @@ Functions
 
 
    .. method:: __rmul__(self, other)
-
-
-   .. method:: h2_norm(self, return_norm_only=True, **quad_kwargs)
-
-      Compute the H2-norm using quadrature.
-
-      This method uses `scipy.integrate.quad` and makes no assumptions on the form of the transfer
-      function.
-
-      By default, the absolute error tolerance in `scipy.integrate.quad` is set to zero (see its
-      optional argument `epsabs`).
-      It can be changed by using the `epsabs` keyword argument.
-
-      .. admonition:: Parameters
-
-          return_norm_only
-              Whether to only return the approximate H2-norm.
-          quad_kwargs
-              Keyword arguments passed to `scipy.integrate.quad`.
-              
-      .. admonition:: Returns
-
-          norm
-              Computed H2-norm.
-          norm_relerr
-              Relative error estimate (returned if `return_norm_only` is `False`).
-          info
-              Quadrature info (returned if `return_norm_only` is `False` and `full_output` is `True`).
-              See `scipy.integrate.quad` documentation for more details.
-              
 
 
 
@@ -1550,7 +1572,7 @@ Functions
 
    .. method:: __mul__(self, other)
 
-      Postmultiply by a |SecondOrderModel| or an |LTIModel|.
+      Postmultiply an |LTIModel|, |SecondOrderModel| or |LinearDelayModel|.
 
 
    .. method:: __rmul__(self, other)
@@ -1838,5 +1860,54 @@ Functions
 
       Return str(self).
 
+
+
+.. function:: _lti_to_poles_b_c(lti)
+
+   Compute poles and residues.
+
+   .. admonition:: Parameters
+
+       lti
+           |LTIModel| consisting of |Operators| that can be converted to |NumPy arrays|.
+           The D operator is ignored.
+           
+   .. admonition:: Returns
+
+       poles
+           1D |NumPy array| of poles.
+       b
+           |NumPy array| of shape `(lti.order, lti.dim_input)`.
+       c
+           |NumPy array| of shape `(lti.order, lti.dim_output)`.
+           
+
+
+.. function:: _poles_b_c_to_lti(poles, b, c)
+
+   Create an |LTIModel| from poles and residue rank-1 factors.
+
+   Returns an |LTIModel| with real matrices such that its transfer
+   function is
+
+   .. math::
+       \sum_{i = 1}^r \frac{c_i b_i^T}{s - \lambda_i}
+
+   where :math:`\lambda_i, b_i, c_i` are the poles and residue rank-1
+   factors.
+
+   .. admonition:: Parameters
+
+       poles
+           Sequence of poles.
+       b
+           |NumPy array| of shape `(rom.order, rom.dim_input)`.
+       c
+           |NumPy array| of shape `(rom.order, rom.dim_output)`.
+           
+   .. admonition:: Returns
+
+       |LTIModel|.
+           
 
 
