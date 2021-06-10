@@ -1,0 +1,131 @@
+:mod:`pymor.reductors.neural_network`
+=====================================
+
+.. py:module:: pymor.reductors.neural_network
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.reductors.neural_network.NeuralNetworkReductor
+
+
+
+
+.. class:: NeuralNetworkReductor(fom, training_set, validation_set=None, validation_ratio=0.1, basis_size=None, rtol=0.0, atol=0.0, l2_err=0.0, pod_params=None, ann_mse='like_basis')
+
+
+   Bases: :py:obj:`pymor.core.base.BasicObject`
+
+   Reduced Basis reductor relying on artificial neural networks.
+
+   This is a reductor that constructs a reduced basis using proper
+   orthogonal decomposition and trains a neural network that approximates
+   the mapping from parameter space to coefficients of the full-order
+   solution in the reduced basis.
+   The approach is described in :cite:`HU18`.
+
+   .. admonition:: Parameters
+
+       fom
+           The full-order |Model| to reduce.
+       training_set
+           Set of |parameter values| to use for POD and training of the
+           neural network.
+       validation_set
+           Set of |parameter values| to use for validation in the training
+           of the neural network.
+       validation_ratio
+           Fraction of the training set to use for validation in the training
+           of the neural network (only used if no validation set is provided).
+       basis_size
+           Desired size of the reduced basis. If `None`, rtol, atol or l2_err must
+           be provided.
+       rtol
+           Relative tolerance the basis should guarantee on the training set.
+       atol
+           Absolute tolerance the basis should guarantee on the training set.
+       l2_err
+           L2-approximation error the basis should not exceed on the training
+           set.
+       pod_params
+           Dict of additional parameters for the POD-method.
+       ann_mse
+           If `'like_basis'`, the mean squared error of the neural network on
+           the training set should not exceed the error of projecting onto the basis.
+           If `None`, the neural network with smallest validation error is
+           used to build the ROM.
+           If a tolerance is prescribed, the mean squared error of the neural
+           network on the training set should not exceed this threshold.
+           Training is interrupted if a neural network that undercuts the
+           error tolerance is found.
+           
+
+   .. method:: reduce(self, hidden_layers='[(N+P)*3, (N+P)*3]', activation_function=torch.tanh, optimizer=optim.LBFGS, epochs=1000, batch_size=20, learning_rate=1.0, restarts=10, seed=0)
+
+      Reduce by training artificial neural networks.
+
+      .. admonition:: Parameters
+
+          hidden_layers
+              Number of neurons in the hidden layers. Can either be fixed or
+              a Python expression string depending on the reduced basis size
+              `N` and the total dimension of the |Parameters| `P`.
+          activation_function
+              Activation function to use between the hidden layers.
+          optimizer
+              Algorithm to use as optimizer during training.
+          epochs
+              Maximum number of epochs for training.
+          batch_size
+              Batch size to use if optimizer allows mini-batching.
+          learning_rate
+              Step size to use in each optimization step.
+          restarts
+              Number of restarts of the training algorithm. Since the training
+              results highly depend on the initial starting point, i.e. the
+              initial weights and biases, it is advisable to train multiple
+              neural networks by starting with different initial values and
+              choose that one performing best on the validation set.
+          seed
+              Seed to use for various functions in PyTorch. Using a fixed seed,
+              it is possible to reproduce former results.
+              
+      .. admonition:: Returns
+
+          rom
+              Reduced-order |NeuralNetworkModel|.
+              
+
+
+   .. method:: _compute_layer_sizes(self, hidden_layers)
+
+      Compute the number of neurons in the layers of the neural network.
+
+
+   .. method:: _build_rom(self)
+
+      Construct the reduced order model.
+
+
+   .. method:: build_basis(self)
+
+      Compute a reduced basis using proper orthogonal decomposition.
+
+
+   .. method:: _compute_sample(self, mu, u, reduced_basis)
+
+      Transform parameter and corresponding solution to |NumPy arrays|.
+
+
+   .. method:: reconstruct(self, u)
+
+      Reconstruct high-dimensional vector from reduced vector `u`.
+
+
+
