@@ -1,0 +1,177 @@
+:mod:`pymor.reductors.bt`
+=========================
+
+.. py:module:: pymor.reductors.bt
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.reductors.bt.GenericBTReductor
+   pymor.reductors.bt.BTReductor
+   pymor.reductors.bt.LQGBTReductor
+   pymor.reductors.bt.BRBTReductor
+
+
+
+
+.. class:: GenericBTReductor(fom, mu=None)
+
+
+   Bases: :py:obj:`pymor.core.base.BasicObject`
+
+   Generic Balanced Truncation reductor.
+
+   .. admonition:: Parameters
+
+       fom
+           The full-order |LTIModel| to reduce.
+       mu
+           |Parameter values|.
+           
+
+   .. method:: _gramians(self)
+      :abstractmethod:
+
+      Return low-rank Cholesky factors of Gramians.
+
+
+   .. method:: _sv_U_V(self)
+
+      Return singular values and vectors.
+
+
+   .. method:: error_bounds(self)
+      :abstractmethod:
+
+      Returns error bounds for all possible reduced orders.
+
+
+   .. method:: reduce(self, r=None, tol=None, projection='bfsr')
+
+      Generic Balanced Truncation.
+
+      .. admonition:: Parameters
+
+          r
+              Order of the reduced model if `tol` is `None`, maximum order if `tol` is specified.
+          tol
+              Tolerance for the error bound if `r` is `None`.
+          projection
+              Projection method used:
+              
+              - `'sr'`: square root method
+              - `'bfsr'`: balancing-free square root method (default, since it avoids scaling by
+                singular values and orthogonalizes the projection matrices, which might make it more
+                accurate than the square root method)
+              - `'biorth'`: like the balancing-free square root method, except it biorthogonalizes the
+                projection matrices (using :func:`~pymor.algorithms.gram_schmidt.gram_schmidt_biorth`)
+              
+      .. admonition:: Returns
+
+          rom
+              Reduced-order model.
+              
+
+
+   .. method:: reconstruct(self, u)
+
+      Reconstruct high-dimensional vector from reduced vector `u`.
+
+
+
+.. class:: BTReductor(fom, mu=None)
+
+
+   Bases: :py:obj:`GenericBTReductor`
+
+   Standard (Lyapunov) Balanced Truncation reductor.
+
+   See Section 7.3 in :cite:`A05`.
+
+   .. admonition:: Parameters
+
+       fom
+           The full-order |LTIModel| to reduce.
+       mu
+           |Parameter values|.
+           
+
+   .. method:: _gramians(self)
+
+      Return low-rank Cholesky factors of Gramians.
+
+
+   .. method:: error_bounds(self)
+
+      Returns error bounds for all possible reduced orders.
+
+
+
+.. class:: LQGBTReductor(fom, mu=None, solver_options=None)
+
+
+   Bases: :py:obj:`GenericBTReductor`
+
+   Linear Quadratic Gaussian (LQG) Balanced Truncation reductor.
+
+   See Section 3 in :cite:`MG91`.
+
+   .. admonition:: Parameters
+
+       fom
+           The full-order |LTIModel| to reduce.
+       mu
+           |Parameter values|.
+       solver_options
+           The solver options to use to solve the Riccati equations.
+           
+
+   .. method:: _gramians(self)
+
+      Return low-rank Cholesky factors of Gramians.
+
+
+   .. method:: error_bounds(self)
+
+      Returns error bounds for all possible reduced orders.
+
+
+
+.. class:: BRBTReductor(fom, gamma=1, mu=None, solver_options=None)
+
+
+   Bases: :py:obj:`GenericBTReductor`
+
+   Bounded Real (BR) Balanced Truncation reductor.
+
+   See :cite:`A05` (Section 7.5.3) and :cite:`OJ88`.
+
+   .. admonition:: Parameters
+
+       fom
+           The full-order |LTIModel| to reduce.
+       gamma
+           Upper bound for the :math:`\mathcal{H}_\infty`-norm.
+       mu
+           |Parameter values|.
+       solver_options
+           The solver options to use to solve the positive Riccati equations.
+           
+
+   .. method:: _gramians(self)
+
+      Return low-rank Cholesky factors of Gramians.
+
+
+   .. method:: error_bounds(self)
+
+      Returns error bounds for all possible reduced orders.
+
+
+

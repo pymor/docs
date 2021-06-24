@@ -1,0 +1,91 @@
+:mod:`pymor.reductors.parabolic`
+================================
+
+.. py:module:: pymor.reductors.parabolic
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.reductors.parabolic.ParabolicRBReductor
+   pymor.reductors.parabolic.ParabolicRBEstimator
+
+
+
+
+.. class:: ParabolicRBReductor(fom, RB=None, product=None, coercivity_estimator=None, check_orthonormality=None, check_tol=None)
+
+
+   Bases: :py:obj:`pymor.reductors.basic.InstationaryRBReductor`
+
+   Reduced Basis Reductor for parabolic equations.
+
+   This reductor uses :class:`~pymor.reductors.basic.InstationaryRBReductor` for the actual
+   RB-projection. The only addition is the assembly of an error estimator which
+   bounds the discrete l2-in time / energy-in space error similar to :cite:`GP05`, :cite:`HO08`
+   as follows:
+
+   .. math::
+       \left[ C_a^{-1}(\mu)\|e_N(\mu)\|^2 + \sum_{n=1}^{N} \Delta t\|e_n(\mu)\|^2_e \right]^{1/2}
+           \le \left[ C_a^{-2}(\mu)\Delta t \sum_{n=1}^{N}\|\mathcal{R}^n(u_n(\mu), \mu)\|^2_{e,-1}
+                       + C_a^{-1}(\mu)\|e_0\|^2 \right]^{1/2}
+
+   Here, :math:`\|\cdot\|` denotes the norm induced by the problem's mass matrix
+   (e.g. the L^2-norm) and :math:`\|\cdot\|_e` is an arbitrary energy norm w.r.t.
+   which the space operator :math:`A(\mu)` is coercive, and :math:`C_a(\mu)` is a
+   lower bound for its coercivity constant. Finally, :math:`\mathcal{R}^n` denotes
+   the implicit Euler timestepping residual for the (fixed) time step size :math:`\Delta t`,
+
+   .. math::
+       \mathcal{R}^n(u_n(\mu), \mu) :=
+           f - M \frac{u_{n}(\mu) - u_{n-1}(\mu)}{\Delta t} - A(u_n(\mu), \mu),
+
+   where :math:`M` denotes the mass operator and :math:`f` the source term.
+   The dual norm of the residual is computed using the numerically stable projection
+   from :cite:`BEOR14`.
+
+   .. admonition:: Parameters
+
+       fom
+           The |InstationaryModel| which is to be reduced.
+       RB
+           |VectorArray| containing the reduced basis on which to project.
+       product
+           The energy inner product |Operator| w.r.t. which the reduction error is
+           estimated and `RB` is orthonormalized.
+       coercivity_estimator
+           `None` or a |Parameterfunctional| returning a lower bound :math:`C_a(\mu)`
+           for the coercivity constant of `fom.operator` w.r.t. `product`.
+           
+
+   .. method:: assemble_error_estimator(self)
+
+
+   .. method:: assemble_error_estimator_for_subbasis(self, dims)
+
+
+
+.. class:: ParabolicRBEstimator(residual, residual_range_dims, initial_residual, initial_residual_range_dims, coercivity_estimator, output_estimator_matrix=None, output_functional_coeffs=None)
+
+
+   Bases: :py:obj:`pymor.core.base.ImmutableObject`
+
+   Instantiated by :class:`ParabolicRBReductor`.
+
+   Not to be used directly.
+
+   .. method:: estimate_error(self, U, mu, m, return_error_sequence=False)
+
+
+   .. method:: estimate_output_error(self, U, mu, m, return_error_sequence=False)
+
+
+   .. method:: restricted_to_subbasis(self, dim, m)
+
+
+
