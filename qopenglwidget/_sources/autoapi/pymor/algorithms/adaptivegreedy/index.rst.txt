@@ -1,0 +1,192 @@
+:mod:`pymor.algorithms.adaptivegreedy`
+======================================
+
+.. py:module:: pymor.algorithms.adaptivegreedy
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.algorithms.adaptivegreedy.AdaptiveSampleSet
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.algorithms.adaptivegreedy.adaptive_weak_greedy
+   pymor.algorithms.adaptivegreedy.rb_adaptive_greedy
+
+
+
+.. function:: adaptive_weak_greedy(surrogate, parameter_space, target_error=None, max_extensions=None, validation_mus=0, rho=1.1, gamma=0.2, theta=0.0, visualize=False, visualize_vertex_size=80, pool=None)
+
+   Weak greedy basis generation algorithm with adaptively refined training set.
+
+   This method extends pyMOR's default :func:`~pymor.algorithms.greedy.weak_greedy`
+   greedy basis generation algorithm by adaptive refinement of the
+   parameter training set according to :cite:`HDO11` to prevent overfitting
+   of the approximation basis to the training set. This is achieved by
+   estimating the approximation error on an additional validation set of
+   parameters. If the ratio between the estimated errors on the validation
+   set and the validation set is larger than `rho`, the training set
+   is refined using standard grid refinement techniques.
+
+   .. admonition:: Parameters
+
+       surrogate
+           See :func:`~pymor.algorithms.greedy.weak_greedy`.
+       parameter_space
+           The |ParameterSpace| for which to compute the approximation basis.
+       target_error
+           See :func:`~pymor.algorithms.greedy.weak_greedy`.
+       max_extensions
+           See :func:`~pymor.algorithms.greedy.weak_greedy`.
+       validation_mus
+           One of the following:
+             - a list of |Parameters| to use as validation set,
+             - a positive number indicating the number of random parameters
+               to use as validation set,
+             - a non-positive number, indicating the negative number of random
+               parameters to use as validation set in addition to the centers
+               of the elements of the adaptive training set.
+       rho
+           Maximum allowed ratio between maximum estimated error on validation
+           set vs. maximum estimated error on training set. If the ratio is
+           larger, the training set is refined.
+       gamma
+           Weight of the age penalty term in the training set refinement
+           indicators.
+       theta
+           Ratio of training set elements to select for refinement.
+           (One element is always refined.)
+       visualize
+           If `True`, visualize the refinement indicators. (Only available
+           for 2 and 3 dimensional parameter spaces.)
+       visualize_vertex_size
+           Size of the vertices in the visualization.
+       pool
+           See :func:`~pymor.algorithms.greedy.weak_greedy`.
+           
+   .. admonition:: Returns
+
+       Dict with the following fields
+           
+           :extensions:             Number of greedy iterations.
+           :max_errs:               Sequence of maximum errors during the greedy run.
+           :max_err_mus:            The parameters corresponding to `max_errs`.
+           :max_val_errs:           Sequence of maximum errors on the validation set.
+           :max_val_err_mus:        The parameters corresponding to `max_val_errs`.
+           :refinements:            Number of refinements made in each extension step.
+           :training_set_sizes:     The final size of the training set in each extension step.
+           :time:                   Duration of the algorithm.
+           
+
+
+.. function:: rb_adaptive_greedy(fom, reductor, parameter_space, use_error_estimator=True, error_norm=None, target_error=None, max_extensions=None, validation_mus=0, rho=1.1, gamma=0.2, theta=0.0, extension_params=None, visualize=False, visualize_vertex_size=80, pool=None)
+
+   Reduced basis greedy basis generation with adaptively refined training set.
+
+   This method extends pyMOR's default :func:`~pymor.algorithms.greedy.rb_greedy`
+   greedy reduced basis generation algorithm by adaptive refinement of the
+   parameter training set :cite:`HDO11` to prevent overfitting
+   of the reduced basis to the training set as implemented in :func:`adaptive_weak_greedy`.
+
+   .. admonition:: Parameters
+
+       fom
+           See :func:`~pymor.algorithms.greedy.rb_greedy`.
+       reductor
+           See :func:`~pymor.algorithms.greedy.rb_greedy`.
+       parameter_space
+           The |ParameterSpace| for which to compute the reduced model.
+       use_error_estimator
+           See :func:`~pymor.algorithms.greedy.rb_greedy`.
+       error_norm
+           See :func:`~pymor.algorithms.greedy.rb_greedy`.
+       target_error
+           See :func:`~pymor.algorithms.greedy.weak_greedy`.
+       max_extensions
+           See :func:`~pymor.algorithms.greedy.weak_greedy`.
+       validation_mus
+           See :func:`~adaptive_weak_greedy`.
+       rho
+           See :func:`~adaptive_weak_greedy`.
+       gamma
+           See :func:`~adaptive_weak_greedy`.
+       theta
+           See :func:`~adaptive_weak_greedy`.
+       extension_params
+           See :func:`~pymor.algorithms.greedy.rb_greedy`.
+       visualize
+           See :func:`~adaptive_weak_greedy`.
+       visualize_vertex_size
+           See :func:`~adaptive_weak_greedy`.
+       pool
+           See :func:`~pymor.algorithms.greedy.weak_greedy`.
+           
+   .. admonition:: Returns
+
+       Dict with the following fields
+           
+           :rom:                    The reduced |Model| obtained for the
+                                    computed basis.
+           :extensions:             Number of greedy iterations.
+           :max_errs:               Sequence of maximum errors during the greedy run.
+           :max_err_mus:            The parameters corresponding to `max_errs`.
+           :max_val_errs:           Sequence of maximum errors on the validation set.
+           :max_val_err_mus:        The parameters corresponding to `max_val_errs`.
+           :refinements:            Number of refinements made in each extension step.
+           :training_set_sizes:     The final size of the training set in each extension step.
+           :time:                   Duration of the algorithm.
+           
+
+
+.. class:: AdaptiveSampleSet(parameter_space)
+
+
+   Bases: :py:obj:`pymor.core.base.BasicObject`
+
+   An adaptive parameter sample set.
+
+   Used by :func:`adaptive_weak_greedy`.
+
+   .. class:: Element(level, center, sample_set)
+
+
+      .. attribute:: __slots__
+         :annotation: = ['level', 'center', 'vertex_ids', 'children', 'creation_time']
+
+         
+
+      .. method:: refine(self, sample_set)
+
+
+
+   .. method:: refine(self, ids)
+
+
+   .. method:: map_vertex_to_mu(self, vertex)
+
+
+   .. method:: visualize(self, vertex_data=None, vertex_inds=None, center_data=None, center_inds=None, volume_data=None, vertex_size=80, vmin=None, vmax=None, new_figure=True)
+
+
+   .. method:: _iter_leafs(self)
+
+
+   .. method:: _update(self)
+
+
+   .. method:: _add_vertex(self, v)
+
+
+

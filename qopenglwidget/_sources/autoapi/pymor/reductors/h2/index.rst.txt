@@ -1,0 +1,408 @@
+:mod:`pymor.reductors.h2`
+=========================
+
+.. py:module:: pymor.reductors.h2
+
+.. autoapi-nested-parse::
+
+   Reductors based on H2-norm.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.reductors.h2.GenericIRKAReductor
+   pymor.reductors.h2.IRKAReductor
+   pymor.reductors.h2.OneSidedIRKAReductor
+   pymor.reductors.h2.TSIAReductor
+   pymor.reductors.h2.TFIRKAReductor
+
+
+
+
+.. class:: GenericIRKAReductor(fom, mu=None)
+
+
+   Bases: :py:obj:`pymor.core.base.BasicObject`
+
+   Generic IRKA related reductor.
+
+   .. admonition:: Parameters
+
+       fom
+           The full-order |Model| to reduce.
+       mu
+           |Parameter values|.
+           
+
+   .. method:: _clear_lists(self)
+
+
+   .. method:: reconstruct(self, u)
+
+      Reconstruct high-dimensional vector from reduced vector `u`.
+
+
+   .. method:: _check_rom0_params(self, rom0_params)
+
+
+   .. method:: _check_common_args(tol, maxit, num_prev, conv_crit)
+      :staticmethod:
+
+
+   .. method:: _order_to_sigma_b_c(self, r)
+
+
+   .. method:: _rom_to_sigma_b_c(rom, force_sigma_in_rhp)
+      :staticmethod:
+
+
+   .. method:: _rom0_params_to_sigma_b_c(self, rom0_params, force_sigma_in_rhp)
+
+
+   .. method:: _rom0_params_to_rom(self, rom0_params)
+
+
+   .. method:: _store_sigma_b_c(self, sigma, b, c)
+
+
+   .. method:: _update_conv_data(self, sigma, rom, conv_crit)
+
+
+   .. method:: _compute_conv_crit(self, rom, conv_crit, it)
+
+
+   .. method:: _compute_error(self, rom, it, compute_errors)
+
+
+
+.. class:: IRKAReductor(fom, mu=None)
+
+
+   Bases: :py:obj:`GenericIRKAReductor`
+
+   Iterative Rational Krylov Algorithm reductor.
+
+   .. admonition:: Parameters
+
+       fom
+           The full-order |LTIModel| to reduce.
+       mu
+           |Parameter values|.
+           
+
+   .. method:: reduce(self, rom0_params, tol=0.0001, maxit=100, num_prev=1, force_sigma_in_rhp=False, projection='orth', conv_crit='sigma', compute_errors=False)
+
+      Reduce using IRKA.
+
+      See :cite:`GAB08` (Algorithm 4.1) and :cite:`ABG10` (Algorithm 1).
+
+      .. admonition:: Parameters
+
+          rom0_params
+              Can be:
+              
+              - order of the reduced model (a positive integer),
+              - initial interpolation points (a 1D |NumPy array|),
+              - dict with `'sigma'`, `'b'`, `'c'` as keys mapping to
+                initial interpolation points (a 1D |NumPy array|), right
+                tangential directions (|NumPy array| of shape
+                `(len(sigma), fom.dim_input)`), and left tangential directions
+                (|NumPy array| of shape `(len(sigma), fom.dim_input)`),
+              - initial reduced-order model (|LTIModel|).
+              
+              If the order of reduced model is given, initial
+              interpolation data is generated randomly.
+          tol
+              Tolerance for the convergence criterion.
+          maxit
+              Maximum number of iterations.
+          num_prev
+              Number of previous iterations to compare the current
+              iteration to. Larger number can avoid occasional cyclic
+              behavior of IRKA.
+          force_sigma_in_rhp
+              If `False`, new interpolation are reflections of the current
+              reduced-order model's poles. Otherwise, only poles in the
+              left half-plane are reflected.
+          projection
+              Projection method:
+              
+              - `'orth'`: projection matrices are orthogonalized with
+                respect to the Euclidean inner product
+              - `'biorth'`: projection matrices are biorthogolized with
+                respect to the E product
+              - `'arnoldi'`: projection matrices are orthogonalized using
+                the Arnoldi process (available only for SISO systems).
+          conv_crit
+              Convergence criterion:
+              
+              - `'sigma'`: relative change in interpolation points
+              - `'h2'`: relative :math:`\mathcal{H}_2` distance of
+                reduced-order models
+          compute_errors
+              Should the relative :math:`\mathcal{H}_2`-errors of
+              intermediate reduced-order models be computed.
+              
+              .. warning::
+                  Computing :math:`\mathcal{H}_2`-errors is expensive. Use
+                  this option only if necessary.
+              
+      .. admonition:: Returns
+
+          rom
+              Reduced |LTIModel| model.
+              
+
+
+
+.. class:: OneSidedIRKAReductor(fom, version, mu=None)
+
+
+   Bases: :py:obj:`GenericIRKAReductor`
+
+   One-Sided Iterative Rational Krylov Algorithm reductor.
+
+   .. admonition:: Parameters
+
+       fom
+           The full-order |LTIModel| to reduce.
+       version
+           Version of the one-sided IRKA:
+           
+           - `'V'`: Galerkin projection using the input Krylov subspace,
+           - `'W'`: Galerkin projection using the output Krylov subspace.
+       mu
+           |Parameter values|.
+           
+
+   .. method:: reduce(self, rom0_params, tol=0.0001, maxit=100, num_prev=1, force_sigma_in_rhp=False, projection='orth', conv_crit='sigma', compute_errors=False)
+
+      Reduce using one-sided IRKA.
+
+      .. admonition:: Parameters
+
+          rom0_params
+              Can be:
+              
+              - order of the reduced model (a positive integer),
+              - initial interpolation points (a 1D |NumPy array|),
+              - dict with `'sigma'`, `'b'`, `'c'` as keys mapping to
+                initial interpolation points (a 1D |NumPy array|), right
+                tangential directions (|NumPy array| of shape
+                `(len(sigma), fom.dim_input)`), and left tangential directions
+                (|NumPy array| of shape `(len(sigma), fom.dim_input)`),
+              - initial reduced-order model (|LTIModel|).
+              
+              If the order of reduced model is given, initial
+              interpolation data is generated randomly.
+          tol
+              Tolerance for the largest change in interpolation points.
+          maxit
+              Maximum number of iterations.
+          num_prev
+              Number of previous iterations to compare the current
+              iteration to. A larger number can avoid occasional cyclic
+              behavior.
+          force_sigma_in_rhp
+              If `False`, new interpolation are reflections of the current
+              reduced-order model's poles. Otherwise, only poles in the
+              left half-plane are reflected.
+          projection
+              Projection method:
+              
+              - `'orth'`: projection matrix is orthogonalized with respect
+                to the Euclidean inner product,
+              - `'Eorth'`: projection matrix is orthogonalized with
+                respect to the E product.
+          conv_crit
+              Convergence criterion:
+              
+              - `'sigma'`: relative change in interpolation points,
+              - `'h2'`: relative :math:`\mathcal{H}_2` distance of
+                reduced-order models.
+          compute_errors
+              Should the relative :math:`\mathcal{H}_2`-errors of
+              intermediate reduced-order models be computed.
+              
+              .. warning::
+                  Computing :math:`\mathcal{H}_2`-errors is expensive. Use
+                  this option only if necessary.
+              
+      .. admonition:: Returns
+
+          rom
+              Reduced |LTIModel| model.
+              
+
+
+   .. method:: _set_V_reductor(self, sigma, b, c, projection)
+
+
+
+.. class:: TSIAReductor(fom, mu=None)
+
+
+   Bases: :py:obj:`GenericIRKAReductor`
+
+   Two-Sided Iteration Algorithm reductor.
+
+   .. admonition:: Parameters
+
+       fom
+           The full-order |LTIModel| to reduce.
+       mu
+           |Parameter values|.
+           
+
+   .. method:: reduce(self, rom0_params, tol=0.0001, maxit=100, num_prev=1, projection='orth', conv_crit='sigma', compute_errors=False)
+
+      Reduce using TSIA.
+
+      See :cite:`XZ11` (Algorithm 1) and :cite:`BKS11`.
+
+      In exact arithmetic, TSIA is equivalent to IRKA (under some
+      assumptions on the poles of the reduced model). The main
+      difference in implementation is that TSIA computes the Schur
+      decomposition of the reduced matrices, while IRKA computes the
+      eigenvalue decomposition. Therefore, TSIA might behave better
+      for non-normal reduced matrices.
+
+      .. admonition:: Parameters
+
+          rom0_params
+              Can be:
+              
+              - order of the reduced model (a positive integer),
+              - initial interpolation points (a 1D |NumPy array|),
+              - dict with `'sigma'`, `'b'`, `'c'` as keys mapping to
+                initial interpolation points (a 1D |NumPy array|), right
+                tangential directions (|NumPy array| of shape
+                `(len(sigma), fom.dim_input)`), and left tangential directions
+                (|NumPy array| of shape `(len(sigma), fom.dim_input)`),
+              - initial reduced-order model (|LTIModel|).
+              
+              If the order of reduced model is given, initial
+              interpolation data is generated randomly.
+          tol
+              Tolerance for the convergence criterion.
+          maxit
+              Maximum number of iterations.
+          num_prev
+              Number of previous iterations to compare the current
+              iteration to. Larger number can avoid occasional cyclic
+              behavior of TSIA.
+          projection
+              Projection method:
+              
+              - `'orth'`: projection matrices are orthogonalized with
+                respect to the Euclidean inner product
+              - `'biorth'`: projection matrices are biorthogolized with
+                respect to the E product
+          conv_crit
+              Convergence criterion:
+              
+              - `'sigma'`: relative change in interpolation points
+              - `'h2'`: relative :math:`\mathcal{H}_2` distance of
+                reduced-order models
+          compute_errors
+              Should the relative :math:`\mathcal{H}_2`-errors of
+              intermediate reduced-order models be computed.
+              
+              .. warning::
+                  Computing :math:`\mathcal{H}_2`-errors is expensive. Use
+                  this option only if necessary.
+              
+      .. admonition:: Returns
+
+          rom
+              Reduced |LTIModel|.
+              
+
+
+   .. method:: _set_V_W_reductor(self, rom, projection)
+
+
+
+.. class:: TFIRKAReductor(fom, mu=None)
+
+
+   Bases: :py:obj:`GenericIRKAReductor`
+
+   Realization-independent IRKA reductor.
+
+   See :cite:`BG12`.
+
+   .. admonition:: Parameters
+
+       fom
+           The full-order |Model| with `eval_tf` and `eval_dtf` methods.
+       mu
+           |Parameter values|.
+           
+
+   .. method:: reduce(self, rom0_params, tol=0.0001, maxit=100, num_prev=1, force_sigma_in_rhp=False, conv_crit='sigma', compute_errors=False)
+
+      Reduce using TF-IRKA.
+
+      .. admonition:: Parameters
+
+          rom0_params
+              Can be:
+              
+              - order of the reduced model (a positive integer),
+              - initial interpolation points (a 1D |NumPy array|),
+              - dict with `'sigma'`, `'b'`, `'c'` as keys mapping to
+                initial interpolation points (a 1D |NumPy array|), right
+                tangential directions (|NumPy array| of shape
+                `(len(sigma), fom.dim_input)`), and left tangential directions
+                (|NumPy array| of shape `(len(sigma), fom.dim_input)`),
+              - initial reduced-order model (|LTIModel|).
+              
+              If the order of reduced model is given, initial
+              interpolation data is generated randomly.
+          tol
+              Tolerance for the convergence criterion.
+          maxit
+              Maximum number of iterations.
+          num_prev
+              Number of previous iterations to compare the current
+              iteration to. Larger number can avoid occasional cyclic
+              behavior of TF-IRKA.
+          force_sigma_in_rhp
+              If `False`, new interpolation are reflections of the current
+              reduced-order model's poles. Otherwise, only poles in the
+              left half-plane are reflected.
+          conv_crit
+              Convergence criterion:
+              
+              - `'sigma'`: relative change in interpolation points
+              - `'h2'`: relative :math:`\mathcal{H}_2` distance of
+                reduced-order models
+          compute_errors
+              Should the relative :math:`\mathcal{H}_2`-errors of
+              intermediate reduced-order models be computed.
+              
+              .. warning::
+                  Computing :math:`\mathcal{H}_2`-errors is expensive. Use
+                  this option only if necessary.
+              
+      .. admonition:: Returns
+
+          rom
+              Reduced |LTIModel| model.
+              
+
+
+   .. method:: reconstruct(self, u)
+
+      Reconstruct high-dimensional vector from reduced vector `u`.
+
+
+
