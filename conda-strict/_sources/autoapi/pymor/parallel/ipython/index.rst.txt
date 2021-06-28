@@ -1,0 +1,141 @@
+:mod:`pymor.parallel.ipython`
+=============================
+
+.. py:module:: pymor.parallel.ipython
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.parallel.ipython.new_ipcluster_pool
+   pymor.parallel.ipython.IPythonPool
+   pymor.parallel.ipython.RemoteId
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.parallel.ipython._worker_call_function
+   pymor.parallel.ipython._setup_worker
+   pymor.parallel.ipython._push_object
+   pymor.parallel.ipython._remove_object
+
+
+
+.. class:: new_ipcluster_pool(profile=None, cluster_id=None, num_engines=None, ipython_dir=None, min_wait=1, timeout=60)
+
+
+   Bases: :py:obj:`pymor.core.base.BasicObject`
+
+   Create a new IPython parallel cluster and connect to it.
+
+   This context manager can be used to create an :class:`IPythonPool`
+   |WorkerPool|. When entering the context a new IPython cluster is
+   created using the `ipcluster` script and an :class:`IPythonPool`
+   is instantiated for the newly created cluster. When leaving
+   the context the cluster is shut down.
+
+   .. admonition:: Parameters
+
+       profile
+           Passed as `--profile` parameter to the `ipcluster` script.
+       cluster_id
+           Passed as `--cluster-id` parameter to the `ipcluster` script.
+       nun_engines
+           Passed as `--n` parameter to the `ipcluster` script.
+       ipython_dir
+           Passed as `--ipython-dir` parameter to the `ipcluster` script.
+       min_wait
+           Wait at least this many seconds before trying to connect to the
+           new cluster.
+       timeout
+           Wait at most this many seconds for all Ipython cluster engines to
+           become available.
+           
+
+   .. method:: __enter__(self)
+
+
+   .. method:: __exit__(self, exc_type, exc_val, exc_tb)
+
+
+
+.. class:: IPythonPool(num_engines=None, **kwargs)
+
+
+   Bases: :py:obj:`pymor.parallel.basic.WorkerPoolBase`
+
+   |WorkerPool| based on the IPython parallel computing features.
+
+   .. admonition:: Parameters
+
+       num_engines
+           Number of IPython engines to use. If `None`, all available
+           engines are used.
+       kwargs
+           Keyword arguments used to instantiate the IPython cluster client.
+           
+
+   .. method:: __len__(self)
+
+      The number of workers in the pool.
+
+
+   .. method:: _push_object(self, obj)
+
+
+   .. method:: _apply(self, function, *args, **kwargs)
+
+
+   .. method:: _apply_only(self, function, worker, *args, **kwargs)
+
+
+   .. method:: _map(self, function, chunks, **kwargs)
+
+
+   .. method:: _remove_object(self, remote_id)
+
+
+
+.. class:: RemoteId
+
+
+   Bases: :py:obj:`int`
+
+   int([x]) -> integer
+   int(x, base=10) -> integer
+
+   Convert a number or string to an integer, or return 0 if no arguments
+   are given.  If x is a number, return x.__int__().  For floating point
+   numbers, this truncates towards zero.
+
+   If x is not a number or if base is given, then x must be a string,
+   bytes, or bytearray instance representing an integer literal in the
+   given base.  The literal can be preceded by '+' or '-' and be surrounded
+   by whitespace.  The base defaults to 10.  Valid bases are 0 and 2-36.
+   Base 0 means to interpret the base from the string as an integer literal.
+   >>> int('0b100', base=0)
+   4
+
+
+.. function:: _worker_call_function(function, loop, args, kwargs)
+
+
+.. function:: _setup_worker(worker_id)
+
+
+.. function:: _push_object(remote_id, obj)
+
+
+.. function:: _remove_object(remote_id)
+
+

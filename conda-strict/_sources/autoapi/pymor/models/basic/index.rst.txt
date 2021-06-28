@@ -1,0 +1,255 @@
+:mod:`pymor.models.basic`
+=========================
+
+.. py:module:: pymor.models.basic
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.models.basic.StationaryModel
+   pymor.models.basic.InstationaryModel
+
+
+
+
+.. class:: StationaryModel(operator, rhs, output_functional=None, products=None, error_estimator=None, visualizer=None, name=None)
+
+
+   Bases: :py:obj:`pymor.models.interface.Model`
+
+   Generic class for models of stationary problems.
+
+   This class describes discrete problems given by the equation::
+
+       L(u(μ), μ) = F(μ)
+
+   with a vector-like right-hand side F and a (possibly non-linear) operator L.
+
+   Note that even when solving a variational formulation where F is a
+   functional and not a vector, F has to be specified as a vector-like
+   |Operator| (mapping scalars to vectors). This ensures that in the complex
+   case both L and F are anti-linear in the test variable.
+
+   .. admonition:: Parameters
+
+       operator
+           The |Operator| L.
+       rhs
+           The vector F. Either a |VectorArray| of length 1 or a vector-like
+           |Operator|.
+       output_functional
+           |Operator| mapping a given solution to the model output. In many applications,
+           this will be a |Functional|, i.e. an |Operator| mapping to scalars.
+           This is not required, however.
+       products
+           A dict of inner product |Operators| defined on the discrete space the
+           problem is posed on. For each product with key `'x'` a corresponding
+           attribute `x_product`, as well as a norm method `x_norm` is added to
+           the model.
+       error_estimator
+           An error estimator for the problem. This can be any object with
+           an `estimate_error(U, mu, m)` method. If `error_estimator` is
+           not `None`, an `estimate_error(U, mu)` method is added to the
+           model which will call `error_estimator.estimate_error(U, mu, self)`.
+       visualizer
+           A visualizer for the problem. This can be any object with
+           a `visualize(U, m, ...)` method. If `visualizer`
+           is not `None`, a `visualize(U, *args, **kwargs)` method is added
+           to the model which forwards its arguments to the
+           visualizer's `visualize` method.
+       name
+           Name of the model.
+           
+
+   .. attribute:: _compute_allowed_kwargs
+      
+
+      
+
+   .. method:: __str__(self)
+
+      Return str(self).
+
+
+   .. method:: _compute_solution(self, mu=None, **kwargs)
+
+      Compute the model's solution for |parameter values| `mu`.
+
+      This method is called by the default implementation of :meth:`compute`
+      in :class:`pymor.models.interface.Model`.
+
+      .. admonition:: Parameters
+
+          mu
+              |Parameter values| for which to compute the solution.
+          kwargs
+              Additional keyword arguments to customize how the solution is
+              computed or to select additional data to be returned.
+              
+      .. admonition:: Returns
+
+          |VectorArray| with the computed solution or a dict which at least
+          must contain the key `'solution'`.
+              
+
+
+   .. method:: _compute_solution_d_mu_single_direction(self, parameter, index, solution, mu)
+
+      Compute the partial derivative of the solution w.r.t. a parameter index
+
+      .. admonition:: Parameters
+
+          parameter
+              parameter for which to compute the sensitivity
+          index
+              parameter index for which to compute the sensitivity
+          solution
+              Internal model state for the given |Parameter value|.
+          mu
+              |Parameter value| for which to solve
+              
+      .. admonition:: Returns
+
+          The sensitivity of the solution as a |VectorArray|.
+              
+
+
+   .. method:: _compute_output_d_mu(self, solution, mu, return_array=False, use_adjoint=None)
+
+      Compute the gradient of the output functional  w.r.t. the parameters.
+
+      .. admonition:: Parameters
+
+          solution
+              Internal model state for the given |Parameter value|
+          mu
+              |Parameter value| for which to compute the gradient
+          return_array
+              if `True`, return the output gradient as a |NumPy array|.
+              Otherwise, return a dict of gradients for each |Parameter|.
+          use_adjoint
+              if `None` use standard approach, if `True`, use
+              the adjoint solution for a more efficient way of computing the gradient.
+              See Section 1.6.2 in :cite:`HPUU09` for more details.
+              So far, the adjoint approach is only valid for linear models.
+              
+      .. admonition:: Returns
+
+          The gradient as a |NumPy array| or a dict of |NumPy arrays|.
+              
+
+
+
+.. class:: InstationaryModel(T, initial_data, operator, rhs, mass=None, time_stepper=None, num_values=None, output_functional=None, products=None, error_estimator=None, visualizer=None, name=None)
+
+
+   Bases: :py:obj:`pymor.models.interface.Model`
+
+   Generic class for models of instationary problems.
+
+   This class describes instationary problems given by the equations::
+
+       M * ∂_t u(t, μ) + L(u(μ), t, μ) = F(t, μ)
+                               u(0, μ) = u_0(μ)
+
+   for t in [0,T], where L is a (possibly non-linear) time-dependent
+   |Operator|, F is a time-dependent vector-like |Operator|, and u_0 the
+   initial data. The mass |Operator| M is assumed to be linear.
+
+   .. admonition:: Parameters
+
+       T
+           The final time T.
+       initial_data
+           The initial data `u_0`. Either a |VectorArray| of length 1 or
+           (for the |Parameter|-dependent case) a vector-like |Operator|
+           (i.e. a linear |Operator| with `source.dim == 1`) which
+           applied to `NumpyVectorArray(np.array([1]))` will yield the
+           initial data for given |parameter values|.
+       operator
+           The |Operator| L.
+       rhs
+           The right-hand side F.
+       mass
+           The mass |Operator| `M`. If `None`, the identity is assumed.
+       time_stepper
+           The :class:`time-stepper <pymor.algorithms.timestepping.TimeStepper>`
+           to be used by :meth:`~pymor.models.interface.Model.solve`.
+       num_values
+           The number of returned vectors of the solution trajectory. If `None`, each
+           intermediate vector that is calculated is returned.
+       output_functional
+           |Operator| mapping a given solution to the model output. In many applications,
+           this will be a |Functional|, i.e. an |Operator| mapping to scalars.
+           This is not required, however.
+       products
+           A dict of product |Operators| defined on the discrete space the
+           problem is posed on. For each product with key `'x'` a corresponding
+           attribute `x_product`, as well as a norm method `x_norm` is added to
+           the model.
+       error_estimator
+           An error estimator for the problem. This can be any object with
+           an `estimate_error(U, mu, m)` method. If `error_estimator` is
+           not `None`, an `estimate_error(U, mu)` method is added to the
+           model which will call `error_estimator.estimate_error(U, mu, self)`.
+       visualizer
+           A visualizer for the problem. This can be any object with
+           a `visualize(U, m, ...)` method. If `visualizer`
+           is not `None`, a `visualize(U, *args, **kwargs)` method is added
+           to the model which forwards its arguments to the
+           visualizer's `visualize` method.
+       name
+           Name of the model.
+           
+
+   .. method:: __str__(self)
+
+      Return str(self).
+
+
+   .. method:: with_time_stepper(self, **kwargs)
+
+
+   .. method:: _compute_solution(self, mu=None, **kwargs)
+
+      Compute the model's solution for |parameter values| `mu`.
+
+      This method is called by the default implementation of :meth:`compute`
+      in :class:`pymor.models.interface.Model`.
+
+      .. admonition:: Parameters
+
+          mu
+              |Parameter values| for which to compute the solution.
+          kwargs
+              Additional keyword arguments to customize how the solution is
+              computed or to select additional data to be returned.
+              
+      .. admonition:: Returns
+
+          |VectorArray| with the computed solution or a dict which at least
+          must contain the key `'solution'`.
+              
+
+
+   .. method:: to_lti(self)
+
+      Convert model to |LTIModel|.
+
+      This method interprets the given model as an |LTIModel|
+      in the following way::
+
+          - self.operator        -> A
+          self.rhs               -> B
+          self.output_functional -> C
+          None                   -> D
+          self.mass              -> E
+
+
+
