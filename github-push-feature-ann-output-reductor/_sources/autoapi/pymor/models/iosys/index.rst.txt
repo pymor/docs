@@ -30,6 +30,8 @@ Functions
   :nosignatures:
 
    pymor.models.iosys.sparse_min_size
+   pymor.models.iosys._lti_to_poles_b_c
+   pymor.models.iosys._poles_b_c_to_lti
 
 
 
@@ -158,6 +160,56 @@ Functions
 
           out
               List of matplotlib artists added.
+              
+
+
+   .. method:: h2_norm(self, return_norm_only=True, **quad_kwargs)
+
+      Compute the H2-norm using quadrature.
+
+      This method uses `scipy.integrate.quad` and makes no assumptions on the form of the transfer
+      function.
+
+      By default, the absolute error tolerance in `scipy.integrate.quad` is set to zero (see its
+      optional argument `epsabs`).
+      It can be changed by using the `epsabs` keyword argument.
+
+      .. admonition:: Parameters
+
+          return_norm_only
+              Whether to only return the approximate H2-norm.
+          quad_kwargs
+              Keyword arguments passed to `scipy.integrate.quad`.
+              
+      .. admonition:: Returns
+
+          norm
+              Computed H2-norm.
+          norm_relerr
+              Relative error estimate (returned if `return_norm_only` is `False`).
+          info
+              Quadrature info (returned if `return_norm_only` is `False` and `full_output` is `True`).
+              See `scipy.integrate.quad` documentation for more details.
+              
+
+
+   .. method:: h2_inner(self, lti)
+
+      Compute H2 inner product with an |LTIModel|.
+
+      Uses the inner product formula based on the pole-residue form
+      (see, e.g., Lemma 1 in :cite:`ABG10`).
+
+      .. admonition:: Parameters
+
+          lti
+              |LTIModel| consisting of |Operators| that can be converted to |NumPy arrays|.
+              The D operator is ignored.
+              
+      .. admonition:: Returns
+
+          inner
+              H2 inner product.
               
 
 
@@ -305,6 +357,25 @@ Functions
               
 
 
+   .. method:: to_matrices(self)
+
+      Return operators as matrices.
+
+      .. admonition:: Returns
+
+          A
+              The |NumPy array| or |SciPy spmatrix| A.
+          B
+              The |NumPy array| or |SciPy spmatrix| B.
+          C
+              The |NumPy array| or |SciPy spmatrix| C.
+          D
+              The |NumPy array| or |SciPy spmatrix| D or `None` (if D is a `ZeroOperator`).
+          E
+              The |NumPy array| or |SciPy spmatrix| E or `None` (if E is an `IdentityOperator`).
+              
+
+
    .. method:: from_files(cls, A_file, B_file, C_file, D_file=None, E_file=None, cont_time=True, state_id='STATE', solver_options=None, error_estimator=None, visualizer=None, name=None)
       :classmethod:
 
@@ -347,6 +418,26 @@ Functions
               
 
 
+   .. method:: to_files(self, A_file, B_file, C_file, D_file=None, E_file=None)
+
+      Write operators to files as matrices.
+
+      .. admonition:: Parameters
+
+          A_file
+              The name of the file (with extension) containing A.
+          B_file
+              The name of the file (with extension) containing B.
+          C_file
+              The name of the file (with extension) containing C.
+          D_file
+              The name of the file (with extension) containing D or `None` if D is a `ZeroOperator`.
+          E_file
+              The name of the file (with extension) containing E or `None` if E is an
+              `IdentityOperator`.
+              
+
+
    .. method:: from_mat_file(cls, file_name, cont_time=True, state_id='STATE', solver_options=None, error_estimator=None, visualizer=None, name=None)
       :classmethod:
 
@@ -382,10 +473,21 @@ Functions
               
 
 
+   .. method:: to_mat_file(self, file_name)
+
+      Save operators as matrices to .mat file.
+
+      .. admonition:: Parameters
+
+          file_name
+              The name of the .mat file (extension .mat does not need to be included).
+              
+
+
    .. method:: from_abcde_files(cls, files_basename, cont_time=True, state_id='STATE', solver_options=None, error_estimator=None, visualizer=None, name=None)
       :classmethod:
 
-      Create |LTIModel| from matrices stored in a .[ABCDE] files.
+      Create |LTIModel| from matrices stored in .[ABCDE] files.
 
       .. admonition:: Parameters
 
@@ -413,6 +515,17 @@ Functions
 
           lti
               The |LTIModel| with operators A, B, C, D, and E.
+              
+
+
+   .. method:: to_abcde_files(self, files_basename)
+
+      Save operators as matrices to .[ABCDE] files in Matrix Market format.
+
+      .. admonition:: Parameters
+
+          files_basename
+              The basename of files containing the operators.
               
 
 
@@ -728,36 +841,6 @@ Functions
    .. method:: __rmul__(self, other)
 
 
-   .. method:: h2_norm(self, return_norm_only=True, **quad_kwargs)
-
-      Compute the H2-norm using quadrature.
-
-      This method uses `scipy.integrate.quad` and makes no assumptions on the form of the transfer
-      function.
-
-      By default, the absolute error tolerance in `scipy.integrate.quad` is set to zero (see its
-      optional argument `epsabs`).
-      It can be changed by using the `epsabs` keyword argument.
-
-      .. admonition:: Parameters
-
-          return_norm_only
-              Whether to only return the approximate H2-norm.
-          quad_kwargs
-              Keyword arguments passed to `scipy.integrate.quad`.
-              
-      .. admonition:: Returns
-
-          norm
-              Computed H2-norm.
-          norm_relerr
-              Relative error estimate (returned if `return_norm_only` is `False`).
-          info
-              Quadrature info (returned if `return_norm_only` is `False` and `full_output` is `True`).
-              See `scipy.integrate.quad` documentation for more details.
-              
-
-
 
 .. class:: SecondOrderModel(M, E, K, B, Cp, Cv=None, D=None, cont_time=True, solver_options=None, error_estimator=None, visualizer=None, name=None)
 
@@ -919,6 +1002,29 @@ Functions
               
 
 
+   .. method:: to_matrices(self)
+
+      Return operators as matrices.
+
+      .. admonition:: Returns
+
+          M
+              The |NumPy array| or |SciPy spmatrix| M.
+          E
+              The |NumPy array| or |SciPy spmatrix| E.
+          K
+              The |NumPy array| or |SciPy spmatrix| K.
+          B
+              The |NumPy array| or |SciPy spmatrix| B.
+          Cp
+              The |NumPy array| or |SciPy spmatrix| Cp.
+          Cv
+              The |NumPy array| or |SciPy spmatrix| Cv or `None` (if Cv is a `ZeroOperator`).
+          D
+              The |NumPy array| or |SciPy spmatrix| D or `None` (if D is a `ZeroOperator`).
+              
+
+
    .. method:: from_files(cls, M_file, E_file, K_file, B_file, Cp_file, Cv_file=None, D_file=None, cont_time=True, state_id='STATE', solver_options=None, error_estimator=None, visualizer=None, name=None)
       :classmethod:
 
@@ -962,6 +1068,29 @@ Functions
 
           som
               The |SecondOrderModel| with operators M, E, K, B, Cp, Cv, and D.
+              
+
+
+   .. method:: to_files(self, M_file, E_file, K_file, B_file, Cp_file, Cv_file=None, D_file=None)
+
+      Write operators to files as matrices.
+
+      .. admonition:: Parameters
+
+          M_file
+              The name of the file (with extension) containing M.
+          E_file
+              The name of the file (with extension) containing E.
+          K_file
+              The name of the file (with extension) containing K.
+          B_file
+              The name of the file (with extension) containing B.
+          Cp_file
+              The name of the file (with extension) containing Cp.
+          Cv_file
+              The name of the file (with extension) containing Cv or `None` if D is a `ZeroOperator`.
+          D_file
+              The name of the file (with extension) containing D or `None` if D is a `ZeroOperator`.
               
 
 
@@ -1443,7 +1572,7 @@ Functions
 
    .. method:: __mul__(self, other)
 
-      Postmultiply by a |SecondOrderModel| or an |LTIModel|.
+      Postmultiply an |LTIModel|, |SecondOrderModel| or |LinearDelayModel|.
 
 
    .. method:: __rmul__(self, other)
@@ -1731,5 +1860,54 @@ Functions
 
       Return str(self).
 
+
+
+.. function:: _lti_to_poles_b_c(lti)
+
+   Compute poles and residues.
+
+   .. admonition:: Parameters
+
+       lti
+           |LTIModel| consisting of |Operators| that can be converted to |NumPy arrays|.
+           The D operator is ignored.
+           
+   .. admonition:: Returns
+
+       poles
+           1D |NumPy array| of poles.
+       b
+           |NumPy array| of shape `(lti.order, lti.dim_input)`.
+       c
+           |NumPy array| of shape `(lti.order, lti.dim_output)`.
+           
+
+
+.. function:: _poles_b_c_to_lti(poles, b, c)
+
+   Create an |LTIModel| from poles and residue rank-1 factors.
+
+   Returns an |LTIModel| with real matrices such that its transfer
+   function is
+
+   .. math::
+       \sum_{i = 1}^r \frac{c_i b_i^T}{s - \lambda_i}
+
+   where :math:`\lambda_i, b_i, c_i` are the poles and residue rank-1
+   factors.
+
+   .. admonition:: Parameters
+
+       poles
+           Sequence of poles.
+       b
+           |NumPy array| of shape `(rom.order, rom.dim_input)`.
+       c
+           |NumPy array| of shape `(rom.order, rom.dim_output)`.
+           
+   .. admonition:: Returns
+
+       |LTIModel|.
+           
 
 
