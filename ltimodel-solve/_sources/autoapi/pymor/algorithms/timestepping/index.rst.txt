@@ -1,0 +1,214 @@
+:mod:`pymor.algorithms.timestepping`
+====================================
+
+.. py:module:: pymor.algorithms.timestepping
+
+.. autoapi-nested-parse::
+
+   Generic time-stepping algorithms for the solution of instationary problems.
+
+   The algorithms are generic in the sense that each algorithms operates exclusively
+   on |Operators| and |VectorArrays|. In particular, the algorithms
+   can also be used to turn an arbitrary stationary |Model| provided
+   by an external library into an instationary |Model|.
+
+   Currently, implementations of :func:`explicit_euler` and :func:`implicit_euler`
+   time-stepping are provided. The :class:`TimeStepper` defines a
+   common interface that has to be fulfilled by the time-steppers used
+   by |InstationaryModel|. The classes :class:`ExplicitEulerTimeStepper`
+   and :class:`ImplicitEulerTimeStepper` encapsulate :func:`explicit_euler` and
+   :func:`implicit_euler` to provide this interface.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.algorithms.timestepping.TimeStepper
+   pymor.algorithms.timestepping.ImplicitEulerTimeStepper
+   pymor.algorithms.timestepping.ExplicitEulerTimeStepper
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.algorithms.timestepping.implicit_euler
+   pymor.algorithms.timestepping.explicit_euler
+
+
+
+.. class:: TimeStepper
+
+
+   Bases: :py:obj:`pymor.core.base.ImmutableObject`
+
+   Interface for time-stepping algorithms.
+
+   Algorithms implementing this interface solve time-dependent problems
+   of the form ::
+
+       M * d_t u + A(u, mu, t) = F(mu, t).
+
+   Time-steppers used by |InstationaryModel| have to fulfill
+   this interface.
+
+   .. method:: solve(self, initial_time, end_time, initial_data, operator, rhs=None, mass=None, mu=None, num_values=None)
+      :abstractmethod:
+
+      Apply time-stepper to the equation ::
+
+          M * d_t u + A(u, mu, t) = F(mu, t).
+
+      .. admonition:: Parameters
+
+          initial_time
+              The time at which to begin time-stepping.
+          end_time
+              The time until which to perform time-stepping.
+          initial_data
+              The solution vector at `initial_time`.
+          operator
+              The |Operator| A.
+          rhs
+              The right-hand side F (either |VectorArray| of length 1 or |Operator| with
+              `source.dim == 1`). If `None`, zero right-hand side is assumed.
+          mass
+              The |Operator| M. If `None`, the identity operator is assumed.
+          mu
+              |Parameter values| for which `operator` and `rhs` are evaluated. The current
+              time is added to `mu` with key `t`.
+          num_values
+              The number of returned vectors of the solution trajectory. If `None`, each
+              intermediate vector that is calculated is returned.
+              
+      .. admonition:: Returns
+
+          |VectorArray| containing the solution trajectory.
+              
+
+
+
+.. class:: ImplicitEulerTimeStepper(nt, solver_options='operator')
+
+
+   Bases: :py:obj:`TimeStepper`
+
+   Implicit Euler time-stepper.
+
+   Solves equations of the form ::
+
+       M * d_t u + A(u, mu, t) = F(mu, t).
+
+   .. admonition:: Parameters
+
+       nt
+           The number of time-steps the time-stepper will perform.
+       solver_options
+           The |solver_options| used to invert `M + dt*A`.
+           The special values `'mass'` and `'operator'` are
+           recognized, in which case the solver_options of
+           M (resp. A) are used.
+           
+
+   .. method:: solve(self, initial_time, end_time, initial_data, operator, rhs=None, mass=None, mu=None, num_values=None)
+
+      Apply time-stepper to the equation ::
+
+          M * d_t u + A(u, mu, t) = F(mu, t).
+
+      .. admonition:: Parameters
+
+          initial_time
+              The time at which to begin time-stepping.
+          end_time
+              The time until which to perform time-stepping.
+          initial_data
+              The solution vector at `initial_time`.
+          operator
+              The |Operator| A.
+          rhs
+              The right-hand side F (either |VectorArray| of length 1 or |Operator| with
+              `source.dim == 1`). If `None`, zero right-hand side is assumed.
+          mass
+              The |Operator| M. If `None`, the identity operator is assumed.
+          mu
+              |Parameter values| for which `operator` and `rhs` are evaluated. The current
+              time is added to `mu` with key `t`.
+          num_values
+              The number of returned vectors of the solution trajectory. If `None`, each
+              intermediate vector that is calculated is returned.
+              
+      .. admonition:: Returns
+
+          |VectorArray| containing the solution trajectory.
+              
+
+
+
+.. class:: ExplicitEulerTimeStepper(nt)
+
+
+   Bases: :py:obj:`TimeStepper`
+
+   Explicit Euler time-stepper.
+
+   Solves equations of the form ::
+
+       M * d_t u + A(u, mu, t) = F(mu, t).
+
+   .. admonition:: Parameters
+
+       nt
+           The number of time-steps the time-stepper will perform.
+           
+
+   .. method:: solve(self, initial_time, end_time, initial_data, operator, rhs=None, mass=None, mu=None, num_values=None)
+
+      Apply time-stepper to the equation ::
+
+          M * d_t u + A(u, mu, t) = F(mu, t).
+
+      .. admonition:: Parameters
+
+          initial_time
+              The time at which to begin time-stepping.
+          end_time
+              The time until which to perform time-stepping.
+          initial_data
+              The solution vector at `initial_time`.
+          operator
+              The |Operator| A.
+          rhs
+              The right-hand side F (either |VectorArray| of length 1 or |Operator| with
+              `source.dim == 1`). If `None`, zero right-hand side is assumed.
+          mass
+              The |Operator| M. If `None`, the identity operator is assumed.
+          mu
+              |Parameter values| for which `operator` and `rhs` are evaluated. The current
+              time is added to `mu` with key `t`.
+          num_values
+              The number of returned vectors of the solution trajectory. If `None`, each
+              intermediate vector that is calculated is returned.
+              
+      .. admonition:: Returns
+
+          |VectorArray| containing the solution trajectory.
+              
+
+
+
+.. function:: implicit_euler(A, F, M, U0, t0, t1, nt, mu=None, num_values=None, solver_options='operator')
+
+
+.. function:: explicit_euler(A, F, U0, t0, t1, nt, mu=None, num_values=None)
+
+

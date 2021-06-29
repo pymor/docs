@@ -1,0 +1,451 @@
+:mod:`pymor.models.interface`
+=============================
+
+.. py:module:: pymor.models.interface
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.models.interface.Model
+
+
+
+
+.. class:: Model(products=None, error_estimator=None, visualizer=None, name=None)
+
+
+   Bases: :py:obj:`pymor.core.cache.CacheableObject`, :py:obj:`pymor.parameters.base.ParametricObject`
+
+   Interface for model objects.
+
+   A model object defines a discrete problem
+   via its `class` and the |Operators| it contains.
+   Furthermore, models can be
+   :meth:`solved <Model.solve>` for given
+   |parameter values| resulting in a solution |VectorArray|.
+
+   .. attribute:: solution_space
+
+      |VectorSpace| of the solution |VectorArrays| returned by :meth:`solve`.
+
+   .. attribute:: dim_output
+
+      Dimension of the model output returned by :meth:`output`. 0 if the
+      model has no output.
+
+   .. attribute:: linear
+
+      `True` if the model describes a linear problem.
+
+   .. attribute:: products
+
+      Dict of inner product operators associated with the model.
+      
+
+   .. attribute:: _compute_allowed_kwargs
+      
+
+      
+
+   .. method:: _compute(self, solution=False, output=False, solution_d_mu=False, output_d_mu=False, solution_error_estimate=False, output_error_estimate=False, output_d_mu_return_array=False, mu=None, **kwargs)
+
+
+   .. method:: _compute_solution(self, mu=None, **kwargs)
+      :abstractmethod:
+
+      Compute the model's solution for |parameter values| `mu`.
+
+      This method is called by the default implementation of :meth:`compute`
+      in :class:`pymor.models.interface.Model`.
+
+      .. admonition:: Parameters
+
+          mu
+              |Parameter values| for which to compute the solution.
+          kwargs
+              Additional keyword arguments to customize how the solution is
+              computed or to select additional data to be returned.
+              
+      .. admonition:: Returns
+
+          |VectorArray| with the computed solution or a dict which at least
+          must contain the key `'solution'`.
+              
+
+
+   .. method:: _compute_output(self, solution, mu=None, **kwargs)
+
+      Compute the model's output for |parameter values| `mu`.
+
+      This method is called by the default implementation of :meth:`compute`
+      in :class:`pymor.models.interface.Model`. The assumption is made
+      that the output is a derived quantity from the model's internal state
+      as returned my :meth:`_compute_solution`. When this is not the case,
+      the computation of the output should be implemented in :meth:`_compute`.
+
+      .. note::
+
+          The default implementation applies the |Operator| given by the
+          :attr:`output_functional` attribute to the given `solution`
+          |VectorArray|.
+
+      .. admonition:: Parameters
+
+          solution
+              Internal model state for the given |parameter values|.
+          mu
+              |Parameter values| for which to compute the output.
+          kwargs
+              Additional keyword arguments to customize how the output is
+              computed or to select additional data to be returned.
+              
+      .. admonition:: Returns
+
+          |NumPy array| with the computed output or a dict which at least
+          must contain the key `'output'`.
+              
+
+
+   .. method:: _compute_solution_d_mu_single_direction(self, parameter, index, solution, mu=None, **kwargs)
+      :abstractmethod:
+
+      Compute the partial derivative of the solution w.r.t. a parameter index
+
+      .. admonition:: Parameters
+
+          parameter
+              parameter for which to compute the sensitivity
+          index
+              parameter index for which to compute the sensitivity
+          solution
+              Internal model state for the given |Parameter value|.
+          mu
+              |Parameter value| for which to solve
+              
+      .. admonition:: Returns
+
+          The sensitivity of the solution as a |VectorArray|.
+              
+
+
+   .. method:: _compute_solution_d_mu(self, solution, mu=None, **kwargs)
+
+      Compute all partial derivative of the solution w.r.t. a parameter index
+
+      .. admonition:: Parameters
+
+          solution
+              Internal model state for the given |Parameter value|.
+          mu
+              |Parameter value| for which to solve
+              
+      .. admonition:: Returns
+
+          A dict of all partial sensitivities of the solution.
+              
+
+
+   .. method:: _compute_output_d_mu(self, solution, mu=None, return_array=False, **kwargs)
+
+      Compute the gradient w.r.t. the parameter of the output functional
+
+      .. admonition:: Parameters
+
+          solution
+              Internal model state for the given |Parameter value|.
+          mu
+              |Parameter value| for which to compute the gradient
+          return_array
+              if `True`, return the output gradient as a |NumPy array|.
+              Otherwise, return a dict of gradients for each |Parameter|.
+              
+      .. admonition:: Returns
+
+          The gradient as a |NumPy array| or a dict of |NumPy arrays|.
+              
+
+
+   .. method:: _compute_solution_error_estimate(self, solution, mu=None, **kwargs)
+
+      Compute an error estimate for the computed internal state.
+
+      This method is called by the default implementation of :meth:`compute`
+      in :class:`pymor.models.interface.Model`. The assumption is made
+      that the error estimate is a derived quantity from the model's internal state
+      as returned my :meth:`_compute_solution`. When this is not the case,
+      the computation of the error estimate should be implemented in :meth:`_compute`.
+
+      .. note::
+
+          The default implementation calls the `estimate_error` method of the object
+          given by the :attr:`error_estimator` attribute, passing `solution`,
+          `mu`, `self` and `**kwargs`.
+
+      .. admonition:: Parameters
+
+          solution
+              Internal model state for the given |parameter values|.
+          mu
+              |Parameter values| for which to compute the error estimate.
+          kwargs
+              Additional keyword arguments to customize how the error estimate is
+              computed or to select additional data to be returned.
+              
+      .. admonition:: Returns
+
+          The computed error estimate or a dict which at least must contain the key
+          `'solution_error_estimate'`.
+              
+
+
+   .. method:: _compute_output_error_estimate(self, solution, mu=None, **kwargs)
+
+      Compute an error estimate for the computed model output.
+
+      This method is called by the default implementation of :meth:`compute`
+      in :class:`pymor.models.interface.Model`. The assumption is made
+      that the error estimate is a derived quantity from the model's internal state
+      as returned my :meth:`_compute_solution`. When this is not the case,
+      the computation of the error estimate should be implemented in :meth:`_compute`.
+
+      .. note::
+
+          The default implementation calls the `estimate_output_error` method of the object
+          given by the :attr:`error_estimator` attribute, passing `solution`,
+          `mu`, `self` and `**kwargs`.
+
+      .. admonition:: Parameters
+
+          solution
+              Internal model state for the given |parameter values|.
+          mu
+              |Parameter values| for which to compute the error estimate.
+          kwargs
+              Additional keyword arguments to customize how the error estimate is
+              computed or to select additional data to be returned.
+              
+      .. admonition:: Returns
+
+          The computed error estimate or a dict which at least must contain the key
+          `'solution_error_estimate'`.
+              
+
+
+   .. method:: compute(self, solution=False, output=False, solution_d_mu=False, output_d_mu=False, solution_error_estimate=False, output_error_estimate=False, output_d_mu_return_array=False, *, mu=None, **kwargs)
+
+      Compute the solution of the model and associated quantities.
+
+      This methods computes the output of the model, its internal state,
+      and various associated quantities for given |parameter values| `mu`.
+
+      .. note::
+
+          The default implementation defers the actual computations to
+          the methods :meth:`_compute_solution`, :meth:`_compute_output`,
+          :meth:`_compute_solution_error_estimate` and :meth:`_compute_output_error_estimate`.
+          The call to :meth:`_compute_solution` is :mod:`cached <pymor.core.cache>`.
+          In addition, |Model| implementors may implement :meth:`_compute` to
+          simultaneously compute multiple values in an optimized way. The corresponding
+          `_compute_XXX` methods will not be called for values already returned by
+          :meth:`_compute`.
+
+      .. admonition:: Parameters
+
+          solution
+              If `True`, return the model's internal state.
+          output
+              If `True`, return the model output.
+          solution_d_mu
+              If not `False`, either `True` to return the derivative of the model's
+              internal state w.r.t. all parameter components or a tuple `(parameter, index)`
+              to return the derivative of a single parameter component.
+          output_d_mu
+              If `True`, return the gradient of the model output w.r.t. the |Parameter|.
+          solution_error_estimate
+              If `True`, return an error estimate for the computed internal state.
+          output_error_estimate
+              If `True`, return an error estimate for the computed output.
+          output_d_mu_return_array
+              if `True`, return the output gradient as a |NumPy array|.
+              Otherwise, return a dict of gradients for each |Parameter|.
+          mu
+              |Parameter values| for which to compute the values.
+          kwargs
+              Further keyword arguments to select further quantities that should
+              be returned or to customize how the values are computed.
+              
+      .. admonition:: Returns
+
+          A dict with the computed values.
+              
+
+
+   .. method:: solve(self, mu=None, return_error_estimate=False, **kwargs)
+
+      Solve the discrete problem for the |parameter values| `mu`.
+
+      This method returns a |VectorArray| with a internal state
+      representation of the model's solution for given
+      |parameter values|. It is a convenience wrapper around
+      :meth:`compute`.
+
+      The result may be :mod:`cached <pymor.core.cache>`
+      in case caching has been activated for the given model.
+
+      .. admonition:: Parameters
+
+          mu
+              |Parameter values| for which to solve.
+          return_error_estimate
+              If `True`, also return an error estimate for the computed solution.
+          kwargs
+              Additional keyword arguments passed to :meth:`compute` that
+              might affect how the solution is computed.
+              
+      .. admonition:: Returns
+
+          The solution |VectorArray|. When `return_error_estimate` is `True`,
+          the estimate is returned as second value.
+              
+
+
+   .. method:: output(self, mu=None, return_error_estimate=False, **kwargs)
+
+      Return the model output for given |parameter values| `mu`.
+
+      This method is a convenience wrapper around :meth:`compute`.
+
+      .. admonition:: Parameters
+
+          mu
+              |Parameter values| for which to compute the output.
+          return_error_estimate
+              If `True`, also return an error estimate for the computed output.
+          kwargs
+              Additional keyword arguments passed to :meth:`compute` that
+              might affect how the solution is computed.
+              
+      .. admonition:: Returns
+
+          The computed model output as a 2D |NumPy array|. The dimension
+          of axis 1 is : attr:`dim_output`. (For stationary problems, axis 0 has
+          dimension 1. For time-dependent problems, the dimension of axis 0
+          depends on the number of time steps.)
+          When `return_error_estimate` is `True`, the estimate is returned as
+          second value.
+              
+
+
+   .. method:: solve_d_mu(self, parameter, index, mu=None, **kwargs)
+
+      Solve for the partial derivative of the solution w.r.t. a parameter index
+
+      .. admonition:: Parameters
+
+          parameter
+              parameter for which to compute the sensitivity
+          index
+              parameter index for which to compute the sensitivity
+          mu
+              |Parameter value| for which to solve
+              
+      .. admonition:: Returns
+
+          The sensitivity of the solution as a |VectorArray|.
+              
+
+
+   .. method:: output_d_mu(self, mu=None, return_array=False, **kwargs)
+
+      Compute the gradient w.r.t. the parameter of the output functional.
+
+      .. admonition:: Parameters
+
+          mu
+              |Parameter value| for which to compute the gradient
+          return_array
+              if `True`, return the output gradient as a |NumPy array|.
+              Otherwise, return a dict of gradients for each |Parameter|.
+              
+      .. admonition:: Returns
+
+          The gradient as a |NumPy array| or a dict of |NumPy arrays|.
+              
+
+
+   .. method:: estimate_error(self, mu=None, **kwargs)
+
+      Estimate the error for the computed internal state.
+
+      For given |parameter values| `mu` this method returns an
+      error estimate for the computed internal model state as returned
+      by :meth:`solve`. It is a convenience wrapper around
+      :meth:`compute`.
+
+      The model error could be the error w.r.t. the analytical
+      solution of the given problem or the model reduction error w.r.t.
+      a corresponding high-dimensional |Model|.
+
+      .. admonition:: Parameters
+
+          mu
+              |Parameter values| for which to estimate the error.
+          kwargs
+              Additional keyword arguments passed to :meth:`compute` that
+              might affect how the error estimate (or the solution) is computed.
+              
+      .. admonition:: Returns
+
+          The estimated error.
+              
+
+
+   .. method:: estimate_output_error(self, mu=None, **kwargs)
+
+      Estimate the error for the computed output.
+
+      For given |parameter values| `mu` this method returns an
+      error estimate for the computed model output as returned
+      by :meth:`output`. It is a convenience wrapper around
+      :meth:`compute`.
+
+      The output error could be the error w.r.t. the analytical
+      solution of the given problem or the model reduction error w.r.t.
+      a corresponding high-dimensional |Model|.
+
+      .. admonition:: Parameters
+
+          mu
+              |Parameter values| for which to estimate the error.
+          kwargs
+              Additional keyword arguments passed to :meth:`compute` that
+              might affect how the error estimate (or the output) is computed.
+              
+      .. admonition:: Returns
+
+          The estimated error.
+              
+
+
+   .. method:: visualize(self, U, **kwargs)
+
+      Visualize a |VectorArray| U of the model's :attr:`solution_space`.
+
+      .. admonition:: Parameters
+
+          U
+              The |VectorArray| from :attr:`solution_space`
+              that shall be visualized.
+          kwargs
+              Additional keyword arguments to customize the visualization.
+              See the docstring of `self.visualizer.visualize`.
+              
+
+
+

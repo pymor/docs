@@ -1,0 +1,163 @@
+:mod:`pymor.algorithms.samdp`
+=============================
+
+.. py:module:: pymor.algorithms.samdp
+
+
+Module Contents
+---------------
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.algorithms.samdp.samdp
+   pymor.algorithms.samdp._twosided_rqi
+   pymor.algorithms.samdp._select_max_eig
+
+
+
+.. function:: samdp(A, E, B, C, nwanted, init_shifts=None, which='NR', tol=1e-10, imagtol=1e-06, conjtol=1e-08, dorqitol=0.0001, rqitol=1e-10, maxrestart=100, krestart=20, rqi_maxiter=10, seed=0)
+
+   Compute the dominant pole triplets and residues of the transfer function of an LTI system.
+
+   This function uses the subspace accelerated dominant pole (SAMDP) algorithm as described in
+   :cite:`RM06` in Algorithm 2 in order to compute dominant pole triplets and residues of the
+   transfer function
+
+   .. math::
+       H(s) = C (s E - A)^{-1} B
+
+   of an LTI system. It is possible to take advantage of prior knowledge about the poles
+   by specifying shift parameters, which are injected after a new pole has been found.
+
+   .. admonition:: Parameters
+
+       A
+           The |Operator| A.
+       E
+           The |Operator| E or `None`.
+       B
+           The operator B as a |VectorArray| from `A.source`.
+       C
+           The operator C as a |VectorArray| from `A.source`.
+       nwanted
+           The number of dominant poles that should be computed.
+       init_shifts
+           A |NumPy array| containing shifts which are injected after a new pole has been found.
+       which
+           A string specifying the strategy by which the dominant poles and residues are selected.
+           Possible values are:
+           
+           - `'NR'`: select poles with largest norm(residual) / abs(Re(pole))
+           - `'NS'`: select poles with largest norm(residual) / abs(pole)
+           - `'NM'`: select poles with largest norm(residual)
+       tol
+           Tolerance for the residual of the poles.
+       imagtol
+           Relative tolerance for imaginary parts of pairs of complex conjugate eigenvalues.
+       conjtol
+           Tolerance for the residual of the complex conjugate of a pole.
+       dorqitol
+           If the residual is smaller than dorqitol the two-sided Rayleigh quotient iteration
+           is executed.
+       rqitol
+           Tolerance for the relative change of a pole in the two-sided Rayleigh quotient
+           iteration.
+       maxrestart
+           The maximum number of restarts.
+       krestart
+           Maximum dimension of search space before performing a restart.
+       rqi_maxiter
+           Maximum number of iterations for the two-sided Rayleigh quotient iteration.
+       seed
+           Random seed which is used for computing the initial shift and random restarts.
+           
+   .. admonition:: Returns
+
+       poles
+           A 1D |NumPy array| containing the computed dominant poles.
+       residues
+           A 3D |NumPy array| of shape `(len(poles), len(C), len(B))` containing the computed residues.
+       rightev
+           A |VectorArray| containing the right eigenvectors of the computed poles.
+       leftev
+           A |VectorArray| containing the left eigenvectors of the computed poles.
+           
+
+
+.. function:: _twosided_rqi(A, E, x, y, theta, init_res, imagtol, rqitol, maxiter)
+
+   Refine an initial guess for an eigentriplet of the matrix pair (A, E).
+
+   .. admonition:: Parameters
+
+       A
+           The |Operator| A from the LTI system.
+       E
+           The |Operator| E from the LTI system.
+       x
+           Initial guess for right eigenvector of matrix pair (A, E).
+       y
+           Initial guess for left eigenvector of matrix pair (A, E).
+       theta
+           Initial guess for eigenvalue of matrix pair (A, E).
+       init_res
+           Residual of initial guess.
+       imagtol
+           Relative tolerance for imaginary parts of pairs of complex conjugate eigenvalues.
+       rqitol
+           Convergence tolerance for the relative change of the pole.
+       maxiter
+           Maximum number of iteration.
+           
+   .. admonition:: Returns
+
+       x
+           Refined right eigenvector of matrix pair (A, E).
+       y
+           Refined left eigenvector of matrix pair (A, E).
+       theta
+           Refined eigenvalue of matrix pair (A, E).
+       residual
+           Residual of the computed triplet.
+           
+
+
+.. function:: _select_max_eig(H, G, X, V, B, C, which)
+
+   Compute poles sorted from largest to smallest residual.
+
+   .. admonition:: Parameters
+
+       H
+           The |Numpy array| H from the SAMDP algorithm.
+       G
+           The |Numpy array| G from the SAMDP algorithm.
+       X
+           A |VectorArray| describing the orthogonal search space used in the SAMDP algorithm.
+       V
+           A |VectorArray| describing the orthogonal search space used in the SAMDP algorithm.
+       B
+           The |VectorArray| B from the corresponding LTI system modified by deflation.
+       C
+           The |VectorArray| C from the corresponding LTI system modified by deflation.
+       which
+           A string that indicates which poles to select. See :func:`samdp`.
+           
+   .. admonition:: Returns
+
+       poles
+           A |NumPy array| containing poles sorted according to the chosen strategy.
+       rightevs
+           A |NumPy array| containing the right eigenvectors of the computed poles.
+       leftevs
+           A |NumPy array| containing the left eigenvectors of the computed poles.
+       residue
+           A 1D |NumPy array| containing the norms of the residues.
+           
+
+
