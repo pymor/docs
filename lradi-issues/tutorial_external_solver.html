@@ -46,20 +46,27 @@
   
   
   
-    <title>Tutorial: Binding an external PDE solver to pyMOR &#8212; pyMOR v2021.1rc0+350.gc8601637 Manual</title>
+    <title>Tutorial: Binding an external PDE solver to pyMOR &#8212; pyMOR v2021.1rc0+418.gc8cfa053 Manual</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/material.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="_static/jupyter-sphinx.css" />
     <link rel="stylesheet" type="text/css" href="_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.css" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
     <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
     <script src="_static/thebelab-helper.js"></script>
+    <script src="_static/togglebutton.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://unpkg.com/@jupyter-widgets/html-manager@^0.20.0/dist/embed-amd.js"></script>
+    <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <script src="https://unpkg.com/@jupyter-widgets/html-manager@^0.20.0/dist/embed-amd.js"></script>
     <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]], "processRefs": false, "processEnvironments": false}})</script>
     <link rel="shortcut icon" href="_static/pymor_favicon.png"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -91,11 +98,11 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="pyMOR v2021.1rc0+350.gc8601637 Manual"
+        <a href="index.html" title="pyMOR v2021.1rc0+418.gc8cfa053 Manual"
            class="md-header-nav__button md-logo">
           
               <img src="_static/pymor_logo_white.svg" height="26"
-                   alt="pyMOR v2021.1rc0+350.gc8601637 Manual logo">
+                   alt="pyMOR v2021.1rc0+418.gc8cfa053 Manual logo">
           
         </a>
       </div>
@@ -161,7 +168,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">pyMOR v2021.1rc0+350.gc8601637 Manual</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">pyMOR v2021.1rc0+418.gc8cfa053 Manual</a></li>
           <li class="md-tabs__item"><a href="tutorials.html" class="md-tabs__link">pyMOR Tutorials</a></li>
       </ul>
     </div>
@@ -174,13 +181,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="pyMOR v2021.1rc0+350.gc8601637 Manual" class="md-nav__button md-logo">
+    <a href="index.html" title="pyMOR v2021.1rc0+418.gc8cfa053 Manual" class="md-nav__button md-logo">
       
         <img src="_static/pymor_logo_white.svg" alt=" logo" width="48" height="48">
       
     </a>
     <a href="index.html"
-       title="pyMOR v2021.1rc0+350.gc8601637 Manual">Documentation</a>
+       title="pyMOR v2021.1rc0+418.gc8cfa053 Manual">Documentation</a>
   </label>
   
 
@@ -365,6 +372,14 @@
           <article class="md-content__inner md-typeset" role="main">
             
   
+<div class="admonition">
+<p class="admonition-title">Run this tutorial</p>
+<a href="https://mybinder.org/v2/gh/pymor/docs/lradi-issues?filepath=tutorial_external_solver.ipynb">Click here</a> to run this tutorial on mybinder.org: <a href="https://mybinder.org/v2/gh/pymor/docs/lradi-issues?filepath=tutorial_external_solver.ipynb">
+<img alt="try on mybinder.org" src="https://mybinder.org/badge_logo.svg"/>
+</a><br/>
+<emph>Please note that starting the notebook server may take a couple of minutes.</emph>
+</div>
+
 <h1 id="tutorial-external-solver--page-root">Tutorial: Binding an external PDE solver to pyMOR<a class="headerlink" href="#tutorial-external-solver--page-root" title="Permalink to this headline">¶</a></h1>
 <p>One of pyMOR’s main features is easy integration of external solvers that implement the full-order model. In this tutorial
 we will do this step-by-step for a custom toy solver written in C++.
@@ -482,7 +497,7 @@ to represent the full-order model.</p>
 </pre></div>
 </div>
 <p>This tells pybind11 to make the contained symbols accessible in the module instance <code class="docutils literal notranslate"><span class="pre">m</span></code> that will be importable by the
-name <code class="docutils literal notranslate"><span class="pre">model</span></code>. Now we create a new pybind11 <code class="docutils literal notranslate"><span class="pre">class_</span></code> object that wraps the <code class="docutils literal notranslate"><span class="pre">DiffusionOperator</span></code>. Note that the module
+name <code class="docutils literal notranslate"><span class="pre">model</span></code>. Now we create a new pybind11 <code class="docutils literal notranslate"><span class="pre">class\_</span></code> object that wraps the <code class="docutils literal notranslate"><span class="pre">DiffusionOperator</span></code>. Note that the module
 instance is passed to the constructor alongside a name for the Python class and a docstring. The second
 line shows how to define an init function for the Python object by using the special <code class="docutils literal notranslate"><span class="pre">py:init</span></code> object to
 forward arguments to the C++ constructor.</p>
@@ -506,7 +521,7 @@ with a few more advanced techniques added.</p>
     <span class="n">vec</span><span class="p">.</span><span class="n">def</span><span class="p">(</span><span class="n">py</span><span class="o">::</span><span class="n">init</span><span class="p">([](</span><span class="k">const</span> <span class="n">Vector</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">Vector</span><span class="o">&gt;</span><span class="p">(</span><span class="n">other</span><span class="p">);</span> <span class="p">}));</span>
 </pre></div>
 </div>
-<p>Again we define a <code class="docutils literal notranslate"><span class="pre">py:class_</span></code> with appropiate name and docstring, but now we also indicate to pybind11
+<p>Again we define a <code class="docutils literal notranslate"><span class="pre">py:class\_</span></code> with appropiate name and docstring, but now we also indicate to pybind11
 that this class will implement the <a class="reference external" href="https://docs.python.org/3/c-api/buffer.html">buffer protocol</a>, which basically
 exposes direct access to the chunk of memory associated with a <code class="docutils literal notranslate"><span class="pre">Vector</span></code> instance to Python. We also see how we can dispatch multiple init functions
 by using <code class="docutils literal notranslate"><span class="pre">py:init</span></code> objects with C++ lambda functions.
@@ -552,132 +567,58 @@ flags.</p>
 In the next step, we will switch to a bash terminal and actually compile this module.</p>
 <p>After creating a build directory for the module, we let cmake initialize the build and call make to execute the
 compilation.</p>
-<div class="jupyter_cell jupyter_container docutils container">
-<div class="cell_input code_cell docutils container">
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>mkdir -p source/minimal_cpp_demo/build
-cd source/minimal_cpp_demo/build
-cmake .. -DPYTHON_EXECUTABLE=$(which python) -DCMAKE_COLOR_MAKEFILE=OFF # prevent bash control chars in output
-make
+<div class="cell tag_raises-exception docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%</span><span class="k">bash</span>
+mkdir -p minimal_cpp_demo/build
+cmake -B minimal_cpp_demo/build -S minimal_cpp_demo
+make -C minimal_cpp_demo/build
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- The C compiler identification is GNU 8.3.0
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- The CXX compiler identification is GNU 8.3.0
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting C compiler ABI info
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting C compiler ABI info - done
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Check for working C compiler: /usr/lib/ccache/cc - skipped
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting C compile features
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting C compile features - done
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting CXX compiler ABI info
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting CXX compiler ABI info - done
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Check for working CXX compiler: /usr/lib/ccache/c++ - skipped
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting CXX compile features
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Detecting CXX compile features - done
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Found PythonInterp: /usr/local/bin/python (found version "3.7.10") 
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Found PythonLibs: /usr/local/lib/libpython3.7m.so
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Performing Test HAS_FLTO
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Performing Test HAS_FLTO - Success
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Found pybind11: /usr/local/include (found version "2.6.1" )
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Found pybind11 v2.6.1: /usr/local/include;/usr/local/include/python3.7m
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Configuring done
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Generating done
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>-- Build files have been written to: /builds/pymor/pymor/docs/source/minimal_cpp_demo/build
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[2]: Entering directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[3]: Entering directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[4]: Entering directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[4]: Leaving directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[4]: Entering directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>[ 50%] Building CXX object CMakeFiles/model.dir/model.cc.o
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>[100%] Linking CXX shared module model.cpython-37m-x86_64-linux-gnu.so
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[4]: Leaving directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>[100%] Built target model
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[3]: Leaving directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
-</pre></div>
-</div>
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>make[2]: Leaving directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>-- The C compiler identification is GNU 8.3.0
+-- The CXX compiler identification is GNU 8.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/lib/ccache/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/lib/ccache/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found PythonInterp: /usr/local/bin/python3.7 (found version "3.7.10") 
+-- Found PythonLibs: /usr/local/lib/libpython3.7m.so
+-- Performing Test HAS_FLTO
+-- Performing Test HAS_FLTO - Success
+-- Found pybind11: /usr/local/include (found version "2.6.1" )
+-- Found pybind11 v2.6.1: /usr/local/include;/usr/local/include/python3.7m
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /builds/pymor/pymor/docs/source/minimal_cpp_demo/build
+make[2]: Entering directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
+make[3]: Entering directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
+make[4]: Entering directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
+make[4]: Leaving directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
+make[4]: Entering directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
+[ 50%] Building CXX object CMakeFiles/model.dir/model.cc.o
+[100%] Linking CXX shared module model.cpython-37m-x86_64-linux-gnu.so
+make[4]: Leaving directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
+[100%] Built target model
+make[3]: Leaving directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
+make[2]: Leaving directory '/builds/pymor/pymor/docs/source/minimal_cpp_demo/build'
 </pre></div>
 </div>
 </div>
 </div>
-<p>You can download this snippet as a notebook file to be used with a bash kernel <a class="reference download internal" download="" href="_downloads/39df787d670326b103a594ba8f799f12/make.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">make.ipynb</span></code></a>.</p>
 <p>To be able to use this extension module we need to insert the build directory into the path where the Python
 interpreter looks for things to import. Afterwards we can import the module and create and use the exported classes.</p>
-<div class="jupyter_cell docutils container">
-<div class="cell_output docutils container">
-</div>
-</div>
-<div class="admonition">
-<p class="admonition-title">Run this tutorial</p>
-<a href="https://mybinder.org/v2/gh/pymor/docs/lradi-issues?filepath=tutorial_external_solver.ipynb">Click here</a> to run this tutorial on mybinder.org: <a href="https://mybinder.org/v2/gh/pymor/docs/lradi-issues?filepath=tutorial_external_solver.ipynb">
-<img alt="try on mybinder.org" src="https://mybinder.org/badge_logo.svg"/>
-</a><br/>
-<emph>Please note that starting the notebook server may take a couple of minutes.</emph>
-</div>
-<div class="jupyter_cell jupyter_container docutils container">
-<div class="cell_input code_cell docutils container">
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
-<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s1">'source/minimal_cpp_demo/build'</span><span class="p">)</span>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s1">'minimal_cpp_demo/build'</span><span class="p">)</span>
 
 <span class="kn">import</span> <span class="nn">model</span>
 <span class="n">mymodel</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">DiffusionOperator</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
@@ -688,7 +629,7 @@ interpreter looks for things to import. Afterwards we can import the module and 
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output text_plain highlight-none notranslate"><div class="highlight"><pre><span></span>['DiffusionOperator',
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>['DiffusionOperator',
  'Vector',
  '__doc__',
  '__file__',
@@ -718,9 +659,9 @@ and <a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.ht
 and <a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.CopyOnWriteVector._axpy" title="pymor.vectorarrays.list.CopyOnWriteVector._axpy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_axpy</span></code></a> in addition to all the abstract
 methods from  <a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.CopyOnWriteVector" title="pymor.vectorarrays.list.CopyOnWriteVector"><code class="xref py py-class docutils literal notranslate"><span class="pre">CopyOnWriteVector</span></code></a>. We can get away
 with using just a stub that raises an <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#NotImplementedError" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">NotImplementedError</span></code></a> in some methods that are not actually called in our example.</p>
-<div class="jupyter_cell jupyter_container docutils container">
-<div class="cell_input code_cell docutils container">
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pymor.operators.interface</span> <span class="kn">import</span> <span class="n">Operator</span>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pymor.operators.interface</span> <span class="kn">import</span> <span class="n">Operator</span>
 <span class="kn">from</span> <span class="nn">pymor.vectorarrays.list</span> <span class="kn">import</span> <span class="n">CopyOnWriteVector</span><span class="p">,</span> <span class="n">ListVectorSpace</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -776,14 +717,12 @@ with using just a stub that raises an <a class="reference external" href="https:
 </pre></div>
 </div>
 </div>
-<div class="cell_output docutils container">
-</div>
 </div>
 <p>The implementation of the <code class="docutils literal notranslate"><span class="pre">WrappedVectorSpace</span></code> is very short as most of the necessary methods
 of <a class="reference internal" href="autoapi/pymor/vectorarrays/interface/index.html#pymor.vectorarrays.interface.VectorSpace" title="pymor.vectorarrays.interface.VectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorSpace</span></code></a> are implemented in <a class="reference internal" href="autoapi/pymor/vectorarrays/list/index.html#pymor.vectorarrays.list.ListVectorSpace" title="pymor.vectorarrays.list.ListVectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">ListVectorSpace</span></code></a>.</p>
-<div class="jupyter_cell jupyter_container docutils container">
-<div class="cell_input code_cell docutils container">
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">WrappedVectorSpace</span><span class="p">(</span><span class="n">ListVectorSpace</span><span class="p">):</span>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">WrappedVectorSpace</span><span class="p">(</span><span class="n">ListVectorSpace</span><span class="p">):</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">dim</span>
@@ -800,15 +739,13 @@ of <a class="reference internal" href="autoapi/pymor/vectorarrays/interface/inde
 </pre></div>
 </div>
 </div>
-<div class="cell_output docutils container">
-</div>
 </div>
 <p>Wrapping the <code class="docutils literal notranslate"><span class="pre">model.DiffusionOperator</span></code> is straightforward as well. We just need to attach
 suitable <a class="reference internal" href="autoapi/pymor/vectorarrays/interface/index.html#pymor.vectorarrays.interface.VectorSpace" title="pymor.vectorarrays.interface.VectorSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorSpaces</span></code></a> to the class and implement the application of the operator on a <a class="reference internal" href="autoapi/pymor/vectorarrays/interface/index.html#pymor.vectorarrays.interface.VectorArray" title="pymor.vectorarrays.interface.VectorArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorArray</span></code></a>
 as a sequence of applications on single vectors.</p>
-<div class="jupyter_cell jupyter_container docutils container">
-<div class="cell_input code_cell docutils container">
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">WrappedDiffusionOperator</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">WrappedDiffusionOperator</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">DiffusionOperator</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">op</span> <span class="o">=</span> <span class="n">op</span>
@@ -832,8 +769,6 @@ as a sequence of applications on single vectors.</p>
 </pre></div>
 </div>
 </div>
-<div class="cell_output docutils container">
-</div>
 </div>
 
 
@@ -841,15 +776,14 @@ as a sequence of applications on single vectors.</p>
 <p>As a demonstration, we will use our toy Laplace solver to compute an approximation for
 the transient diffusion equation</p>
 <div class="math notranslate nohighlight">
-\[\frac{\partial u}{\partial t} =
-{\alpha_\mu} \frac{\partial^2 u}{\partial x^2},\]</div>
+\[\frac{\partial u}{\partial t} = {\alpha_\mu} \frac{\partial^2 u}{\partial x^2},\]</div>
 <p>with explicit timestepping provided by pyMOR, with a parameterized, block-wise defined,  diffusion
 coefficient  <span class="math notranslate nohighlight">\(\alpha_\mu\)</span>.</p>
 <p>First up, we implement a <code class="docutils literal notranslate"><span class="pre">discretize</span></code> function that uses the <code class="docutils literal notranslate"><span class="pre">WrappedDiffusionOperator</span></code> and <code class="docutils literal notranslate"><span class="pre">WrappedVectorSpace</span></code>
 to assemble an <a class="reference internal" href="autoapi/pymor/models/basic/index.html#pymor.models.basic.InstationaryModel" title="pymor.models.basic.InstationaryModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">InstationaryModel</span></code></a>.</p>
-<div class="jupyter_cell jupyter_container docutils container">
-<div class="cell_input code_cell docutils container">
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pymor.algorithms.pod</span> <span class="kn">import</span> <span class="n">pod</span>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pymor.algorithms.pod</span> <span class="kn">import</span> <span class="n">pod</span>
 <span class="kn">from</span> <span class="nn">pymor.algorithms.timestepping</span> <span class="kn">import</span> <span class="n">ExplicitEulerTimeStepper</span>
 <span class="kn">from</span> <span class="nn">pymor.discretizers.builtin.gui.visualizers</span> <span class="kn">import</span> <span class="n">OnedVisualizer</span>
 <span class="kn">from</span> <span class="nn">pymor.models.basic</span> <span class="kn">import</span> <span class="n">InstationaryModel</span>
@@ -887,14 +821,12 @@ to assemble an <a class="reference internal" href="autoapi/pymor/models/basic/in
 </pre></div>
 </div>
 </div>
-<div class="cell_output docutils container">
-</div>
 </div>
 <p>Now we can build a reduced basis for our model. Note that this code is not specific to our wrapped classes.
 Those wrapped classes are only directly used in the <code class="docutils literal notranslate"><span class="pre">discretize</span></code> call.</p>
-<div class="jupyter_cell jupyter_container docutils container">
-<div class="cell_input code_cell docutils container">
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%</span><span class="k">matplotlib</span> inline
 <span class="c1"># discretize</span>
 <span class="n">fom</span> <span class="o">=</span> <span class="n">discretize</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
 <span class="n">parameter_space</span> <span class="o">=</span> <span class="n">fom</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">space</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
@@ -931,7 +863,7 @@ Those wrapped classes are only directly used in the <code class="docutils litera
 </div>
 <div class="cell_output docutils container">
 <script type="application/vnd.jupyter.widget-view+json">
-{"version_major": 2, "version_minor": 0, "model_id": "b32d41a32e5543b9a6938b785912a686"}
+{"model_id": "79c412983797450abac989849fa165bb", "version_major": 2, "version_minor": 0}
 </script><div class="output text_html"><div style="float: left; padding: 10px;">
 <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css" rel="stylesheet"/>
 <script language="javascript">
@@ -1114,36 +1046,36 @@ input[type=range].anim-slider {
 }
 </style>
 <div class="animation">
-<img id="_anim_img126db3c8ea1345bf9991cd2dc2df77a2"/>
+<img id="_anim_img576209014ca241f5b9519c108d7286ac"/>
 <div class="anim-controls">
-<input class="anim-slider" id="_anim_slider126db3c8ea1345bf9991cd2dc2df77a2" max="1" min="0" name="points" oninput="anim126db3c8ea1345bf9991cd2dc2df77a2.set_frame(parseInt(this.value));" step="1" type="range" value="0"/>
+<input class="anim-slider" id="_anim_slider576209014ca241f5b9519c108d7286ac" max="1" min="0" name="points" oninput="anim576209014ca241f5b9519c108d7286ac.set_frame(parseInt(this.value));" step="1" type="range" value="0"/>
 <div class="anim-buttons">
-<button aria-label="Decrease speed" onclick="anim126db3c8ea1345bf9991cd2dc2df77a2.slower()" title="Decrease speed">
+<button aria-label="Decrease speed" onclick="anim576209014ca241f5b9519c108d7286ac.slower()" title="Decrease speed">
 <i class="fa fa-minus"></i></button>
-<button aria-label="First frame" onclick="anim126db3c8ea1345bf9991cd2dc2df77a2.first_frame()" title="First frame">
+<button aria-label="First frame" onclick="anim576209014ca241f5b9519c108d7286ac.first_frame()" title="First frame">
 <i class="fa fa-fast-backward"></i></button>
-<button aria-label="Previous frame" onclick="anim126db3c8ea1345bf9991cd2dc2df77a2.previous_frame()" title="Previous frame">
+<button aria-label="Previous frame" onclick="anim576209014ca241f5b9519c108d7286ac.previous_frame()" title="Previous frame">
 <i class="fa fa-step-backward"></i></button>
-<button aria-label="Play backwards" onclick="anim126db3c8ea1345bf9991cd2dc2df77a2.reverse_animation()" title="Play backwards">
+<button aria-label="Play backwards" onclick="anim576209014ca241f5b9519c108d7286ac.reverse_animation()" title="Play backwards">
 <i class="fa fa-play fa-flip-horizontal"></i></button>
-<button aria-label="Pause" onclick="anim126db3c8ea1345bf9991cd2dc2df77a2.pause_animation()" title="Pause">
+<button aria-label="Pause" onclick="anim576209014ca241f5b9519c108d7286ac.pause_animation()" title="Pause">
 <i class="fa fa-pause"></i></button>
-<button aria-label="Play" onclick="anim126db3c8ea1345bf9991cd2dc2df77a2.play_animation()" title="Play">
+<button aria-label="Play" onclick="anim576209014ca241f5b9519c108d7286ac.play_animation()" title="Play">
 <i class="fa fa-play"></i></button>
-<button aria-label="Next frame" onclick="anim126db3c8ea1345bf9991cd2dc2df77a2.next_frame()" title="Next frame">
+<button aria-label="Next frame" onclick="anim576209014ca241f5b9519c108d7286ac.next_frame()" title="Next frame">
 <i class="fa fa-step-forward"></i></button>
-<button aria-label="Last frame" onclick="anim126db3c8ea1345bf9991cd2dc2df77a2.last_frame()" title="Last frame">
+<button aria-label="Last frame" onclick="anim576209014ca241f5b9519c108d7286ac.last_frame()" title="Last frame">
 <i class="fa fa-fast-forward"></i></button>
-<button aria-label="Increase speed" onclick="anim126db3c8ea1345bf9991cd2dc2df77a2.faster()" title="Increase speed">
+<button aria-label="Increase speed" onclick="anim576209014ca241f5b9519c108d7286ac.faster()" title="Increase speed">
 <i class="fa fa-plus"></i></button>
 </div>
-<form action="#n" aria-label="Repetition mode" class="anim-state" name="_anim_loop_select126db3c8ea1345bf9991cd2dc2df77a2" title="Repetition mode">
-<input id="_anim_radio1_126db3c8ea1345bf9991cd2dc2df77a2" name="state" type="radio" value="once"/>
-<label for="_anim_radio1_126db3c8ea1345bf9991cd2dc2df77a2">Once</label>
-<input checked="" id="_anim_radio2_126db3c8ea1345bf9991cd2dc2df77a2" name="state" type="radio" value="loop"/>
-<label for="_anim_radio2_126db3c8ea1345bf9991cd2dc2df77a2">Loop</label>
-<input id="_anim_radio3_126db3c8ea1345bf9991cd2dc2df77a2" name="state" type="radio" value="reflect"/>
-<label for="_anim_radio3_126db3c8ea1345bf9991cd2dc2df77a2">Reflect</label>
+<form action="#n" aria-label="Repetition mode" class="anim-state" name="_anim_loop_select576209014ca241f5b9519c108d7286ac" title="Repetition mode">
+<input id="_anim_radio1_576209014ca241f5b9519c108d7286ac" name="state" type="radio" value="once"/>
+<label for="_anim_radio1_576209014ca241f5b9519c108d7286ac">Once</label>
+<input checked="" id="_anim_radio2_576209014ca241f5b9519c108d7286ac" name="state" type="radio" value="loop"/>
+<label for="_anim_radio2_576209014ca241f5b9519c108d7286ac">Loop</label>
+<input id="_anim_radio3_576209014ca241f5b9519c108d7286ac" name="state" type="radio" value="reflect"/>
+<label for="_anim_radio3_576209014ca241f5b9519c108d7286ac">Reflect</label>
 </form>
 </div>
 </div>
@@ -1151,9 +1083,9 @@ input[type=range].anim-slider {
   /* Instantiate the Animation class. */
   /* The IDs given should match those used in the template above. */
   (function() {
-    var img_id = "_anim_img126db3c8ea1345bf9991cd2dc2df77a2";
-    var slider_id = "_anim_slider126db3c8ea1345bf9991cd2dc2df77a2";
-    var loop_select_id = "_anim_loop_select126db3c8ea1345bf9991cd2dc2df77a2";
+    var img_id = "_anim_img576209014ca241f5b9519c108d7286ac";
+    var slider_id = "_anim_slider576209014ca241f5b9519c108d7286ac";
+    var loop_select_id = "_anim_loop_select576209014ca241f5b9519c108d7286ac";
     var frames = new Array(20);
 
   frames[0] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
@@ -3612,7 +3544,7 @@ GeRNAAAAAElFTkSuQmCC\
     /* set a timeout to make sure all the above elements are created before
        the object is initialized. */
     setTimeout(function() {
-        anim126db3c8ea1345bf9991cd2dc2df77a2 = new Animation(frames, img_id, slider_id, 200.0,
+        anim576209014ca241f5b9519c108d7286ac = new Animation(frames, img_id, slider_id, 200.0,
                                  loop_select_id);
     }, 0);
   })()
@@ -3800,36 +3732,36 @@ input[type=range].anim-slider {
 }
 </style>
 <div class="animation">
-<img id="_anim_img50aa2a76726149528d756880a2b50f5f"/>
+<img id="_anim_imga7eec956120d4cdba3e00ff4443da32a"/>
 <div class="anim-controls">
-<input class="anim-slider" id="_anim_slider50aa2a76726149528d756880a2b50f5f" max="1" min="0" name="points" oninput="anim50aa2a76726149528d756880a2b50f5f.set_frame(parseInt(this.value));" step="1" type="range" value="0"/>
+<input class="anim-slider" id="_anim_slidera7eec956120d4cdba3e00ff4443da32a" max="1" min="0" name="points" oninput="anima7eec956120d4cdba3e00ff4443da32a.set_frame(parseInt(this.value));" step="1" type="range" value="0"/>
 <div class="anim-buttons">
-<button aria-label="Decrease speed" onclick="anim50aa2a76726149528d756880a2b50f5f.slower()" title="Decrease speed">
+<button aria-label="Decrease speed" onclick="anima7eec956120d4cdba3e00ff4443da32a.slower()" title="Decrease speed">
 <i class="fa fa-minus"></i></button>
-<button aria-label="First frame" onclick="anim50aa2a76726149528d756880a2b50f5f.first_frame()" title="First frame">
+<button aria-label="First frame" onclick="anima7eec956120d4cdba3e00ff4443da32a.first_frame()" title="First frame">
 <i class="fa fa-fast-backward"></i></button>
-<button aria-label="Previous frame" onclick="anim50aa2a76726149528d756880a2b50f5f.previous_frame()" title="Previous frame">
+<button aria-label="Previous frame" onclick="anima7eec956120d4cdba3e00ff4443da32a.previous_frame()" title="Previous frame">
 <i class="fa fa-step-backward"></i></button>
-<button aria-label="Play backwards" onclick="anim50aa2a76726149528d756880a2b50f5f.reverse_animation()" title="Play backwards">
+<button aria-label="Play backwards" onclick="anima7eec956120d4cdba3e00ff4443da32a.reverse_animation()" title="Play backwards">
 <i class="fa fa-play fa-flip-horizontal"></i></button>
-<button aria-label="Pause" onclick="anim50aa2a76726149528d756880a2b50f5f.pause_animation()" title="Pause">
+<button aria-label="Pause" onclick="anima7eec956120d4cdba3e00ff4443da32a.pause_animation()" title="Pause">
 <i class="fa fa-pause"></i></button>
-<button aria-label="Play" onclick="anim50aa2a76726149528d756880a2b50f5f.play_animation()" title="Play">
+<button aria-label="Play" onclick="anima7eec956120d4cdba3e00ff4443da32a.play_animation()" title="Play">
 <i class="fa fa-play"></i></button>
-<button aria-label="Next frame" onclick="anim50aa2a76726149528d756880a2b50f5f.next_frame()" title="Next frame">
+<button aria-label="Next frame" onclick="anima7eec956120d4cdba3e00ff4443da32a.next_frame()" title="Next frame">
 <i class="fa fa-step-forward"></i></button>
-<button aria-label="Last frame" onclick="anim50aa2a76726149528d756880a2b50f5f.last_frame()" title="Last frame">
+<button aria-label="Last frame" onclick="anima7eec956120d4cdba3e00ff4443da32a.last_frame()" title="Last frame">
 <i class="fa fa-fast-forward"></i></button>
-<button aria-label="Increase speed" onclick="anim50aa2a76726149528d756880a2b50f5f.faster()" title="Increase speed">
+<button aria-label="Increase speed" onclick="anima7eec956120d4cdba3e00ff4443da32a.faster()" title="Increase speed">
 <i class="fa fa-plus"></i></button>
 </div>
-<form action="#n" aria-label="Repetition mode" class="anim-state" name="_anim_loop_select50aa2a76726149528d756880a2b50f5f" title="Repetition mode">
-<input id="_anim_radio1_50aa2a76726149528d756880a2b50f5f" name="state" type="radio" value="once"/>
-<label for="_anim_radio1_50aa2a76726149528d756880a2b50f5f">Once</label>
-<input checked="" id="_anim_radio2_50aa2a76726149528d756880a2b50f5f" name="state" type="radio" value="loop"/>
-<label for="_anim_radio2_50aa2a76726149528d756880a2b50f5f">Loop</label>
-<input id="_anim_radio3_50aa2a76726149528d756880a2b50f5f" name="state" type="radio" value="reflect"/>
-<label for="_anim_radio3_50aa2a76726149528d756880a2b50f5f">Reflect</label>
+<form action="#n" aria-label="Repetition mode" class="anim-state" name="_anim_loop_selecta7eec956120d4cdba3e00ff4443da32a" title="Repetition mode">
+<input id="_anim_radio1_a7eec956120d4cdba3e00ff4443da32a" name="state" type="radio" value="once"/>
+<label for="_anim_radio1_a7eec956120d4cdba3e00ff4443da32a">Once</label>
+<input checked="" id="_anim_radio2_a7eec956120d4cdba3e00ff4443da32a" name="state" type="radio" value="loop"/>
+<label for="_anim_radio2_a7eec956120d4cdba3e00ff4443da32a">Loop</label>
+<input id="_anim_radio3_a7eec956120d4cdba3e00ff4443da32a" name="state" type="radio" value="reflect"/>
+<label for="_anim_radio3_a7eec956120d4cdba3e00ff4443da32a">Reflect</label>
 </form>
 </div>
 </div>
@@ -3837,9 +3769,9 @@ input[type=range].anim-slider {
   /* Instantiate the Animation class. */
   /* The IDs given should match those used in the template above. */
   (function() {
-    var img_id = "_anim_img50aa2a76726149528d756880a2b50f5f";
-    var slider_id = "_anim_slider50aa2a76726149528d756880a2b50f5f";
-    var loop_select_id = "_anim_loop_select50aa2a76726149528d756880a2b50f5f";
+    var img_id = "_anim_imga7eec956120d4cdba3e00ff4443da32a";
+    var slider_id = "_anim_slidera7eec956120d4cdba3e00ff4443da32a";
+    var loop_select_id = "_anim_loop_selecta7eec956120d4cdba3e00ff4443da32a";
     var frames = new Array(20);
 
   frames[0] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
@@ -6308,7 +6240,7 @@ RU5ErkJggg==\
     /* set a timeout to make sure all the above elements are created before
        the object is initialized. */
     setTimeout(function() {
-        anim50aa2a76726149528d756880a2b50f5f = new Animation(frames, img_id, slider_id, 200.0,
+        anima7eec956120d4cdba3e00ff4443da32a = new Animation(frames, img_id, slider_id, 200.0,
                                  loop_select_id);
     }, 0);
   })()
@@ -6317,9 +6249,9 @@ RU5ErkJggg==\
 </div>
 <p>As you can see in this comparison, we get a good approximation of the full-order model here and
 the error plot confirms it:</p>
-<div class="jupyter_cell jupyter_container docutils container">
-<div class="cell_input code_cell docutils container">
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">((</span><span class="n">U</span><span class="o">-</span><span class="n">U_RB</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s1">'mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="p">(</span><span class="s1">'error'</span><span class="p">))</span>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">fom</span><span class="o">.</span><span class="n">visualize</span><span class="p">((</span><span class="n">U</span><span class="o">-</span><span class="n">U_RB</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s1">'mu = </span><span class="si">{</span><span class="n">mu</span><span class="si">}</span><span class="s1">'</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="p">(</span><span class="s1">'error'</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -6506,36 +6438,36 @@ input[type=range].anim-slider {
 }
 </style>
 <div class="animation">
-<img id="_anim_img75bbe4de54d64a2399d5c875a7b8950f"/>
+<img id="_anim_img3229a611dbad43dabf2e4e284238ee9d"/>
 <div class="anim-controls">
-<input class="anim-slider" id="_anim_slider75bbe4de54d64a2399d5c875a7b8950f" max="1" min="0" name="points" oninput="anim75bbe4de54d64a2399d5c875a7b8950f.set_frame(parseInt(this.value));" step="1" type="range" value="0"/>
+<input class="anim-slider" id="_anim_slider3229a611dbad43dabf2e4e284238ee9d" max="1" min="0" name="points" oninput="anim3229a611dbad43dabf2e4e284238ee9d.set_frame(parseInt(this.value));" step="1" type="range" value="0"/>
 <div class="anim-buttons">
-<button aria-label="Decrease speed" onclick="anim75bbe4de54d64a2399d5c875a7b8950f.slower()" title="Decrease speed">
+<button aria-label="Decrease speed" onclick="anim3229a611dbad43dabf2e4e284238ee9d.slower()" title="Decrease speed">
 <i class="fa fa-minus"></i></button>
-<button aria-label="First frame" onclick="anim75bbe4de54d64a2399d5c875a7b8950f.first_frame()" title="First frame">
+<button aria-label="First frame" onclick="anim3229a611dbad43dabf2e4e284238ee9d.first_frame()" title="First frame">
 <i class="fa fa-fast-backward"></i></button>
-<button aria-label="Previous frame" onclick="anim75bbe4de54d64a2399d5c875a7b8950f.previous_frame()" title="Previous frame">
+<button aria-label="Previous frame" onclick="anim3229a611dbad43dabf2e4e284238ee9d.previous_frame()" title="Previous frame">
 <i class="fa fa-step-backward"></i></button>
-<button aria-label="Play backwards" onclick="anim75bbe4de54d64a2399d5c875a7b8950f.reverse_animation()" title="Play backwards">
+<button aria-label="Play backwards" onclick="anim3229a611dbad43dabf2e4e284238ee9d.reverse_animation()" title="Play backwards">
 <i class="fa fa-play fa-flip-horizontal"></i></button>
-<button aria-label="Pause" onclick="anim75bbe4de54d64a2399d5c875a7b8950f.pause_animation()" title="Pause">
+<button aria-label="Pause" onclick="anim3229a611dbad43dabf2e4e284238ee9d.pause_animation()" title="Pause">
 <i class="fa fa-pause"></i></button>
-<button aria-label="Play" onclick="anim75bbe4de54d64a2399d5c875a7b8950f.play_animation()" title="Play">
+<button aria-label="Play" onclick="anim3229a611dbad43dabf2e4e284238ee9d.play_animation()" title="Play">
 <i class="fa fa-play"></i></button>
-<button aria-label="Next frame" onclick="anim75bbe4de54d64a2399d5c875a7b8950f.next_frame()" title="Next frame">
+<button aria-label="Next frame" onclick="anim3229a611dbad43dabf2e4e284238ee9d.next_frame()" title="Next frame">
 <i class="fa fa-step-forward"></i></button>
-<button aria-label="Last frame" onclick="anim75bbe4de54d64a2399d5c875a7b8950f.last_frame()" title="Last frame">
+<button aria-label="Last frame" onclick="anim3229a611dbad43dabf2e4e284238ee9d.last_frame()" title="Last frame">
 <i class="fa fa-fast-forward"></i></button>
-<button aria-label="Increase speed" onclick="anim75bbe4de54d64a2399d5c875a7b8950f.faster()" title="Increase speed">
+<button aria-label="Increase speed" onclick="anim3229a611dbad43dabf2e4e284238ee9d.faster()" title="Increase speed">
 <i class="fa fa-plus"></i></button>
 </div>
-<form action="#n" aria-label="Repetition mode" class="anim-state" name="_anim_loop_select75bbe4de54d64a2399d5c875a7b8950f" title="Repetition mode">
-<input id="_anim_radio1_75bbe4de54d64a2399d5c875a7b8950f" name="state" type="radio" value="once"/>
-<label for="_anim_radio1_75bbe4de54d64a2399d5c875a7b8950f">Once</label>
-<input checked="" id="_anim_radio2_75bbe4de54d64a2399d5c875a7b8950f" name="state" type="radio" value="loop"/>
-<label for="_anim_radio2_75bbe4de54d64a2399d5c875a7b8950f">Loop</label>
-<input id="_anim_radio3_75bbe4de54d64a2399d5c875a7b8950f" name="state" type="radio" value="reflect"/>
-<label for="_anim_radio3_75bbe4de54d64a2399d5c875a7b8950f">Reflect</label>
+<form action="#n" aria-label="Repetition mode" class="anim-state" name="_anim_loop_select3229a611dbad43dabf2e4e284238ee9d" title="Repetition mode">
+<input id="_anim_radio1_3229a611dbad43dabf2e4e284238ee9d" name="state" type="radio" value="once"/>
+<label for="_anim_radio1_3229a611dbad43dabf2e4e284238ee9d">Once</label>
+<input checked="" id="_anim_radio2_3229a611dbad43dabf2e4e284238ee9d" name="state" type="radio" value="loop"/>
+<label for="_anim_radio2_3229a611dbad43dabf2e4e284238ee9d">Loop</label>
+<input id="_anim_radio3_3229a611dbad43dabf2e4e284238ee9d" name="state" type="radio" value="reflect"/>
+<label for="_anim_radio3_3229a611dbad43dabf2e4e284238ee9d">Reflect</label>
 </form>
 </div>
 </div>
@@ -6543,9 +6475,9 @@ input[type=range].anim-slider {
   /* Instantiate the Animation class. */
   /* The IDs given should match those used in the template above. */
   (function() {
-    var img_id = "_anim_img75bbe4de54d64a2399d5c875a7b8950f";
-    var slider_id = "_anim_slider75bbe4de54d64a2399d5c875a7b8950f";
-    var loop_select_id = "_anim_loop_select75bbe4de54d64a2399d5c875a7b8950f";
+    var img_id = "_anim_img3229a611dbad43dabf2e4e284238ee9d";
+    var slider_id = "_anim_slider3229a611dbad43dabf2e4e284238ee9d";
+    var loop_select_id = "_anim_loop_select3229a611dbad43dabf2e4e284238ee9d";
     var frames = new Array(20);
 
   frames[0] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbAAAAEgCAYAAADVKCZpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90\
@@ -7895,7 +7827,7 @@ YACUJGAAlPT/MTAGXkgCBHUAAAAASUVORK5CYII=\
     /* set a timeout to make sure all the above elements are created before
        the object is initialized. */
     setTimeout(function() {
-        anim75bbe4de54d64a2399d5c875a7b8950f = new Animation(frames, img_id, slider_id, 200.0,
+        anim3229a611dbad43dabf2e4e284238ee9d = new Animation(frames, img_id, slider_id, 200.0,
                                  loop_select_id);
     }, 0);
   })()
@@ -7908,7 +7840,7 @@ as a plain Python script <a class="reference download internal" download="" href
 
 
 <script type="application/vnd.jupyter.widget-state+json">
-{"state": {"3b03cfef157b41c582995fc1862687e5": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "02c5a655262e4d81af58510d2db4de5d": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "a7dcb2d2f235406d9a52129872eed636": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_3b03cfef157b41c582995fc1862687e5", "placeholder": "\u200b", "style": "IPY_MODEL_02c5a655262e4d81af58510d2db4de5d", "value": ""}}, "f62f34e361c945edaf5be1ef823050f1": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "0f7e293ee85a4e599262165c141a3312": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_a7dcb2d2f235406d9a52129872eed636"], "layout": "IPY_MODEL_f62f34e361c945edaf5be1ef823050f1", "selected_index": null}}, "8cd4e545cdd94e068207b5b61cc01cd1": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "e7ee20900ee044cfbaa16d1770588b27": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "9615308b186f42a1b17e1b55c02cc1bb": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_8cd4e545cdd94e068207b5b61cc01cd1", "placeholder": "\u200b", "style": "IPY_MODEL_e7ee20900ee044cfbaa16d1770588b27", "value": ""}}, "982c1cda8eb04a0abe98328a6765ebd1": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "428b001333e841c499869023d2e55d3e": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_9615308b186f42a1b17e1b55c02cc1bb"], "layout": "IPY_MODEL_982c1cda8eb04a0abe98328a6765ebd1", "selected_index": null}}, "a6d7d73ed07b427280df94552fbd50f0": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "fe478370bb374dec9ddd69ccc6a6c42b": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "8ec1f650eaaa4599aeb9badd68081222": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_a6d7d73ed07b427280df94552fbd50f0", "placeholder": "\u200b", "style": "IPY_MODEL_fe478370bb374dec9ddd69ccc6a6c42b", "value": ""}}, "45515972383149bdb47496537ed9babe": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "d1165c11ae394df3919159858770eb54": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_8ec1f650eaaa4599aeb9badd68081222"], "layout": "IPY_MODEL_45515972383149bdb47496537ed9babe", "selected_index": null}}, "7329cec276414c258815c333b37c5567": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "c4fa5825e6ca4ce18b556651d8bb4691": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "f9a32a9fe2f6468683202b3c70d9fe6e": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_7329cec276414c258815c333b37c5567", "placeholder": "\u200b", "style": "IPY_MODEL_c4fa5825e6ca4ce18b556651d8bb4691", "value": ""}}, "210397a7adb947d08575e8923e11149e": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "35a110704239474c806266370a649b9a": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_f9a32a9fe2f6468683202b3c70d9fe6e"], "layout": "IPY_MODEL_210397a7adb947d08575e8923e11149e", "selected_index": null}}, "9c0805d466674b6b8e254456ece524af": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "282e394905df46a2848ad8e3edfae137": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "92e19e66492b4d4b91a809a162aa0065": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_9c0805d466674b6b8e254456ece524af", "placeholder": "\u200b", "style": "IPY_MODEL_282e394905df46a2848ad8e3edfae137", "value": ""}}, "467ac5bff04b4802b15817f0b874f15f": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "ed9707f9ec0a4084b263e144b810874e": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_92e19e66492b4d4b91a809a162aa0065"], "layout": "IPY_MODEL_467ac5bff04b4802b15817f0b874f15f", "selected_index": null}}, "8a45aac8287e42e1bf6653f94ad60837": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "0f1ede9f375747c09a2d99bde0600ebc": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "bc2eb9015bbe464f9052c97fb0b8ff6d": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_8a45aac8287e42e1bf6653f94ad60837", "placeholder": "\u200b", "style": "IPY_MODEL_0f1ede9f375747c09a2d99bde0600ebc", "value": ""}}, "00992047474049c89fe4756cf3dd8bc1": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "620a7f57b0f3406bb52cbc4fbb6c1351": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_bc2eb9015bbe464f9052c97fb0b8ff6d"], "layout": "IPY_MODEL_00992047474049c89fe4756cf3dd8bc1", "selected_index": null}}, "0a25f0ea50054ca3b9b96fb508ee0b65": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "06e1c5d088394e73b12869b21e54f4ba": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "368a20846f3644ea833529d6ecfea13f": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_0a25f0ea50054ca3b9b96fb508ee0b65", "placeholder": "\u200b", "style": "IPY_MODEL_06e1c5d088394e73b12869b21e54f4ba", "value": "<p style=\"line-height:120%\">00:00 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:03 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:06 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:08 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:11 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:14 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:17 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:19 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:22 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:25 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:28 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:30 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:33 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:36 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:38 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:41 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:44 <bold>pod</bold>: Computing SVD ...</p><p style=\"line-height:120%\">00:44 |   <bold>method_of_snapshots</bold>: Computing Gramian (320 vectors) ...</p><p style=\"line-height:120%\">00:44 |   <bold>method_of_snapshots</bold>: Computing eigenvalue decomposition ...</p><p style=\"line-height:120%\">00:44 |   <bold>method_of_snapshots</bold>: Computing left-singular vectors (4 vectors) ...</p><p style=\"line-height:120%\">00:44 <bold>pod</bold>: Checking orthonormality ...</p><p style=\"line-height:120%\">00:44 <bold>InstationaryRBReductor</bold>: Operator projection ...</p><p style=\"line-height:120%\">00:44 <bold>InstationaryRBReductor</bold>: Building ROM ...</p><p style=\"line-height:120%\">00:44 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.4370861069626263, 0.9556428757689246, 0.7587945476302645, 0.6387926357773329]} ...</p><p style=\"line-height:120%\">00:48 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.24041677639819287, 0.2403950683025824, 0.15227525095137953, 0.8795585311974417]} ...</p><p style=\"line-height:120%\">00:51 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6410035105688879, 0.737265320016441, 0.1185260448662222, 0.9729188669457949]} ...</p><p style=\"line-height:120%\">00:54 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.8491983767203796, 0.29110519961044856, 0.26364247048639056, 0.2650640588680905]} ...</p><p style=\"line-height:120%\">00:57 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.373818018663584, 0.5722807884690141, 0.48875051677790415, 0.36210622617823773]} ...</p><p style=\"line-height:120%\">01:00 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6506676052501416, 0.22554447458683766, 0.3629301836816964, 0.4297256589643226]} ...</p><p style=\"line-height:120%\">01:03 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.5104629857953323, 0.8066583652537123, 0.2797064039425238, 0.5628109945722505]} ...</p><p style=\"line-height:120%\">01:06 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6331731119758383, 0.14180537144799796, 0.6467903667112945, 0.2534717113185624]} ...</p><p style=\"line-height:120%\">01:09 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1585464336867516, 0.9539969835279999, 0.9690688297671034, 0.827557613304815]} ...</p><p style=\"line-height:120%\">01:13 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.3741523922560336, 0.1879049026057455, 0.7158097238609412, 0.4961372443656412]} ...</p><p style=\"line-height:120%\">01:16 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1585464336867516, 0.9539969835279999, 0.9690688297671034, 0.827557613304815]} ...</p>"}}, "f0a7e2d520714b15885d2e41da82ec47": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "b32d41a32e5543b9a6938b785912a686": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_368a20846f3644ea833529d6ecfea13f"], "layout": "IPY_MODEL_f0a7e2d520714b15885d2e41da82ec47", "selected_index": null}}, "577a4465f56c4984a726bdcf04f4cf6f": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "d46e47b48e2945eaaa0cc69ab91cb1b8": {"model_name": "DescriptionStyleModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "fd7c6f884d11459a8123509c5383d670": {"model_name": "HTMLModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_577a4465f56c4984a726bdcf04f4cf6f", "placeholder": "\u200b", "style": "IPY_MODEL_d46e47b48e2945eaaa0cc69ab91cb1b8", "value": ""}}, "3549f83aa65d409eb5ba2aec3ab050c9": {"model_name": "LayoutModel", "model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "bce62b8634bc4e448cf5ecf52b475e4f": {"model_name": "AccordionModel", "model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_fd7c6f884d11459a8123509c5383d670"], "layout": "IPY_MODEL_3549f83aa65d409eb5ba2aec3ab050c9", "selected_index": null}}}, "version_major": 2, "version_minor": 0}
+{"state": {"0466093ead2d4996bdc2d025424545e5": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "HTMLModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_6d0340b4cd5b46f9a85b9da145a4a4d0", "placeholder": "\u200b", "style": "IPY_MODEL_d6e78c845e7c429b9fadfc49dded5232", "value": ""}}, "04dc9e48361e400db4a59b04ca60a2b0": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "DescriptionStyleModel", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "05f4e1c88f464bc1b7ed137af7651a06": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "HTMLModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_2d1ff34b7eeb487e8cbedfb0282c54f9", "placeholder": "\u200b", "style": "IPY_MODEL_04dc9e48361e400db4a59b04ca60a2b0", "value": "<p style=\"line-height:120%\">00:04 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:06 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:09 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:12 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 0.1, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:14 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:17 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:20 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:22 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1, 1.0, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:25 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:28 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:30 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:33 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 0.1, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:35 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 0.1, 0.1]} ...</p><p style=\"line-height:120%\">00:38 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 0.1, 1.0]} ...</p><p style=\"line-height:120%\">00:41 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 1.0, 0.1]} ...</p><p style=\"line-height:120%\">00:43 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [1.0, 1.0, 1.0, 1.0]} ...</p><p style=\"line-height:120%\">00:46 <bold>pod</bold>: Computing SVD ...</p><p style=\"line-height:120%\">00:46 |   <bold>method_of_snapshots</bold>: Computing Gramian (320 vectors) ...</p><p style=\"line-height:120%\">00:46 |   <bold>method_of_snapshots</bold>: Computing eigenvalue decomposition ...</p><p style=\"line-height:120%\">00:46 |   <bold>method_of_snapshots</bold>: Computing left-singular vectors (4 vectors) ...</p><p style=\"line-height:120%\">00:46 <bold>pod</bold>: Checking orthonormality ...</p><p style=\"line-height:120%\">00:46 <bold>InstationaryRBReductor</bold>: Operator projection ...</p><p style=\"line-height:120%\">00:46 <bold>InstationaryRBReductor</bold>: Building ROM ...</p><p style=\"line-height:120%\">00:47 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.4370861069626263, 0.9556428757689246, 0.7587945476302645, 0.6387926357773329]} ...</p><p style=\"line-height:120%\">00:50 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.24041677639819287, 0.2403950683025824, 0.15227525095137953, 0.8795585311974417]} ...</p><p style=\"line-height:120%\">00:53 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6410035105688879, 0.737265320016441, 0.1185260448662222, 0.9729188669457949]} ...</p><p style=\"line-height:120%\">00:56 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.8491983767203796, 0.29110519961044856, 0.26364247048639056, 0.2650640588680905]} ...</p><p style=\"line-height:120%\">00:59 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.373818018663584, 0.5722807884690141, 0.48875051677790415, 0.36210622617823773]} ...</p><p style=\"line-height:120%\">01:02 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6506676052501416, 0.22554447458683766, 0.3629301836816964, 0.4297256589643226]} ...</p><p style=\"line-height:120%\">01:05 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.5104629857953323, 0.8066583652537123, 0.2797064039425238, 0.5628109945722505]} ...</p><p style=\"line-height:120%\">01:08 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.6331731119758383, 0.14180537144799796, 0.6467903667112945, 0.2534717113185624]} ...</p><p style=\"line-height:120%\">01:11 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1585464336867516, 0.9539969835279999, 0.9690688297671034, 0.827557613304815]} ...</p><p style=\"line-height:120%\">01:14 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.3741523922560336, 0.1879049026057455, 0.7158097238609412, 0.4961372443656412]} ...</p><p style=\"line-height:120%\">01:17 <bold>InstationaryModel</bold>: Solving C++-Model for {diffusion_coefficients: [0.1585464336867516, 0.9539969835279999, 0.9690688297671034, 0.827557613304815]} ...</p>"}}, "0a1a3f754f1740c9975c55e954fc648d": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "DescriptionStyleModel", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "0c4f4e55fcb34c1d8f1352791c2eeb11": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "122caff2267c4ddaa3ab9358b7dd5dbb": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "219ec370508440acaf7bd1d6eb60028b": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "227003e67f84422692e8855d243ec4b8": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "AccordionModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_b272955263484dc5bca0b7e4f54a6704"], "layout": "IPY_MODEL_5f7015e2fabc4925a12cd0727a7ef97d", "selected_index": null}}, "2cf5f4595ae44e19b52b0009ed01c27e": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "AccordionModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_d70d228651604967b9beb110170e3104"], "layout": "IPY_MODEL_338795ad6b9644568c766852122e2f89", "selected_index": null}}, "2d1ff34b7eeb487e8cbedfb0282c54f9": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "2e95e4063d0d454085dde357e7450005": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "338795ad6b9644568c766852122e2f89": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "4067ced6623e4c96882d1d18a4f645b0": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "DescriptionStyleModel", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "434f45b1ba51474783f099570fae0315": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "AccordionModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_78583f2a265241e6858b25cf50aafd64"], "layout": "IPY_MODEL_0c4f4e55fcb34c1d8f1352791c2eeb11", "selected_index": null}}, "4c07c2a67dfe44e69876e26378863643": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "4e2f5f5a70c24b31917c2ce3f04f2b9e": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "516f776334f447c49a0635bea6cce60d": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "55537bc5d82c47eeb9a50012cd286deb": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "HTMLModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_ee7afff8892d4af2939efcabf611bb10", "placeholder": "\u200b", "style": "IPY_MODEL_d12dfd8d5c944c188d47c2d268559e2c", "value": ""}}, "598d0b18b70e456384192a6b8a6184f0": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "HTMLModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_4e2f5f5a70c24b31917c2ce3f04f2b9e", "placeholder": "\u200b", "style": "IPY_MODEL_f05adb19c5964e3399004e2af8f6e751", "value": ""}}, "5f7015e2fabc4925a12cd0727a7ef97d": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "5f98914c33674c868c6eb3db98092575": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "HTMLModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_219ec370508440acaf7bd1d6eb60028b", "placeholder": "\u200b", "style": "IPY_MODEL_0a1a3f754f1740c9975c55e954fc648d", "value": ""}}, "68317b80e084412ba468d8355bf71ed9": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "DescriptionStyleModel", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "6c765e2b0f254eeda13e336680cdfa5f": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "6d0340b4cd5b46f9a85b9da145a4a4d0": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "6ec7a2cb634f42129a3f34efce1c6961": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "6f2b224646574b438b46f583a7fbb5bd": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "AccordionModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_5f98914c33674c868c6eb3db98092575"], "layout": "IPY_MODEL_2e95e4063d0d454085dde357e7450005", "selected_index": null}}, "78583f2a265241e6858b25cf50aafd64": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "HTMLModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_6c765e2b0f254eeda13e336680cdfa5f", "placeholder": "\u200b", "style": "IPY_MODEL_68317b80e084412ba468d8355bf71ed9", "value": ""}}, "7922f77b39f24df38aba4868530c082f": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "DescriptionStyleModel", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "79c412983797450abac989849fa165bb": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "AccordionModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_05f4e1c88f464bc1b7ed137af7651a06"], "layout": "IPY_MODEL_4c07c2a67dfe44e69876e26378863643", "selected_index": null}}, "7d574655e46a45c896b41075703fe08f": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "80c59e97b2e243078c70e53beab0c773": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "AccordionModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_598d0b18b70e456384192a6b8a6184f0"], "layout": "IPY_MODEL_81e7dfa1d54b41b5b5322ec5efb0f36c", "selected_index": null}}, "81e7dfa1d54b41b5b5322ec5efb0f36c": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "b272955263484dc5bca0b7e4f54a6704": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "HTMLModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_decc074edefa4039876ee795bea89f0d", "placeholder": "\u200b", "style": "IPY_MODEL_cbd4eff0274c453ea95254e460a33fc8", "value": ""}}, "b8548b9b4c744c09a70c5c52a325e258": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "AccordionModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_0466093ead2d4996bdc2d025424545e5"], "layout": "IPY_MODEL_e800d5f8e8e84af0a921fe9452048430", "selected_index": null}}, "c14cfaf27e8b4c8598603b25cf1132dd": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "HTMLModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_516f776334f447c49a0635bea6cce60d", "placeholder": "\u200b", "style": "IPY_MODEL_7922f77b39f24df38aba4868530c082f", "value": ""}}, "cbd4eff0274c453ea95254e460a33fc8": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "DescriptionStyleModel", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "d12dfd8d5c944c188d47c2d268559e2c": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "DescriptionStyleModel", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "d6e78c845e7c429b9fadfc49dded5232": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "DescriptionStyleModel", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "d70d228651604967b9beb110170e3104": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "HTMLModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_6ec7a2cb634f42129a3f34efce1c6961", "placeholder": "\u200b", "style": "IPY_MODEL_4067ced6623e4c96882d1d18a4f645b0", "value": ""}}, "decc074edefa4039876ee795bea89f0d": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "e132ebe1b78a4d5ca331818db2cd02f4": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "AccordionModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_c14cfaf27e8b4c8598603b25cf1132dd"], "layout": "IPY_MODEL_7d574655e46a45c896b41075703fe08f", "selected_index": null}}, "e800d5f8e8e84af0a921fe9452048430": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "ee7afff8892d4af2939efcabf611bb10": {"model_module": "@jupyter-widgets/base", "model_module_version": "1.2.0", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": "16em", "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": "auto", "padding": null, "right": null, "top": null, "visibility": null, "width": "100%"}}, "f05adb19c5964e3399004e2af8f6e751": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "DescriptionStyleModel", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "f5743afc3d5e4ff18bc4a19e977c9268": {"model_module": "@jupyter-widgets/controls", "model_module_version": "1.5.0", "model_name": "AccordionModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "AccordionModel", "_titles": {"0": "Log Output"}, "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "AccordionView", "box_style": "", "children": ["IPY_MODEL_55537bc5d82c47eeb9a50012cd286deb"], "layout": "IPY_MODEL_122caff2267c4ddaa3ab9358b7dd5dbb", "selected_index": null}}}, "version_major": 2, "version_minor": 0}
 </script>
 
 
@@ -7958,7 +7890,7 @@ as a plain Python script <a class="reference download internal" download="" href
               
           </div>
             Last updated on
-              Jun 03, 2021.
+              Jun 29, 2021.
             <br/>
             Created using
             <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
