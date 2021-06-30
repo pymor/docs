@@ -21,7 +21,7 @@ Functions
 
 
 
-.. function:: lyap_lrcf_solver_options(lradi_tol=1e-10, lradi_maxiter=500, lradi_shifts='projection_shifts', projection_shifts_init_maxiter=20, projection_shifts_init_seed=None)
+.. function:: lyap_lrcf_solver_options(lradi_tol=1e-10, lradi_maxiter=500, lradi_shifts='projection_shifts', projection_shifts_init_maxiter=20, projection_shifts_init_seed=None, projection_shifts_subspace_columns=6)
 
    Return available Lyapunov solvers with default options.
 
@@ -37,6 +37,8 @@ Functions
            See :func:`projection_shifts_init`.
        projection_shifts_init_seed
            See :func:`projection_shifts_init`.
+       projection_shifts_subspace_columns
+           See :func:`projection_shifts`.
            
    .. admonition:: Returns
 
@@ -79,9 +81,11 @@ Functions
 
 .. function:: projection_shifts_init(A, E, B, shift_options)
 
-   Find starting shift parameters for low-rank ADI iteration using
-   Galerkin projection on spaces spanned by LR-ADI iterates.
+   Find starting projection shifts.
 
+   Uses Galerkin projection on the space spanned by the right-hand side if
+   it produces stable shifts.
+   Otherwise, uses a randomly generated subspace.
    See :cite:`PK16`, pp. 92-95.
 
    .. admonition:: Parameters
@@ -102,11 +106,11 @@ Functions
            
 
 
-.. function:: projection_shifts(A, E, V, prev_shifts)
+.. function:: projection_shifts(A, E, V, Z, prev_shifts, shift_options)
 
-   Find further shift parameters for low-rank ADI iteration using
-   Galerkin projection on spaces spanned by LR-ADI iterates.
+   Find further projection shifts.
 
+   Uses Galerkin projection on spaces spanned by LR-ADI iterates.
    See :cite:`PK16`, pp. 92-95.
 
    .. admonition:: Parameters
@@ -117,9 +121,13 @@ Functions
            The |Operator| E from the corresponding Lyapunov equation.
        V
            A |VectorArray| representing the currently computed iterate.
+       Z
+           A |VectorArray| representing the current approximate solution.
        prev_shifts
            A |NumPy array| containing the set of all previously used shift
            parameters.
+       shift_options
+           The shift options to use (see :func:`lyap_lrcf_solver_options`).
            
    .. admonition:: Returns
 
