@@ -397,7 +397,7 @@ Neural networks for instationary problems
 To solve instationary problems using neural networks, we have extended the
 {class}`~pymor.reductors.neural_network.NeuralNetworkReductor` to the
 {class}`~pymor.reductors.neural_network.NeuralNetworkInstationaryReductor`, which treats time
-as an additional parameter (see :cite:`WHR19`). The resulting
+as an additional parameter (see {cite}`WHR19`). The resulting
 {class}`~pymor.models.neural_network.NeuralNetworkInstationaryModel` passes the input, together
 with the current time instance, through the neural network in each time step to obtain reduced
 coefficients. In the same fashion, there exists a
