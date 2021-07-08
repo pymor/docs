@@ -1,0 +1,906 @@
+:mod:`pymor.vectorarrays.mpi`
+=============================
+
+.. py:module:: pymor.vectorarrays.mpi
+
+.. autoapi-nested-parse::
+
+   Wrapper classes for building MPI distributed |VectorArrays|.
+
+   This module contains several wrapper classes which allow to
+   transform single rank |VectorArrays| into MPI distributed
+   |VectorArrays| which can be used on rank 0 like ordinary
+   |VectorArrays|.
+
+   The implementations are based on the event loop provided
+   by :mod:`pymor.tools.mpi`.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.vectorarrays.mpi.MPIVectorArray
+   pymor.vectorarrays.mpi.MPIVectorSpace
+   pymor.vectorarrays.mpi.RegisteredLocalSpace
+   pymor.vectorarrays.mpi.MPIVectorArrayNoComm
+   pymor.vectorarrays.mpi.MPIVectorSpaceNoComm
+   pymor.vectorarrays.mpi.MPIVectorArrayAutoComm
+   pymor.vectorarrays.mpi.MPIVectorSpaceAutoComm
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.vectorarrays.mpi._register_local_space
+   pymor.vectorarrays.mpi._get_local_space
+   pymor.vectorarrays.mpi._MPIVectorSpace_zeros
+   pymor.vectorarrays.mpi._MPIVectorSpace_dim
+   pymor.vectorarrays.mpi._MPIVectorSpace_check_local_spaces
+   pymor.vectorarrays.mpi._MPIVectorArray_axpy
+   pymor.vectorarrays.mpi._MPIVectorArray_real
+   pymor.vectorarrays.mpi._MPIVectorArray_imag
+   pymor.vectorarrays.mpi._MPIVectorSpaceAutoComm_dim
+   pymor.vectorarrays.mpi._MPIVectorArrayAutoComm_inner
+   pymor.vectorarrays.mpi._MPIVectorArrayAutoComm_pairwise_inner
+   pymor.vectorarrays.mpi._MPIVectorArrayAutoComm_norm
+   pymor.vectorarrays.mpi._MPIVectorArrayAutoComm_norm2
+   pymor.vectorarrays.mpi._MPIVectorArrayAutoComm_dofs
+   pymor.vectorarrays.mpi._MPIVectorArrayAutoComm_amax
+
+
+
+Attributes
+~~~~~~~~~~
+
+.. autoapisummary::
+
+   pymor.vectorarrays.mpi._local_space_registry
+   pymor.vectorarrays.mpi._local_space_to_id
+
+
+.. class:: MPIVectorArray(obj_id, space)
+
+
+   Bases: :py:obj:`pymor.vectorarrays.interface.VectorArray`
+
+   MPI distributed |VectorArray|.
+
+   Given a local |VectorArray| on each MPI rank, this wrapper class
+   uses the event loop from :mod:`pymor.tools.mpi` to build a global
+   MPI distributed vector array from these local arrays.
+
+   Instances of `MPIVectorArray` can be used on rank 0 like any
+   other (non-distributed) |VectorArray|.
+
+   Note, however, that the implementation of the local VectorArrays
+   needs to be MPI aware. For instance, `cls.inner` must perform the
+   needed MPI communication to sum up the local inner products and
+   return the sums on rank 0.
+
+   Default implementations for all communication requiring
+   interface methods are provided by :class:`MPIVectorArrayAutoComm`
+   (also see :class:`MPIVectorArrayNoComm`).
+
+   Note that resource cleanup is handled by :meth:`object.__del__`.
+   Please be aware of the peculiarities of destructors in Python!
+
+   The associated |VectorSpace| is :class:`MPIVectorSpace`.
+
+   .. method:: __len__(self)
+
+      The number of vectors in the array.
+
+
+   .. method:: __getitem__(self, ind)
+
+      Return a |VectorArray| view onto a subset of the vectors in the array.
+
+
+   .. method:: __delitem__(self, ind)
+
+      Remove vectors from the array.
+
+
+   .. method:: copy(self, deep=False)
+
+      Returns a copy of the array.
+
+      All |VectorArray| implementations in pyMOR have copy-on-write semantics:
+      if not specified otherwise by setting `deep` to `True`, the returned
+      copy will hold a handle to the same array data as the original array,
+      and a deep copy of the data will only be performed when one of the arrays
+      is modified.
+
+      Note that for |NumpyVectorArray|, a deep copy is always performed when only
+      some vectors in the array are copied.
+
+      .. admonition:: Parameters
+
+          deep
+              Ensure that an actual copy of the array data is made (see above).
+              
+      .. admonition:: Returns
+
+          A copy of the |VectorArray|.
+              
+
+
+   .. method:: append(self, other, remove_from_other=False)
+
+      Append vectors to the array.
+
+      .. admonition:: Parameters
+
+          other
+              A |VectorArray| containing the vectors to be appended.
+          remove_from_other
+              If `True`, the appended vectors are removed from `other`.
+              For list-like implementations this can be used to prevent
+              unnecessary copies of the involved vectors.
+              
+
+
+   .. method:: scal(self, alpha)
+
+      BLAS SCAL operation (in-place scalar multiplication).
+
+      This method calculates ::
+
+          self = alpha*self
+
+      If `alpha` is a scalar, each vector is multiplied by this scalar. Otherwise, `alpha`
+      has to be a one-dimensional |NumPy array| of the same length as `self`
+      containing the factors for each vector.
+
+      .. admonition:: Parameters
+
+          alpha
+              The scalar coefficient or one-dimensional |NumPy array| of coefficients
+              with which the vectors in `self` are multiplied.
+              
+
+
+   .. method:: axpy(self, alpha, x)
+
+      BLAS AXPY operation.
+
+      This method forms the sum ::
+
+          self = alpha*x + self
+
+      If the length of `x` is 1, the same `x` vector is used for all vectors
+      in `self`. Otherwise, the lengths of `self`  and `x` have to agree.
+      If `alpha` is a scalar, each `x` vector is multiplied with the same factor `alpha`.
+      Otherwise, `alpha` has to be a one-dimensional |NumPy array| of the same length as
+      `self` containing the coefficients for each `x` vector.
+
+      .. admonition:: Parameters
+
+          alpha
+              The scalar coefficient or one-dimensional |NumPy array| of coefficients with which
+              the vectors in `x` are multiplied.
+          x
+              A |VectorArray| containing the x-summands.
+              
+
+
+   .. method:: inner(self, other, product=None)
+
+      Returns the inner products between |VectorArray| elements.
+
+      If `product` is `None`, the Euclidean inner product between
+      the :meth:`dofs` of `self` and `other` are returned, i.e. ::
+
+          U.inner(V)
+
+      is equivalent to::
+
+          U.dofs(np.arange(U.dim)) @ V.dofs(np.arange(V.dim)).T
+
+      (Note, that :meth:`dofs` is only intended to be called for a
+      small number of DOF indices.)
+
+      If a `product` |Operator| is specified, this |Operator| is
+      used to compute the inner products using
+      :meth:`~pymor.operators.inerface.Operator.apply2`, i.e.
+      `U.inner(V, product)` is equivalent to::
+
+          product.apply2(U, V)
+
+      which in turn is, by default, implemented as::
+
+          U.inner(product.apply(V))
+
+      In the case of complex numbers, this is antilinear in the
+      first argument, i.e. in 'self'.
+      Complex conjugation is done in the first argument because
+      most numerical software in the community handles it this way:
+      Numpy, DUNE, FEniCS, Eigen, Matlab and BLAS do complex conjugation
+      in the first argument, only PetSc and deal.ii do complex
+      conjugation in the second argument.
+
+      .. admonition:: Parameters
+
+          other
+              A |VectorArray| containing the second factors.
+          product
+              If not `None` an |Operator| representing the inner product
+              bilinear form.
+              
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that
+              
+              result[i, j] = ( self[i], other[j] ).
+              
+
+
+   .. method:: pairwise_inner(self, other, product=None)
+
+      Returns the pairwise inner products between |VectorArray| elements.
+
+      If `product` is `None`, the Euclidean inner product between
+      the :meth:`dofs` of `self` and `other` are returned, i.e. ::
+
+          U.pairwise_inner(V)
+
+      is equivalent to::
+
+          np.sum(U.dofs(np.arange(U.dim)) * V.dofs(np.arange(V.dim)), axis=-1)
+
+      (Note, that :meth:`dofs` is only intended to be called for a
+      small number of DOF indices.)
+
+      If a `product` |Operator| is specified, this |Operator| is
+      used to compute the inner products using
+      :meth:`~pymor.operators.inerface.Operator.pairwise_apply2`, i.e.
+      `U.inner(V, product)` is equivalent to::
+
+          product.pairwise_apply2(U, V)
+
+      which in turn is, by default, implemented as::
+
+          U.pairwise_inner(product.apply(V))
+
+      In the case of complex numbers, this is antilinear in the
+      first argument, i.e. in 'self'.
+      Complex conjugation is done in the first argument because
+      most numerical software in the community handles it this way:
+      Numpy, DUNE, FEniCS, Eigen, Matlab and BLAS do complex conjugation
+      in the first argument, only PetSc and deal.ii do complex
+      conjugation in the second argument.
+
+
+      .. admonition:: Parameters
+
+          other
+              A |VectorArray| containing the second factors.
+          product
+              If not `None` an |Operator| representing the inner product
+              bilinear form.
+              
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that
+              
+              result[i] = ( self[i], other[i] ).
+              
+              
+
+
+   .. method:: lincomb(self, coefficients)
+
+      Returns linear combinations of the vectors contained in the array.
+
+      .. admonition:: Parameters
+
+          coefficients
+              A |NumPy array| of dimension 1 or 2 containing the linear
+              coefficients. `coefficients.shape[-1]` has to agree with
+              `len(self)`.
+              
+      .. admonition:: Returns
+
+          A |VectorArray| `result` such that
+              
+              result[i] = ∑ self[j] * coefficients[i,j]
+              
+          in case `coefficients` is of dimension 2, otherwise
+          `len(result) == 1` and
+              
+              result[0] = ∑ self[j] * coefficients[j].
+              
+
+
+   .. method:: _norm(self)
+
+      Implementation of :meth:`norm` for the case that no `product` is given.
+
+
+   .. method:: _norm2(self)
+
+      Implementation of :meth:`norm2` for the case that no `product` is given.
+
+
+   .. method:: dofs(self, dof_indices)
+
+      Extract DOFs of the vectors contained in the array.
+
+      .. admonition:: Parameters
+
+          dof_indices
+              List or 1D |NumPy array| of indices of the DOFs that are to be returned.
+              
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that `result[i, j]` is the `dof_indices[j]`-th
+          DOF of the `i`-th vector of the array.
+              
+
+
+   .. method:: amax(self)
+
+      The maximum absolute value of the DOFs contained in the array.
+
+      .. admonition:: Returns
+
+          max_ind
+              |NumPy array| containing for each vector a DOF index at which the maximum is
+              attained.
+          max_val
+              |NumPy array| containing for each vector the maximum absolute value of its
+              DOFs.
+              
+
+
+   .. method:: __del__(self)
+
+
+   .. method:: real(self)
+      :property:
+
+      Real part.
+
+
+   .. method:: imag(self)
+      :property:
+
+      Imaginary part.
+
+
+   .. method:: conj(self)
+
+      Complex conjugation.
+
+
+
+.. class:: MPIVectorSpace(local_spaces)
+
+
+   Bases: :py:obj:`pymor.vectorarrays.interface.VectorSpace`
+
+   |VectorSpace| of :class:`MPIVectorArrays <MPIVectorArray>`.
+
+   .. admonition:: Parameters
+
+       local_spaces
+           `tuple` of the different |VectorSpaces| of the local
+           |VectorArrays| on the MPI ranks.
+           Alternatively, the length of `local_spaces` may be 1, in which
+           case the same |VectorSpace| is assumed for all ranks.
+           
+
+   .. attribute:: array_type
+      
+
+      
+
+   .. method:: make_array(self, obj_id)
+
+      Create array from rank-local |VectorArray| instances.
+
+      .. admonition:: Parameters
+
+          obj_id
+              :class:`~pymor.tools.mpi.ObjectId` of the MPI distributed
+              instances of `cls` wrapped by this array.
+              
+      .. admonition:: Returns
+
+          The newly created : class:`MPIVectorArray`.
+              
+
+
+   .. method:: zeros(self, count=1, reserve=0)
+
+      Create a |VectorArray| of null vectors
+
+      .. admonition:: Parameters
+
+          count
+              The number of vectors.
+          reserve
+              Hint for the backend to which length the array will grow.
+              
+      .. admonition:: Returns
+
+          A |VectorArray| containing `count` vectors with each component zero.
+              
+
+
+   .. method:: dim(self)
+      :property:
+
+
+   .. method:: __eq__(self, other)
+
+      Return self==value.
+
+
+   .. method:: __repr__(self)
+
+      Return repr(self).
+
+
+
+.. class:: RegisteredLocalSpace
+
+
+   Bases: :py:obj:`int`
+
+   int([x]) -> integer
+   int(x, base=10) -> integer
+
+   Convert a number or string to an integer, or return 0 if no arguments
+   are given.  If x is a number, return x.__int__().  For floating point
+   numbers, this truncates towards zero.
+
+   If x is not a number or if base is given, then x must be a string,
+   bytes, or bytearray instance representing an integer literal in the
+   given base.  The literal can be preceded by '+' or '-' and be surrounded
+   by whitespace.  The base defaults to 10.  Valid bases are 0 and 2-36.
+   Base 0 means to interpret the base from the string as an integer literal.
+   >>> int('0b100', base=0)
+   4
+
+   .. method:: __repr__(self)
+
+      Return repr(self).
+
+
+
+.. data:: _local_space_registry
+   
+
+   
+
+.. data:: _local_space_to_id
+   
+
+   
+
+.. function:: _register_local_space(local_space)
+
+
+.. function:: _get_local_space(local_spaces)
+
+
+.. function:: _MPIVectorSpace_zeros(local_spaces=(None, ), count=0, reserve=0)
+
+
+.. function:: _MPIVectorSpace_dim(local_spaces)
+
+
+.. function:: _MPIVectorSpace_check_local_spaces(local_spaces, obj_id)
+
+
+.. function:: _MPIVectorArray_axpy(obj_id, alpha, x_obj_id)
+
+
+.. function:: _MPIVectorArray_real(obj_id)
+
+
+.. function:: _MPIVectorArray_imag(obj_id)
+
+
+.. class:: MPIVectorArrayNoComm(obj_id, space)
+
+
+   Bases: :py:obj:`MPIVectorArray`
+
+   MPI distributed |VectorArray|.
+
+   This is a subclass of :class:`MPIVectorArray` which
+   overrides all communication requiring interface methods
+   to raise `NotImplementedError`.
+
+   This is mainly useful as a security measure when wrapping
+   arrays for which simply calling the respective method
+   on the wrapped arrays would lead to wrong results and
+   :class:`MPIVectorArrayAutoComm` cannot be used either
+   (for instance in the presence of shared DOFs).
+
+   The associated |VectorSpace| is :class:`MPIVectorSpaceNoComm`.
+
+   .. method:: inner(self, other, product=None)
+
+      Returns the inner products between |VectorArray| elements.
+
+      If `product` is `None`, the Euclidean inner product between
+      the :meth:`dofs` of `self` and `other` are returned, i.e. ::
+
+          U.inner(V)
+
+      is equivalent to::
+
+          U.dofs(np.arange(U.dim)) @ V.dofs(np.arange(V.dim)).T
+
+      (Note, that :meth:`dofs` is only intended to be called for a
+      small number of DOF indices.)
+
+      If a `product` |Operator| is specified, this |Operator| is
+      used to compute the inner products using
+      :meth:`~pymor.operators.inerface.Operator.apply2`, i.e.
+      `U.inner(V, product)` is equivalent to::
+
+          product.apply2(U, V)
+
+      which in turn is, by default, implemented as::
+
+          U.inner(product.apply(V))
+
+      In the case of complex numbers, this is antilinear in the
+      first argument, i.e. in 'self'.
+      Complex conjugation is done in the first argument because
+      most numerical software in the community handles it this way:
+      Numpy, DUNE, FEniCS, Eigen, Matlab and BLAS do complex conjugation
+      in the first argument, only PetSc and deal.ii do complex
+      conjugation in the second argument.
+
+      .. admonition:: Parameters
+
+          other
+              A |VectorArray| containing the second factors.
+          product
+              If not `None` an |Operator| representing the inner product
+              bilinear form.
+              
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that
+              
+              result[i, j] = ( self[i], other[j] ).
+              
+
+
+   .. method:: pairwise_inner(self, other, product=None)
+
+      Returns the pairwise inner products between |VectorArray| elements.
+
+      If `product` is `None`, the Euclidean inner product between
+      the :meth:`dofs` of `self` and `other` are returned, i.e. ::
+
+          U.pairwise_inner(V)
+
+      is equivalent to::
+
+          np.sum(U.dofs(np.arange(U.dim)) * V.dofs(np.arange(V.dim)), axis=-1)
+
+      (Note, that :meth:`dofs` is only intended to be called for a
+      small number of DOF indices.)
+
+      If a `product` |Operator| is specified, this |Operator| is
+      used to compute the inner products using
+      :meth:`~pymor.operators.inerface.Operator.pairwise_apply2`, i.e.
+      `U.inner(V, product)` is equivalent to::
+
+          product.pairwise_apply2(U, V)
+
+      which in turn is, by default, implemented as::
+
+          U.pairwise_inner(product.apply(V))
+
+      In the case of complex numbers, this is antilinear in the
+      first argument, i.e. in 'self'.
+      Complex conjugation is done in the first argument because
+      most numerical software in the community handles it this way:
+      Numpy, DUNE, FEniCS, Eigen, Matlab and BLAS do complex conjugation
+      in the first argument, only PetSc and deal.ii do complex
+      conjugation in the second argument.
+
+
+      .. admonition:: Parameters
+
+          other
+              A |VectorArray| containing the second factors.
+          product
+              If not `None` an |Operator| representing the inner product
+              bilinear form.
+              
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that
+              
+              result[i] = ( self[i], other[i] ).
+              
+              
+
+
+   .. method:: _norm(self)
+      :abstractmethod:
+
+      Implementation of :meth:`norm` for the case that no `product` is given.
+
+
+   .. method:: _norm2(self)
+      :abstractmethod:
+
+      Implementation of :meth:`norm2` for the case that no `product` is given.
+
+
+   .. method:: dofs(self, dof_indices)
+      :abstractmethod:
+
+      Extract DOFs of the vectors contained in the array.
+
+      .. admonition:: Parameters
+
+          dof_indices
+              List or 1D |NumPy array| of indices of the DOFs that are to be returned.
+              
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that `result[i, j]` is the `dof_indices[j]`-th
+          DOF of the `i`-th vector of the array.
+              
+
+
+   .. method:: amax(self)
+      :abstractmethod:
+
+      The maximum absolute value of the DOFs contained in the array.
+
+      .. admonition:: Returns
+
+          max_ind
+              |NumPy array| containing for each vector a DOF index at which the maximum is
+              attained.
+          max_val
+              |NumPy array| containing for each vector the maximum absolute value of its
+              DOFs.
+              
+
+
+
+.. class:: MPIVectorSpaceNoComm(local_spaces)
+
+
+   Bases: :py:obj:`MPIVectorSpace`
+
+   |VectorSpace| for :class:`MPIVectorArrayNoComm`.
+
+   .. attribute:: array_type
+      
+
+      
+
+   .. method:: dim(self)
+      :property:
+
+
+
+.. class:: MPIVectorArrayAutoComm(obj_id, space)
+
+
+   Bases: :py:obj:`MPIVectorArray`
+
+   MPI distributed |VectorArray|.
+
+   This is a subclass of :class:`MPIVectorArray` which
+   provides default implementations for all communication
+   requiring interface methods for the case when the
+   wrapped array is not MPI aware.
+
+   Note, however, that depending on the model
+   these default implementations might lead to wrong results
+   (for instance in the presence of shared DOFs).
+
+   The associated |VectorSpace| is :class:`MPIVectorSpaceAutoComm`.
+
+   .. method:: inner(self, other, product=None)
+
+      Returns the inner products between |VectorArray| elements.
+
+      If `product` is `None`, the Euclidean inner product between
+      the :meth:`dofs` of `self` and `other` are returned, i.e. ::
+
+          U.inner(V)
+
+      is equivalent to::
+
+          U.dofs(np.arange(U.dim)) @ V.dofs(np.arange(V.dim)).T
+
+      (Note, that :meth:`dofs` is only intended to be called for a
+      small number of DOF indices.)
+
+      If a `product` |Operator| is specified, this |Operator| is
+      used to compute the inner products using
+      :meth:`~pymor.operators.inerface.Operator.apply2`, i.e.
+      `U.inner(V, product)` is equivalent to::
+
+          product.apply2(U, V)
+
+      which in turn is, by default, implemented as::
+
+          U.inner(product.apply(V))
+
+      In the case of complex numbers, this is antilinear in the
+      first argument, i.e. in 'self'.
+      Complex conjugation is done in the first argument because
+      most numerical software in the community handles it this way:
+      Numpy, DUNE, FEniCS, Eigen, Matlab and BLAS do complex conjugation
+      in the first argument, only PetSc and deal.ii do complex
+      conjugation in the second argument.
+
+      .. admonition:: Parameters
+
+          other
+              A |VectorArray| containing the second factors.
+          product
+              If not `None` an |Operator| representing the inner product
+              bilinear form.
+              
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that
+              
+              result[i, j] = ( self[i], other[j] ).
+              
+
+
+   .. method:: pairwise_inner(self, other, product=None)
+
+      Returns the pairwise inner products between |VectorArray| elements.
+
+      If `product` is `None`, the Euclidean inner product between
+      the :meth:`dofs` of `self` and `other` are returned, i.e. ::
+
+          U.pairwise_inner(V)
+
+      is equivalent to::
+
+          np.sum(U.dofs(np.arange(U.dim)) * V.dofs(np.arange(V.dim)), axis=-1)
+
+      (Note, that :meth:`dofs` is only intended to be called for a
+      small number of DOF indices.)
+
+      If a `product` |Operator| is specified, this |Operator| is
+      used to compute the inner products using
+      :meth:`~pymor.operators.inerface.Operator.pairwise_apply2`, i.e.
+      `U.inner(V, product)` is equivalent to::
+
+          product.pairwise_apply2(U, V)
+
+      which in turn is, by default, implemented as::
+
+          U.pairwise_inner(product.apply(V))
+
+      In the case of complex numbers, this is antilinear in the
+      first argument, i.e. in 'self'.
+      Complex conjugation is done in the first argument because
+      most numerical software in the community handles it this way:
+      Numpy, DUNE, FEniCS, Eigen, Matlab and BLAS do complex conjugation
+      in the first argument, only PetSc and deal.ii do complex
+      conjugation in the second argument.
+
+
+      .. admonition:: Parameters
+
+          other
+              A |VectorArray| containing the second factors.
+          product
+              If not `None` an |Operator| representing the inner product
+              bilinear form.
+              
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that
+              
+              result[i] = ( self[i], other[i] ).
+              
+              
+
+
+   .. method:: _norm(self)
+
+      Implementation of :meth:`norm` for the case that no `product` is given.
+
+
+   .. method:: _norm2(self)
+
+      Implementation of :meth:`norm2` for the case that no `product` is given.
+
+
+   .. method:: dofs(self, dof_indices)
+
+      Extract DOFs of the vectors contained in the array.
+
+      .. admonition:: Parameters
+
+          dof_indices
+              List or 1D |NumPy array| of indices of the DOFs that are to be returned.
+              
+      .. admonition:: Returns
+
+          A |NumPy array| `result` such that `result[i, j]` is the `dof_indices[j]`-th
+          DOF of the `i`-th vector of the array.
+              
+
+
+   .. method:: amax(self)
+
+      The maximum absolute value of the DOFs contained in the array.
+
+      .. admonition:: Returns
+
+          max_ind
+              |NumPy array| containing for each vector a DOF index at which the maximum is
+              attained.
+          max_val
+              |NumPy array| containing for each vector the maximum absolute value of its
+              DOFs.
+              
+
+
+
+.. class:: MPIVectorSpaceAutoComm(local_spaces)
+
+
+   Bases: :py:obj:`MPIVectorSpace`
+
+   |VectorSpace| for :class:`MPIVectorArrayAutoComm`.
+
+   .. attribute:: array_type
+      
+
+      
+
+   .. method:: dim(self)
+      :property:
+
+
+   .. method:: _get_dims(self)
+
+
+
+.. function:: _MPIVectorSpaceAutoComm_dim(local_spaces)
+
+
+.. function:: _MPIVectorArrayAutoComm_inner(self, other)
+
+
+.. function:: _MPIVectorArrayAutoComm_pairwise_inner(self, other)
+
+
+.. function:: _MPIVectorArrayAutoComm_norm(self)
+
+
+.. function:: _MPIVectorArrayAutoComm_norm2(self)
+
+
+.. function:: _MPIVectorArrayAutoComm_dofs(self, offsets, dof_indices)
+
+
+.. function:: _MPIVectorArrayAutoComm_amax(self)
+
+
