@@ -1,0 +1,254 @@
+:mod:`pymor.core.defaults`
+==========================
+
+.. py:module:: pymor.core.defaults
+
+.. autoapi-nested-parse::
+
+   This module contains pyMOR's facilities for handling default values.
+
+   A default value in pyMOR is always the default value of some
+   function argument. To mark the value of an optional function argument
+   as a user-modifiable default value use the :func:`defaults` decorator.
+   As an additional feature, if `None` is passed for such an argument,
+   its default value is used instead of `None`. This is useful
+   for writing code of the following form::
+
+       @default('option')
+       def algorithm(U, option=42):
+           ...
+
+       def method_called_by_user(V, option_for_algorithm=None):
+           ...
+           algorithm(U, option=option_for_algorithm)
+           ...
+
+   If the user does not provide `option_for_algorithm` to
+   `method_called_by_user`, the default `42` is automatically chosen
+   without the implementor of `method_called_by_user` having to care
+   about this.
+
+   The user interface for handling default values in pyMOR is provided
+   by :func:`set_defaults`, :func:`load_defaults_from_file`,
+   :func:`write_defaults_to_file` and :func:`print_defaults`.
+
+   If pyMOR is imported, it will automatically search for a configuration
+   file named `pymor_defaults.py` in the current working directory.
+   If found, the file is loaded via :func:`load_defaults_from_file`.
+   However, as a security precaution, the file will only be loaded if it is
+   owned by the user running the Python interpreter
+   (:func:`load_defaults_from_file` uses `exec` to load the configuration).
+   As an alternative, the environment variable `PYMOR_DEFAULTS` can be
+   used to specify the path of a configuration file. If empty or set to
+   `NONE`, no configuration file will be loaded whatsoever.
+
+   .. warning::
+       Note that changing defaults may affect the result of a (cached)
+       function call. pyMOR will emit a warning, when a result is retrieved
+       from the cache that has been computed using an earlier set of
+       |defaults| (see :func:`defaults_changes`).
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.core.defaults.DefaultContainer
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.core.defaults.defaults
+   pymor.core.defaults._import_all
+   pymor.core.defaults.print_defaults
+   pymor.core.defaults.write_defaults_to_file
+   pymor.core.defaults.load_defaults_from_file
+   pymor.core.defaults._set_defaults
+   pymor.core.defaults.set_defaults
+   pymor.core.defaults.get_defaults
+   pymor.core.defaults.defaults_changes
+
+
+
+.. class:: DefaultContainer
+
+
+   Internal singleton class holding all default values defined in pyMOR.
+
+   Not to be used directly.
+
+   .. method:: _add_defaults_for_function(self, func, args)
+
+
+   .. method:: _update_function_signature(self, func)
+
+
+   .. method:: update(self, defaults, type='user')
+
+
+   .. method:: get(self, key)
+
+
+   .. method:: __getitem__(self, key)
+
+
+   .. method:: keys(self)
+
+
+   .. method:: import_all(self)
+
+
+
+.. function:: defaults(*args)
+
+   Function decorator for marking function arguments as user-configurable defaults.
+
+   If a function decorated with :func:`defaults` is called, the values of the marked
+   default parameters are set to the values defined via :func:`load_defaults_from_file`
+   or :func:`set_defaults` in case no value has been provided by the caller of the function.
+   Moreover, if `None` is passed as a value for a default argument, the argument
+   is set to its default value, as well. If no value has been specified using
+   :func:`set_defaults` or :func:`load_defaults_from_file`, the default value provided in
+   the function signature is used.
+
+   If the argument `arg` of function `f` in sub-module `m` of package `p` is
+   marked as a default value, its value will be changeable by the aforementioned
+   methods under the path `p.m.f.arg`.
+
+   Note that the `defaults` decorator can also be used in user code.
+
+   .. admonition:: Parameters
+
+       args
+           List of strings containing the names of the arguments of the decorated
+           function to mark as pyMOR defaults. Each of these arguments has to be
+           a keyword argument (with a default value).
+           
+
+
+.. function:: _import_all(package_name='pymor')
+
+
+.. function:: print_defaults(import_all=True, shorten_paths=2)
+
+   Print all |default| values set in pyMOR.
+
+   .. admonition:: Parameters
+
+       import_all
+           While :func:`print_defaults` will always print all defaults defined in
+           loaded configuration files or set via :func:`set_defaults`, default
+           values set in the function signature can only be printed after the
+           modules containing these functions have been imported. If `import_all`
+           is set to `True`, :func:`print_defaults` will therefore first import all
+           of pyMOR's modules, to provide a complete lists of defaults.
+       shorten_paths
+           Shorten the paths of all default values by `shorten_paths` components.
+           The last two path components will always be printed.
+           
+
+
+.. function:: write_defaults_to_file(filename='./pymor_defaults.py', packages=('pymor', ))
+
+   Write the currently set |default| values to a configuration file.
+
+   The resulting file is an ordinary Python script and can be modified
+   by the user at will. It can be loaded in a later session using
+   :func:`load_defaults_from_file`.
+
+   .. admonition:: Parameters
+
+       filename
+           Name of the file to write to.
+       packages
+           List of package names.
+           To discover all default values that have been defined using the
+           :func:`defaults` decorator, `write_defaults_to_file` will
+           recursively import all sub-modules of the named packages before
+           creating the configuration file.
+           
+
+
+.. function:: load_defaults_from_file(filename='./pymor_defaults.py')
+
+   Loads |default| values defined in configuration file.
+
+   Suitable configuration files can be created via :func:`write_defaults_to_file`.
+   The file is loaded via Python's :func:`exec` function, so be very careful
+   with configuration files you have not created your own. You have been
+   warned!
+
+   .. admonition:: Parameters
+
+       filename
+           Path of the configuration file.
+           
+
+
+.. function:: _set_defaults(defaults)
+
+
+.. function:: set_defaults(defaults)
+
+   Set |default| values.
+
+   This method sets the default value of function arguments marked via the
+   :func:`defaults` decorator, overriding default values specified in the
+   function signature or set earlier via :func:`load_defaults_from_file` or
+   previous :func:`set_defaults` calls.
+
+   .. admonition:: Parameters
+
+       defaults
+           Dictionary of default values. Keys are the full paths of the default
+           values (see :func:`defaults`).
+           
+
+
+.. function:: get_defaults(user=True, file=True, code=True)
+
+   Get |default| values.
+
+   Returns all |default| values as a dict. The parameters can be set to filter by type.
+
+   .. admonition:: Parameters
+
+       user
+           If `True`, returned dict contains defaults that have been set by the user
+           with :func:`set_defaults`.
+       file
+           If `True`, returned dict contains defaults that have been loaded from file.
+       code
+           If `True`, returned dict contains unmodified default values.
+           
+
+
+.. function:: defaults_changes()
+
+   Returns the number of changes made to to pyMOR's global |defaults|.
+
+   This methods returns the number of changes made to the state of
+   pyMOR's global |defaults| via :func:`set_defaults` or
+   :func:`load_defaults_from_file` since the start of program execution.
+
+   Since changing |defaults| may affect the result of a (cached) function
+   call, this value is used to warn when a result is retrieved from the cache
+   that has been computed using an earlier set of |defaults|.
+
+   .. warning::
+       Note that when using :mod:`parallelization <pymor.parallel>`,
+       workers might set different defaults at the same time, resulting
+       in equal change counts but different states of |defaults| at each
+       worker.
+
+
