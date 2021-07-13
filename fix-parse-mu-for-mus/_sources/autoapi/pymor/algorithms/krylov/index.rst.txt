@@ -1,0 +1,146 @@
+:mod:`pymor.algorithms.krylov`
+==============================
+
+.. py:module:: pymor.algorithms.krylov
+
+.. autoapi-nested-parse::
+
+   Module for computing (rational) Krylov subspaces' bases.
+
+
+
+Module Contents
+---------------
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.algorithms.krylov.rational_arnoldi
+   pymor.algorithms.krylov.tangential_rational_krylov
+
+
+
+.. function:: rational_arnoldi(A, E, b, sigma, trans=False)
+
+   Rational Arnoldi algorithm.
+
+   If `trans == False`, using Arnoldi process, computes a real
+   orthonormal basis for the rational Krylov subspace
+
+   .. math::
+       \mathrm{span}\{
+           (\sigma_1 E - A)^{-1} b,
+           (\sigma_2 E - A)^{-1} b,
+           \ldots,
+           (\sigma_r E - A)^{-1} b
+       \},
+
+   otherwise, computes the same for
+
+   .. math::
+       \mathrm{span}\{
+           (\sigma_1 E - A)^{-T} b^T,
+           (\sigma_2 E - A)^{-T} b^T,
+           \ldots,
+           (\sigma_r E - A)^{-T} b^T
+       \}.
+
+   Interpolation points in `sigma` are allowed to repeat (in any
+   order). Then, in the above expression,
+
+   .. math::
+       \underbrace{
+           (\sigma_i E - A)^{-1} b,
+           \ldots,
+           (\sigma_i E - A)^{-1} b
+       }_{m \text{ times}}
+
+   is replaced by
+
+   .. math::
+       (\sigma_i E - A)^{-1} b,
+       (\sigma_i E - A)^{-1} E (\sigma_i E - A)^{-1} b,
+       \ldots,
+       \left((\sigma_i E - A)^{-1} E\right)^{m - 1} (\sigma_i E - A)^{-1} b.
+
+   Analogously for the `trans == True` case.
+
+   .. admonition:: Parameters
+
+       A
+           Real |Operator| A.
+       E
+           Real |Operator| E.
+       b
+           Real vector-like operator (if trans is False) or functional (if
+           trans is True).
+       sigma
+           Sequence of interpolation points (closed under conjugation).
+       trans
+           Boolean, see above.
+           
+   .. admonition:: Returns
+
+       V
+           Orthonormal basis for the Krylov subspace |VectorArray|.
+           
+
+
+.. function:: tangential_rational_krylov(A, E, B, b, sigma, trans=False, orth=True)
+
+   Tangential Rational Krylov subspace.
+
+   If `trans == False`, computes a real basis for the rational Krylov
+   subspace
+
+   .. math::
+       \mathrm{span}\{
+           (\sigma_1 E - A)^{-1} B b_1,
+           (\sigma_2 E - A)^{-1} B b_2,
+           \ldots,
+           (\sigma_r E - A)^{-1} B b_r
+       \},
+
+   otherwise, computes the same for
+
+   .. math::
+       \mathrm{span}\{
+           (\sigma_1 E - A)^{-T} B^T b_1,
+           (\sigma_2 E - A)^{-T} B^T b_2,
+           \ldots,
+           (\sigma_r E - A)^{-T} B^T b_r
+       \}.
+
+   Interpolation points in `sigma` are assumed to be pairwise distinct.
+
+   .. admonition:: Parameters
+
+       A
+           Real |Operator| A.
+       E
+           Real |Operator| E.
+       B
+           Real |Operator| B.
+       b
+           |VectorArray| from `B.source`, if `trans == False`, or
+            `B.range`, if `trans == True`.
+       sigma
+           Sequence of interpolation points (closed under conjugation), of
+           the same length as `b`.
+       trans
+           Boolean, see above.
+       orth
+           If `True`, orthonormalizes the basis using
+           :meth:`pymor.algorithms.gram_schmidt.gram_schmidt`.
+           
+   .. admonition:: Returns
+
+       V
+           Optionally orthonormal basis for the Krylov subspace |VectorArray|.
+           
+
+
