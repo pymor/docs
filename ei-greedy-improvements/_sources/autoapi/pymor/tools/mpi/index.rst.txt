@@ -1,0 +1,308 @@
+:mod:`pymor.tools.mpi`
+======================
+
+.. py:module:: pymor.tools.mpi
+
+.. autoapi-nested-parse::
+
+   This module provides helper methods to use pyMOR in parallel with MPI.
+
+   Executing this module will run :func:`event_loop` on all MPI ranks
+   except for rank 0 where either a given script is executed::
+
+       mpirun -n 16 python -m pymor.tools.mpi /path/to/script
+
+   or an interactive session is started::
+
+       mpirun -n 16 python -m pymor.tools.mpi
+
+   When IPython is available, an IPython kernel is started which
+   the user can connect to by calling::
+
+       ipython console --existing file_name_printed_by_ipython.json
+
+   (Starting the IPython console directly will not work properly
+   with most MPI implementations.)
+   When IPython is not available, the builtin Python REPL is started.
+
+   When :func:`event_loop` is running on the MPI ranks, :func:`call`
+   can be used on rank 0 to execute the same Python function (given
+   as first argument) simultaneously on all MPI ranks (including
+   rank 0). Calling :func:`quit` will exit :func:`event_loop` on
+   all MPI ranks.
+
+   Additionally, this module provides several helper methods which are
+   intended to be used in conjunction with :func:`call`: :func:`mpi_info`
+   will print a summary of all active MPI ranks, :func:`run_code`
+   will execute the given code string on all MPI ranks,
+   :func:`import_module` imports the module with the given path.
+
+   A simple object management is implemented with the
+   :func:`manage_object`, :func:`get_object` and :func:`remove_object`
+   methods. It is the user's responsibility to ensure that calls to
+   :func:`manage_object` are executed in the same order on all MPI ranks
+   to ensure that the returned :class:`ObjectId` refers to the same
+   distributed object on all ranks. The functions :func:`function_call`,
+   :func:`function_call_manage`, :func:`method_call`,
+   :func:`method_call_manage` map instances :class:`ObjectId`
+   transparently to distributed objects. :func:`function_call_manage` and
+   :func:`method_call_manage` will call :func:`manage_object` on the
+   return value and return the corresponding :class:`ObjectId`. The functions
+   :func:`method_call` and :func:`method_call_manage` are given an
+   :class:`ObjectId` and a string as first and second argument and execute
+   the method named by the second argument on the object referred to by the
+   first argument.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.tools.mpi.ObjectId
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.tools.mpi.event_loop_settings
+   pymor.tools.mpi.launch_event_loop
+   pymor.tools.mpi.event_loop
+   pymor.tools.mpi.call
+   pymor.tools.mpi.quit
+   pymor.tools.mpi.mpi_info
+   pymor.tools.mpi.run_code
+   pymor.tools.mpi.import_module
+   pymor.tools.mpi.function_call
+   pymor.tools.mpi.function_call_manage
+   pymor.tools.mpi.method_call
+   pymor.tools.mpi.method_call_manage
+   pymor.tools.mpi.manage_object
+   pymor.tools.mpi.get_object
+   pymor.tools.mpi.remove_object
+
+
+
+Attributes
+~~~~~~~~~~
+
+.. autoapisummary::
+
+   pymor.tools.mpi.comm
+   pymor.tools.mpi.rank0
+   pymor.tools.mpi.parallel
+   pymor.tools.mpi._managed_objects
+   pymor.tools.mpi._object_counter
+   pymor.tools.mpi._event_loop_running
+   pymor.tools.mpi.filename
+
+
+.. data:: comm
+   
+
+   
+
+.. data:: rank0
+   
+
+   
+
+.. data:: parallel
+   
+
+   
+
+.. data:: _managed_objects
+   
+
+   
+
+.. data:: _object_counter
+   :annotation: = 0
+
+   
+
+.. data:: _event_loop_running
+   :annotation: = False
+
+   
+
+.. function:: event_loop_settings(auto_launch=True)
+
+   Settings for pyMOR's MPI event loop.
+
+   .. admonition:: Parameters
+
+       auto_launch
+           If `True`, automatically execute :func:`event_loop` on
+           all MPI ranks (except 0) when pyMOR is imported.
+           
+
+
+.. function:: launch_event_loop()
+
+
+.. function:: event_loop()
+
+   Launches an MPI-based event loop.
+
+   Events can be sent by either calling :func:`call` on
+   rank 0 to execute an arbitrary method on all ranks or
+   by calling :func:`quit` to exit the loop.
+
+
+.. function:: call(method, *args, **kwargs)
+
+   Execute method on all MPI ranks.
+
+   Assuming :func:`event_loop` is running on all MPI ranks
+   (except rank 0), this will execute `method` on all
+   ranks (including rank 0) with positional arguments
+   `args` and keyword arguments `kwargs`.
+
+   .. admonition:: Parameters
+
+       method
+           The function to execute on all ranks (must be picklable).
+       args
+           The positional arguments for `method`.
+       kwargs
+           The keyword arguments for `method`.
+           
+   .. admonition:: Returns
+
+       The return value of `method` on rank 0.
+           
+
+
+.. function:: quit()
+
+   Exit the event loop on all MPI ranks.
+
+   This will cause :func:`event_loop` to terminate on all
+   MPI ranks.
+
+
+.. function:: mpi_info()
+
+   Print some information on the MPI setup.
+
+   Intended to be used in conjunction with :func:`call`.
+
+
+.. function:: run_code(code)
+
+   Execute the code string `code`.
+
+   Intended to be used in conjunction with :func:`call`.
+
+
+.. function:: import_module(path)
+
+   Import the module named by `path`.
+
+   Intended to be used in conjunction with :func:`call`.
+
+
+.. function:: function_call(f, *args, **kwargs)
+
+   Execute the function `f` with given arguments.
+
+   Intended to be used in conjunction with :func:`call`.
+   Arguments of type :class:`ObjectId` are transparently
+   mapped to the object they refer to.
+
+
+.. function:: function_call_manage(f, *args, **kwargs)
+
+   Execute the function `f` and manage the return value.
+
+   Intended to be used in conjunction with :func:`call`.
+   The return value of `f` is managed by calling :func:`manage_object`
+   and the corresponding :class:`ObjectId` is returned.
+   Arguments of type :class:`ObjectId` are transparently
+   mapped to the object they refer to.
+
+
+.. function:: method_call(obj_id, name_, *args, **kwargs)
+
+   Execute a method with given arguments.
+
+   Intended to be used in conjunction with :func:`call`.
+   Arguments of type :class:`ObjectId` are transparently
+   mapped to the object they refer to.
+
+   .. admonition:: Parameters
+
+       obj_id
+           The :class:`ObjectId` of the object on which to call
+           the method.
+       `name_`
+           Name of the method to call.
+       args
+           Positional arguments for the method.
+       kwargs
+           Keyword arguments for the method.
+           
+
+
+.. function:: method_call_manage(obj_id, name_, *args, **kwargs)
+
+   Execute a method with given arguments and manage the return value.
+
+   Intended to be used in conjunction with :func:`call`.
+   The return value of the called method is managed by calling
+   :func:`manage_object` and the corresponding :class:`ObjectId`
+   is returned.  Arguments of type :class:`ObjectId` are transparently
+   mapped to the object they refer to.
+
+   .. admonition:: Parameters
+
+       obj_id
+           The :class:`ObjectId` of the object on which to call
+           the method.
+       `name_`
+           Name of the method to call.
+       args
+           Positional arguments for the method.
+       kwargs
+           Keyword arguments for the method.
+           
+
+
+.. class:: ObjectId
+
+
+   Bases: :py:obj:`int`
+
+   A handle to an MPI distributed object.
+
+
+.. function:: manage_object(obj)
+
+   Keep track of `obj` and return an :class:`ObjectId` handle.
+
+
+.. function:: get_object(obj_id)
+
+   Return the object referred to by `obj_id`.
+
+
+.. function:: remove_object(obj_id)
+
+   Remove the object referred to by `obj_id` from the registry.
+
+
+.. data:: filename
+   
+
+   
+
