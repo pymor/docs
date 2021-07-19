@@ -19,6 +19,9 @@ Classes
    pymor.analyticalproblems.functions.LincombFunction
    pymor.analyticalproblems.functions.ProductFunction
    pymor.analyticalproblems.functions.BitmapFunction
+   pymor.analyticalproblems.functions.EmpiricalInterpolatedFunction
+   pymor.analyticalproblems.functions.EmpiricalInterpolatedFunctionFunctional
+   pymor.analyticalproblems.functions.EmpiricalInterpolatedFunctionBasisFunction
 
 
 
@@ -305,6 +308,122 @@ Classes
    .. attribute:: shape_range
       :annotation: = []
 
+      
+
+   .. method:: evaluate(self, x, mu=None)
+
+      Evaluate the function for given argument `x` and |parameter values| `mu`.
+
+
+
+.. class:: EmpiricalInterpolatedFunction(function, interpolation_points, interpolation_matrix, triangular, snapshot_mus, snapshot_coefficients, evaluation_points=None, basis_evaluations=None, name=None)
+
+
+   Bases: :py:obj:`LincombFunction`
+
+   Empirically interpolated |Function|.
+
+   Instantiated by :func:`~pymor.algorithm.ei.interpolate_function`.
+
+   .. admonition:: Parameters
+
+       function
+           The |Function| to interpolate.
+       interpolation_points
+           |NumPy array| containing the coordinates at which the function
+           is interpolated. Typically `X[dofs]` where `X` is the array of
+           evaluation points used for snapshot data generation and `dofs`
+           is returned by :func:`~pymor.algorithm.ei.ei_greedy`.
+       interpolation_matrix
+           The interpolation matrix corresponding to the selected interpolation
+           basis vectors and `interpolation_points` as returned by
+           :func:`pymor.algorithms.ei.ei_greedy`.
+       triangular
+           Whether or not `interpolation_matrix` is lower triangular with unit
+           diagonal.
+       snapshot_mus
+           List of |parameter values| for which the snapshot data for
+           :func:`pymor.algorithms.ei.ei_greedy` has been computed.
+       snapshot_coefficients
+           Matrix of linear coefficients s.t. the i-th interpolation basis vector
+           is given by a linear combination of the functions corresponding to
+           `snapshot_mus` with the i-th row of `snapshot_coefficients` as
+           coefficients. Returned by :func:`~pymor.algorithm.ei.ei_greedy` as
+           `data['coefficients']`.
+       evaluation_points
+           Optional |NumPy array| of coordinates at which the function has been
+           evaluated to obtain the snapshot data. If the same evaluation points
+           are used to evaluate :class:`EmpiricalInterpolatedFunction`, then
+           re-evaluation of the snapshot data at the evaluation points can be
+           avoided, when this argument is specified together with `basis_evaluations`.
+       basis_evaluations
+           Optional |Numpy array| of evaluations of the interpolation basis at
+           `evaluation_points`. Corresponds to the `basis` return value of
+           :func:`~pymor.algorithms.ei.ei_greedy`.
+           
+
+   .. method:: _update_coefficients(self, mu)
+
+
+   .. method:: _update_evaluation_points(self, x)
+
+
+   .. method:: evaluate(self, x, mu=None)
+
+      Evaluate the function for given argument `x` and |parameter values| `mu`.
+
+
+
+.. class:: EmpiricalInterpolatedFunctionFunctional(interpolated_function, index)
+
+
+   Bases: :py:obj:`pymor.parameters.functionals.ParameterFunctional`
+
+   Interface for |Parameter| functionals.
+
+   A parameter functional is simply a function mapping |Parameters| to
+   a number.
+
+   .. method:: evaluate(self, mu=None)
+
+      Evaluate the functional for given |parameter values| `mu`.
+
+
+
+.. class:: EmpiricalInterpolatedFunctionBasisFunction(interpolated_function, index)
+
+
+   Bases: :py:obj:`Function`
+
+   Interface for |Parameter| dependent analytical functions.
+
+   Every |Function| is a map of the form ::
+
+      f(μ): Ω ⊆ R^d -> R^(shape_range)
+
+   The returned values are |NumPy arrays| of arbitrary (but fixed)
+   shape. Note that NumPy distinguishes between one-dimensional
+   arrays of length 1 (with shape `(1,)`) and zero-dimensional
+   scalar arrays (with shape `()`). In pyMOR, we usually
+   expect scalar-valued functions to have `shape_range == ()`.
+
+   While the function might raise an error if it is evaluated
+   for an argument not in the domain Ω, the exact behavior is left
+   undefined.
+
+   Functions are vectorized in the sense, that if `x.ndim == k`, then ::
+
+      f(x, μ)[i0, i1, ..., i(k-2)] == f(x[i0, i1, ..., i(k-2)], μ).
+
+   In particular, `f(x, μ).shape == x.shape[:-1] + shape_range`.
+
+   .. attribute:: dim_domain
+
+      The dimension d > 0.
+
+   .. attribute:: shape_range
+
+      The shape of the function values.
       
 
    .. method:: evaluate(self, x, mu=None)
