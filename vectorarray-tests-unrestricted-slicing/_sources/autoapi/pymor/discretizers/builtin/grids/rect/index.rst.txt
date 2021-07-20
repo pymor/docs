@@ -1,0 +1,173 @@
+:mod:`pymor.discretizers.builtin.grids.rect`
+============================================
+
+.. py:module:: pymor.discretizers.builtin.grids.rect
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.discretizers.builtin.grids.rect.RectGrid
+
+
+
+
+.. class:: RectGrid(num_intervals=(2, 2), domain=([0, 0], [1, 1]), identify_left_right=False, identify_bottom_top=False)
+
+
+   Bases: :py:obj:`pymor.discretizers.builtin.grids.interfaces.GridWithOrthogonalCenters`
+
+   Basic implementation of a rectangular |Grid| on a rectangular domain.
+
+   The global face, edge and vertex indices are given as follows ::
+
+                x1
+                ^
+                |
+
+                6--10---7--11---8
+                |       |       |
+                3   2   4   3   5
+                |       |       |
+                3---8---4---9---5
+                |       |       |
+                0   0   1   1   2
+                |       |       |
+                0---6---1---7---2  --> x0
+
+   .. admonition:: Parameters
+
+       num_intervals
+           Tuple `(n0, n1)` determining a grid with `n0` x `n1` codim-0 entities.
+       domain
+           Tuple `(ll, ur)` where `ll` defines the lower left and `ur` the upper right
+           corner of the domain.
+       identify_left_right
+           If `True`, the left and right boundaries are identified, i.e. the left-most
+           codim-0 entities become neighbors of the right-most codim-0 entities.
+       identify_bottom_top
+           If `True`, the bottom and top boundaries are identified, i.e. the bottom-most
+           codim-0 entities become neighbors of the top-most codim-0 entities.
+           
+
+   .. attribute:: dim
+      :annotation: = 2
+
+      
+
+   .. attribute:: reference_element
+      
+
+      
+
+   .. method:: __reduce__(self)
+
+      Helper for pickle.
+
+
+   .. method:: __str__(self)
+
+      Return str(self).
+
+
+   .. method:: size(self, codim=0)
+
+      The number of entities of codimension `codim`.
+
+
+   .. method:: subentities(self, codim, subentity_codim)
+
+      `retval[e,s]` is the global index of the `s`-th codim-`subentity_codim` subentity of the
+      codim-`codim` entity with global index `e`.
+
+      The ordering of `subentities(0, subentity_codim)[e]` has to correspond, w.r.t. the embedding
+      of `e`, to the local ordering inside the reference element.
+
+      For `codim > 0`, we provide a default implementation by calculating the subentities of `e`
+      as follows:
+
+          1. Find the `codim-1` parent entity `e_0` of `e` with minimal global index
+          2. Lookup the local indices of the subentities of `e` inside `e_0` using the reference
+             element.
+          3. Map these local indices to global indices using
+             `subentities(codim - 1, subentity_codim)`.
+
+      This procedures assures that `subentities(codim, subentity_codim)[e]` has the right ordering
+      w.r.t. the embedding determined by `e_0`, which agrees with what is returned by
+      `embeddings(codim)`
+
+
+   .. method:: embeddings(self, codim=0)
+
+      Returns tuple `(A, B)` where `A[e]` and `B[e]` are the linear part and the translation
+      part of the map from the reference element of `e` to `e`.
+
+      For `codim > 0`, we provide a default implementation by taking the embedding of the codim-1
+      parent entity `e_0` of `e` with lowest global index and composing it with the
+      subentity_embedding of `e` into `e_0` determined by the reference element.
+
+
+   .. method:: bounding_box(self)
+
+      Returns a `(2, dim)`-shaped array containing lower/upper bounding box coordinates.
+
+
+   .. method:: structured_to_global(self, codim)
+
+      Returns an |array| which maps structured indices to global codim-`codim` indices.
+
+      In other words `structured_to_global(codim)[i, j]` is the global index of the i-th in
+      x0-direction and j-th in x1-direction codim-`codim` entity of the grid.
+
+
+   .. method:: global_to_structured(self, codim)
+
+      Returns an array which maps global codim-`codim` indices to structured indices.
+
+      I.e. if `GTS = global_to_structured(codim)` and `STG = structured_to_global(codim)`, then
+      `STG[GTS[:, 0], GTS[:, 1]] == numpy.arange(size(codim))`.
+
+
+   .. method:: vertex_coordinates(self, dim)
+
+      Returns an array of the x_dim coordinates of the grid vertices.
+
+      I.e. ::
+
+         centers(2)[structured_to_global(2)[i, j]] == np.array([vertex_coordinates(0)[i],
+                                                                vertex_coordinates(1)[j]])
+
+
+   .. method:: orthogonal_centers(self)
+
+      `retval[e]` is a point inside the codim-0 entity with global index `e` such that the line
+      segment from `retval[e]` to `retval[e2]` is always orthogonal to the codim-1 entity shared
+      by the codim-0 entities with global index `e` and `e2`.
+
+      (This is mainly useful for gradient approximation in finite volume schemes.)
+
+
+   .. method:: visualize(self, U, codim=2, **kwargs)
+
+      Visualize scalar data associated to the grid as a patch plot.
+
+      .. admonition:: Parameters
+
+          U
+              |NumPy array| of the data to visualize. If `U.dim == 2 and len(U) > 1`, the
+              data is visualized as a time series of plots. Alternatively, a tuple of
+              |Numpy arrays| can be provided, in which case a subplot is created for
+              each entry of the tuple. The lengths of all arrays have to agree.
+          codim
+              The codimension of the entities the data in `U` is attached to (either 0 or 2).
+          kwargs
+              See :func:`~pymor.discretizers.builtin.gui.visualizers.PatchVisualizer.visualize`
+              
+
+
+

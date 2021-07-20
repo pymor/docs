@@ -1,0 +1,336 @@
+:mod:`pymor.core.logger`
+========================
+
+.. py:module:: pymor.core.logger
+
+.. autoapi-nested-parse::
+
+   This module contains pyMOR's logging facilities.
+
+   pyMOR's logging facilities are based on the :mod:`logging` module of the
+   Python standard library. To obtain a new logger object use :func:`getLogger`.
+   Logging can be configured via the :func:`set_log_format` and
+   :func:`set_log_levels` methods.
+
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   pymor.core.logger.ColoredFormatter
+   pymor.core.logger.DummyLogger
+   pymor.core.logger.LogIndenter
+
+
+
+Functions
+~~~~~~~~~
+
+.. autoapisummary::
+  :nosignatures:
+
+   pymor.core.logger.default_handler
+   pymor.core.logger.getLogger
+   pymor.core.logger.set_log_levels
+   pymor.core.logger.set_log_format
+   pymor.core.logger._block
+   pymor.core.logger._info2
+   pymor.core.logger._info3
+   pymor.core.logger.log_levels
+
+
+
+Attributes
+~~~~~~~~~~
+
+.. autoapisummary::
+
+   pymor.core.logger.BLOCK
+   pymor.core.logger.BLOCK_TIME
+   pymor.core.logger.INFO2
+   pymor.core.logger.INFO3
+   pymor.core.logger.RESET_SEQ
+   pymor.core.logger.COLOR_SEQ
+   pymor.core.logger.BOLD_SEQ
+   pymor.core.logger.COLORS
+   pymor.core.logger.CSSCOLORS
+   pymor.core.logger.MAX_HIERARCHY_LEVEL
+   pymor.core.logger.BLOCK_TIMINGS
+   pymor.core.logger.INDENT_BLOCKS
+   pymor.core.logger.INDENT
+   pymor.core.logger.LAST_TIMESTAMP_LENGTH
+   pymor.core.logger.start_time
+   pymor.core.logger.dummy_logger
+
+
+.. data:: BLOCK
+   
+
+   
+
+.. data:: BLOCK_TIME
+   
+
+   
+
+.. data:: INFO2
+   
+
+   
+
+.. data:: INFO3
+   
+
+   
+
+.. data:: RESET_SEQ
+   :annotation: = [0m
+
+   
+
+.. data:: COLOR_SEQ
+   :annotation: = [1;%dm
+
+   
+
+.. data:: BOLD_SEQ
+   :annotation: = [1m
+
+   
+
+.. data:: COLORS
+   
+
+   
+
+.. data:: CSSCOLORS
+   
+
+   
+
+.. data:: MAX_HIERARCHY_LEVEL
+   :annotation: = 1
+
+   
+
+.. data:: BLOCK_TIMINGS
+   :annotation: = True
+
+   
+
+.. data:: INDENT_BLOCKS
+   :annotation: = True
+
+   
+
+.. data:: INDENT
+   :annotation: = 0
+
+   
+
+.. data:: LAST_TIMESTAMP_LENGTH
+   :annotation: = 0
+
+   
+
+.. data:: start_time
+   
+
+   
+
+.. class:: ColoredFormatter
+
+
+   Bases: :py:obj:`logging.Formatter`
+
+   A logging.Formatter that inserts tty control characters to color
+   loglevel keyword output. Coloring can be disabled by setting the
+   `PYMOR_COLORS_DISABLE` environment variable to `1`.
+
+   .. method:: _format_common(self, record)
+
+
+   .. method:: format(self, record)
+
+      Format the specified record as text.
+
+      The record's attribute dictionary is used as the operand to a
+      string formatting operation which yields the returned string.
+      Before formatting the dictionary, a couple of preparatory steps
+      are carried out. The message attribute of the record is computed
+      using LogRecord.getMessage(). If the formatting string uses the
+      time (as determined by a call to usesTime(), formatTime() is
+      called to format the event time. If there is exception information,
+      it is formatted using formatException() and appended to the message.
+
+
+   .. method:: format_html(self, record)
+
+
+
+.. function:: default_handler(filename='')
+
+
+.. function:: getLogger(module, level=None, filename='')
+
+   Get the logger of the respective module for pyMOR's logging facility.
+
+   .. admonition:: Parameters
+
+       module
+           Name of the module.
+       level
+           If set, `logger.setLevel(level)` is called (see
+           :meth:`~logging.Logger.setLevel`).
+       filename
+           If not empty, path of an existing file where everything logged will be
+           written to.
+           
+
+
+.. class:: DummyLogger
+
+   .. attribute:: __slots__
+      :annotation: = []
+
+      
+
+   .. attribute:: propagate
+      :annotation: = False
+
+      
+
+   .. attribute:: debug
+      
+
+      
+
+   .. attribute:: info
+      
+
+      
+
+   .. attribute:: warn
+      
+
+      
+
+   .. attribute:: warning
+      
+
+      
+
+   .. attribute:: error
+      
+
+      
+
+   .. attribute:: critical
+      
+
+      
+
+   .. attribute:: log
+      
+
+      
+
+   .. attribute:: exception
+      
+
+      
+
+   .. method:: nop(self, *args, **kwargs)
+
+
+   .. method:: isEnabledFor(sefl, lvl)
+
+
+   .. method:: getEffectiveLevel(self)
+
+
+   .. method:: getChild(self)
+
+
+   .. method:: block(self, msg, *args, **kwargs)
+
+
+   .. method:: info2(self, msg, *args, **kwargs)
+
+
+   .. method:: info3(self, msg, *args, **kwargs)
+
+
+
+.. data:: dummy_logger
+   
+
+   
+
+.. function:: set_log_levels(levels=None)
+
+   Set log levels for pyMOR's logging facility.
+
+   .. admonition:: Parameters
+
+       levels
+           Dict of log levels. Keys are names of loggers (see :func:`logging.getLogger`),
+           values are the log levels to set for the loggers of the given names
+           (see :meth:`~logging.Logger.setLevel`).
+           
+
+
+.. function:: set_log_format(max_hierarchy_level=1, indent_blocks=True, block_timings=False)
+
+   Set log levels for pyMOR's logging facility.
+
+   .. admonition:: Parameters
+
+       max_hierarchy_level
+           The number of components of the loggers name which are printed.
+           (The first component is always stripped, the last component always
+           preserved.)
+       indent_blocks
+           If `True`, indent log messages inside a code block started with
+           `with logger.block(...)`.
+       block_timings
+           If `True`, measure the duration of a code block started with
+           `with logger.block(...)`.
+           
+
+
+.. class:: LogIndenter(logger, doit)
+
+
+   .. method:: __enter__(self)
+
+
+   .. method:: __exit__(self, exc_type, exc_val, exc_tb)
+
+
+
+.. function:: _block(self, msg, *args, **kwargs)
+
+
+.. function:: _info2(self, msg, *args, **kwargs)
+
+
+.. function:: _info3(self, msg, *args, **kwargs)
+
+
+.. function:: log_levels(level_mapping)
+
+   Change levels for given loggers on entry and reset to before state on exit.
+
+   .. admonition:: Parameters
+
+       level_mapping
+           a dict of logger name -> level name
+           
+
+
